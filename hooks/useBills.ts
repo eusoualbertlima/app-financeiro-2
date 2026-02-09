@@ -1,0 +1,186 @@
+import {
+    collection,
+    doc,
+    addDoc,
+    updateDoc,
+    deleteDoc,
+    query,
+    where,
+    onSnapshot,
+    increment
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { useWorkspace } from '@/hooks/useFirestore';
+import { useState, useEffect } from 'react';
+import type { RecurringBill, BillPayment } from '@/types';
+
+// CRUD de Despesas Fixas
+export function useRecurringBills() {
+    const { workspace } = useWorkspace();
+    const [bills, setBills] = useState<RecurringBill[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (!workspace?.id) return;
+
+        const q = collection(db, `workspaces/${workspace.id}/recurring_bills`);
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const items = snapshot.docs.map(docSnap => ({
+                id: docSnap.id,
+                ...docSnap.data()
+            })) as RecurringBill[];
+
+            setBills(items.filter(b => b.isActive).sort((a, b) => a.dueDay - b.dueDay));
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, [workspace?.id]);
+
+    const add = async (bill: Omit<RecurringBill, 'id' | 'createdAt' | 'isActive'>) => {
+        if (!workspace?.id) return;
+        await addDoc(collection(db, `workspaces/${workspace.id}/recurring_bills`), {
+            ...bill,
+            isActive: true,
+            createdAt: Date.now()
+        });
+    };
+
+    const update = async (id: string, bill: Partial<RecurringBill>) => {
+        if (!workspace?.id) return;
+        await updateDoc(doc(db, `workspaces/${workspace.id}/recurring_bills`, id), bill);
+    };
+
+    const remove = async (id: string) => {
+        if (!workspace?.id) return;
+        await updateDoc(doc(db, `workspaces/${workspace.id}/recurring_bills`, id), {
+            isActive: false
+        });
+    };
+
+    return { bills, loading, add, update, remove };
+}
+
+// Pagamentos de despesas fixas por mês
+export function useBillPayments(month: number, year: number) {
+    const { workspace } = useWorkspace();
+    const { bills } = useRecurringBills();
+    const [payments, setPayments] = useState<BillPayment[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (!workspace?.id) return;
+
+        const q = query(
+            collection(db, `workspaces/${workspace.id}/bill_payments`),
+            where('month', '==', month),
+            where('year', '==', year)
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const items = snapshot.docs.map(docSnap => ({
+                id: docSnap.id,
+                ...docSnap.data()
+            })) as BillPayment[];
+
+            setPayments(items);
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, [workspace?.id, month, year]);
+
+    // Gerar pagamentos para o mês (cria se não existir)
+    const generatePayments = async () => {
+        if (!workspace?.id || !bills.length) return;
+
+        const existingBillIds = payments.map(p => p.billId);
+
+        for (const bill of bills) {
+            if (!existingBillIds.includes(bill.id)) {
+                const now = new Date();
+                const dueDate = new Date(year, month - 1, bill.dueDay);
+                const isOverdue = dueDate < now;
+
+                await addDoc(collection(db, `workspaces/${workspace.id}/bill_payments`), {
+                    billId: bill.id,
+                    billName: bill.name,
+                    amount: bill.amount,
+                    month,
+                    year,
+                    dueDay: bill.dueDay,
+                    status: isOverdue ? 'overdue' : 'pending'
+                });
+            }
+        }
+    };
+
+    // Atualizar saldo da conta
+    const updateAccountBalance = async (accountId: string, amount: number) => {
+        if (!workspace?.id || !accountId) return;
+
+        await updateDoc(
+            doc(db, `workspaces/${workspace.id}/accounts`, accountId),
+            { balance: increment(-amount) } // Despesa fixa sempre desconta
+        );
+    };
+
+    const markAsPaid = async (paymentId: string, paidAmount?: number, accountId?: string) => {
+        if (!workspace?.id) return;
+
+        const payment = payments.find(p => p.id === paymentId);
+        const amount = paidAmount || payment?.amount || 0;
+
+        const updateData: any = {
+            status: 'paid',
+            paidAt: Date.now(),
+            paidAmount: amount,
+        };
+
+        if (accountId) {
+            updateData.paidAccountId = accountId;
+            // Atualizar saldo da conta
+            await updateAccountBalance(accountId, amount);
+        }
+
+        await updateDoc(doc(db, `workspaces/${workspace.id}/bill_payments`, paymentId), updateData);
+    };
+
+    const markAsPending = async (paymentId: string) => {
+        if (!workspace?.id) return;
+        const payment = payments.find(p => p.id === paymentId);
+        if (!payment) return;
+
+        const now = new Date();
+        const dueDate = new Date(year, month - 1, payment.dueDay);
+        const isOverdue = dueDate < now;
+
+        // Se tinha conta vinculada, reverter saldo
+        if (payment.paidAccountId && payment.paidAmount) {
+            await updateDoc(
+                doc(db, `workspaces/${workspace.id}/accounts`, payment.paidAccountId),
+                { balance: increment(payment.paidAmount) } // Devolve o valor
+            );
+        }
+
+        await updateDoc(doc(db, `workspaces/${workspace.id}/bill_payments`, paymentId), {
+            status: isOverdue ? 'overdue' : 'pending',
+            paidAt: null,
+            paidAmount: null,
+            paidAccountId: null
+        });
+    };
+
+    // Status resumido
+    const summary = {
+        total: payments.length,
+        paid: payments.filter(p => p.status === 'paid').length,
+        pending: payments.filter(p => p.status === 'pending').length,
+        overdue: payments.filter(p => p.status === 'overdue').length,
+        totalAmount: payments.reduce((acc, p) => acc + p.amount, 0),
+        paidAmount: payments.filter(p => p.status === 'paid').reduce((acc, p) => acc + (p.paidAmount || p.amount), 0),
+    };
+
+    return { payments, loading, generatePayments, markAsPaid, markAsPending, summary };
+}

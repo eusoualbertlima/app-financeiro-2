@@ -1,0 +1,127 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+    LayoutDashboard,
+    Wallet,
+    CreditCard,
+    Receipt,
+    Settings,
+    LogOut,
+    TrendingUp,
+    ChevronRight,
+    CalendarDays
+} from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+
+const menuItems = [
+    { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+    { href: "/dashboard/contas", icon: Wallet, label: "Contas" },
+    { href: "/dashboard/cartoes", icon: CreditCard, label: "Cartões" },
+    { href: "/dashboard/lancamentos", icon: Receipt, label: "Lançamentos" },
+    { href: "/dashboard/contas-fixas", icon: CalendarDays, label: "Contas Fixas" },
+    { href: "/dashboard/configuracoes", icon: Settings, label: "Configurações" },
+];
+
+export function Sidebar() {
+    const pathname = usePathname();
+    const { user, signOut } = useAuth();
+
+    return (
+        <aside className="sidebar hidden lg:flex flex-col z-50">
+            {/* Logo */}
+            <div className="p-6 border-b border-white/10">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-primary-400 to-accent-500 rounded-xl flex items-center justify-center">
+                        <TrendingUp className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                        <h1 className="font-bold text-lg text-white">Financeiro</h1>
+                        <p className="text-xs text-slate-400">Gestão Inteligente</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Menu */}
+            <nav className="flex-1 py-6 space-y-1">
+                {menuItems.map((item) => {
+                    const isActive = pathname === item.href ||
+                        (item.href !== "/dashboard" && pathname.startsWith(item.href));
+                    return (
+                        <Link
+                            key={item.href}
+                            href={item.href}
+                            className={`sidebar-link ${isActive ? 'active' : ''}`}
+                        >
+                            <item.icon className="w-5 h-5" />
+                            <span className="flex-1">{item.label}</span>
+                            {isActive && <ChevronRight className="w-4 h-4 text-primary-400" />}
+                        </Link>
+                    );
+                })}
+            </nav>
+
+            {/* User */}
+            <div className="p-4 border-t border-white/10">
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 mb-3">
+                    {user?.photoURL ? (
+                        <img src={user.photoURL} alt="" className="w-10 h-10 rounded-full ring-2 ring-primary-400/50" />
+                    ) : (
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white font-bold">
+                            {user?.displayName?.[0]}
+                        </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">{user?.displayName}</p>
+                        <p className="text-xs text-slate-400 truncate">{user?.email}</p>
+                    </div>
+                </div>
+                <button
+                    onClick={signOut}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all duration-200"
+                >
+                    <LogOut className="w-4 h-4" />
+                    <span>Sair da conta</span>
+                </button>
+            </div>
+        </aside>
+    );
+}
+
+export function MobileNav() {
+    const pathname = usePathname();
+
+    return (
+        <nav className="mobile-nav lg:hidden">
+            <div className="flex justify-around py-2 px-4">
+                {menuItems.slice(0, 4).map((item) => {
+                    const isActive = pathname === item.href ||
+                        (item.href !== "/dashboard" && pathname.startsWith(item.href));
+                    return (
+                        <Link
+                            key={item.href}
+                            href={item.href}
+                            className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all duration-200 ${isActive
+                                ? "text-primary-500 bg-primary-50"
+                                : "text-slate-400 hover:text-slate-600"
+                                }`}
+                        >
+                            <item.icon className={`w-5 h-5 ${isActive ? 'scale-110' : ''} transition-transform`} />
+                            <span className="text-xs font-medium">{item.label}</span>
+                        </Link>
+                    );
+                })}
+            </div>
+        </nav>
+    );
+}
+
+export function Header({ title, subtitle }: { title: string; subtitle?: string }) {
+    return (
+        <header className="mb-8">
+            <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
+            {subtitle && <p className="text-slate-500 mt-1">{subtitle}</p>}
+        </header>
+    );
+}
