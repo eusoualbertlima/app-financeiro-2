@@ -66,7 +66,6 @@ export function useRecurringBills() {
         );
         const snap = await getDocs(paymentsQuery);
         const deletePromises = snap.docs
-            .filter(d => d.data().status !== 'paid') // manter histórico de pagos
             .map(d => deleteDoc(doc(db, `workspaces/${workspace.id}/bill_payments`, d.id)));
         await Promise.all(deletePromises);
     };
@@ -96,12 +95,14 @@ export function useBillPayments(month: number, year: number) {
                 ...docSnap.data()
             })) as BillPayment[];
 
-            setPayments(items);
+            // Filtrar pagamentos de despesas que já foram excluídas
+            const activeBillIds = bills.map(b => b.id);
+            setPayments(items.filter(p => activeBillIds.length === 0 || activeBillIds.includes(p.billId)));
             setLoading(false);
         });
 
         return () => unsubscribe();
-    }, [workspace?.id, month, year]);
+    }, [workspace?.id, month, year, bills]);
 
     // Gerar pagamentos para o mês (cria se não existir)
     const generatePayments = async () => {
