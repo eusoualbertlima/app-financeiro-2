@@ -97,7 +97,7 @@ export function useBillPayments(month: number, year: number) {
 
             // Filtrar pagamentos de despesas que já foram excluídas
             const activeBillIds = bills.map(b => b.id);
-            setPayments(items.filter(p => activeBillIds.length === 0 || activeBillIds.includes(p.billId)));
+            setPayments(items.filter(p => activeBillIds.includes(p.billId)));
             setLoading(false);
         });
 
