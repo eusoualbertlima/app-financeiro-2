@@ -21,6 +21,7 @@ import {
 import Link from "next/link";
 import type { Account, CreditCard as CardType } from "@/types";
 import { Header } from "@/components/Navigation";
+import { DonutChart, BarChart } from "@/components/Charts";
 
 export default function DashboardPage() {
     const { workspace, loading: workspaceLoading } = useWorkspace();
@@ -52,6 +53,31 @@ export default function DashboardPage() {
         new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
     const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+    const defaultCategories = [
+        { id: 'alimentacao', name: 'Alimentação', icon: '🍔', color: '#f59e0b' },
+        { id: 'transporte', name: 'Transporte', icon: '🚗', color: '#3b82f6' },
+        { id: 'moradia', name: 'Moradia', icon: '🏠', color: '#8b5cf6' },
+        { id: 'saude', name: 'Saúde', icon: '💊', color: '#ef4444' },
+        { id: 'lazer', name: 'Lazer', icon: '🎮', color: '#ec4899' },
+        { id: 'educacao', name: 'Educação', icon: '📚', color: '#14b8a6' },
+        { id: 'salario', name: 'Salário', icon: '💰', color: '#22c55e' },
+        { id: 'outros', name: 'Outros', icon: '📦', color: '#6b7280' },
+    ];
+
+    // Data for category donut chart
+    const categorySegments = defaultCategories.map(cat => ({
+        label: cat.name,
+        icon: cat.icon,
+        value: transactions.filter(t => t.type === 'expense' && (t.categoryId || 'outros') === cat.id && t.status === 'paid')
+            .reduce((s, t) => s + t.amount, 0),
+        color: cat.color,
+    })).filter(c => c.value > 0);
+
+    // Data for bar chart (current month only, since we'd need historical data for 6 months)
+    const barData = [
+        { label: monthNames[currentMonth - 1], income: totals.income, expense: totals.expense },
+    ];
 
     const getStatusInfo = (status: string) => {
         switch (status) {
@@ -216,6 +242,48 @@ export default function DashboardPage() {
                     </div>
                 </div>
             )}
+
+            {/* Gráficos */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                {/* Donut: Despesas por Categoria */}
+                <div className="card p-5">
+                    <h3 className="font-semibold text-slate-900 mb-4">Despesas por Categoria</h3>
+                    <DonutChart segments={categorySegments} size={180} />
+                </div>
+
+                {/* Resumo Receitas vs Despesas */}
+                <div className="card p-5">
+                    <h3 className="font-semibold text-slate-900 mb-4">Receitas vs Despesas</h3>
+                    <div className="space-y-4">
+                        <div>
+                            <div className="flex justify-between text-sm mb-1">
+                                <span className="text-slate-500">Receitas</span>
+                                <span className="font-bold text-green-600">{formatCurrency(totalReceitasMes)}</span>
+                            </div>
+                            <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                                <div className="h-full bg-green-400 rounded-full transition-all" style={{ width: `${totalReceitasMes + totalDespesasMes > 0 ? (totalReceitasMes / (totalReceitasMes + totalDespesasMes)) * 100 : 50}%` }} />
+                            </div>
+                        </div>
+                        <div>
+                            <div className="flex justify-between text-sm mb-1">
+                                <span className="text-slate-500">Despesas</span>
+                                <span className="font-bold text-red-600">{formatCurrency(totalDespesasMes)}</span>
+                            </div>
+                            <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                                <div className="h-full bg-red-400 rounded-full transition-all" style={{ width: `${totalReceitasMes + totalDespesasMes > 0 ? (totalDespesasMes / (totalReceitasMes + totalDespesasMes)) * 100 : 50}%` }} />
+                            </div>
+                        </div>
+                        <div className="pt-3 border-t border-slate-100">
+                            <div className="flex justify-between">
+                                <span className="text-sm font-medium text-slate-500">Balanço do Mês</span>
+                                <span className={`text-lg font-bold ${totalReceitasMes - totalDespesasMes >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {formatCurrency(totalReceitasMes - totalDespesasMes)}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Últimos Lançamentos */}

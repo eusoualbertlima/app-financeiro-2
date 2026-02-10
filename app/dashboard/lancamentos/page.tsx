@@ -28,6 +28,10 @@ export default function LancamentosPage() {
     const [year, setYear] = useState(now.getFullYear());
     const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
     const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'pending'>('all');
+    const [sourceFilter, setSourceFilter] = useState<'all' | 'account' | 'card'>('all');
+    const [specificAccountId, setSpecificAccountId] = useState('');
+    const [specificCardId, setSpecificCardId] = useState('');
+    const [categoryFilter, setCategoryFilter] = useState('');
 
     const { transactions, loading, add, update, remove, markAsPaid, totals } = useTransactions(month, year);
     const { data: contas } = useCollection<Account>("accounts");
@@ -157,6 +161,11 @@ export default function LancamentosPage() {
     const filteredTransactions = transactions.filter(t => {
         if (typeFilter !== 'all' && t.type !== typeFilter) return false;
         if (statusFilter !== 'all' && t.status !== statusFilter) return false;
+        if (sourceFilter === 'account' && !t.accountId) return false;
+        if (sourceFilter === 'card' && !t.cardId) return false;
+        if (specificAccountId && t.accountId !== specificAccountId) return false;
+        if (specificCardId && t.cardId !== specificCardId) return false;
+        if (categoryFilter && (t.categoryId || 'outros') !== categoryFilter) return false;
         return true;
     });
 
@@ -227,7 +236,66 @@ export default function LancamentosPage() {
                 </div>
             </div>
 
-            {/* Filtros */}
+            {/* Source Tabs */}
+            <div className="flex gap-1 p-1 bg-slate-100 rounded-xl mb-4 max-w-md">
+                {(['all', 'account', 'card'] as const).map(src => (
+                    <button
+                        key={src}
+                        onClick={() => { setSourceFilter(src); setSpecificAccountId(''); setSpecificCardId(''); }}
+                        className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${sourceFilter === src ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                        {src === 'all' ? '📋 Todos' : src === 'account' ? '🏦 Contas' : '💳 Cartões'}
+                    </button>
+                ))}
+            </div>
+
+            {/* Specific Account/Card Filter */}
+            {sourceFilter === 'account' && contas.length > 0 && (
+                <div className="mb-4">
+                    <select
+                        value={specificAccountId}
+                        onChange={e => setSpecificAccountId(e.target.value)}
+                        className="input max-w-xs"
+                    >
+                        <option value="">Todas as contas</option>
+                        {contas.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                </div>
+            )}
+            {sourceFilter === 'card' && cartoes.length > 0 && (
+                <div className="mb-4">
+                    <select
+                        value={specificCardId}
+                        onChange={e => setSpecificCardId(e.target.value)}
+                        className="input max-w-xs"
+                    >
+                        <option value="">Todos os cartões</option>
+                        {cartoes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                </div>
+            )}
+
+            {/* Category Chips */}
+            <div className="flex flex-wrap gap-1.5 mb-4">
+                <button
+                    onClick={() => setCategoryFilter('')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${!categoryFilter ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                >
+                    Todas
+                </button>
+                {defaultCategories.map(cat => (
+                    <button
+                        key={cat.id}
+                        onClick={() => setCategoryFilter(categoryFilter === cat.id ? '' : cat.id)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${categoryFilter === cat.id ? 'text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                        style={categoryFilter === cat.id ? { backgroundColor: cat.color } : {}}
+                    >
+                        {cat.icon} {cat.name}
+                    </button>
+                ))}
+            </div>
+
+            {/* Type/Status Filters */}
             <div className="flex flex-wrap gap-2 mb-6">
                 <button
                     onClick={() => setTypeFilter('all')}

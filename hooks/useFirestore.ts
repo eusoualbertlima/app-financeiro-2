@@ -9,7 +9,9 @@ import {
     onSnapshot,
     serverTimestamp,
     getDocs,
-    setDoc
+    setDoc,
+    arrayUnion,
+    arrayRemove
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -36,7 +38,29 @@ export function useWorkspace() {
 
         const unsubscribe = onSnapshot(q, async (snapshot) => {
             if (snapshot.empty) {
-                // Se não tem workspace, cria um padrão
+                // Verificar se existe convite pendente por email
+                if (user.email) {
+                    const inviteQuery = query(
+                        collection(db, 'workspaces'),
+                        where('pendingInvites', 'array-contains', user.email.toLowerCase())
+                    );
+                    const inviteSnapshot = await getDocs(inviteQuery);
+
+                    if (!inviteSnapshot.empty) {
+                        // Aceitar convite: adicionar como membro e remover do pendingInvites
+                        const invitedDoc = inviteSnapshot.docs[0];
+                        await updateDoc(doc(db, 'workspaces', invitedDoc.id), {
+                            members: arrayUnion(user.uid),
+                            pendingInvites: arrayRemove(user.email.toLowerCase())
+                        });
+                        const docData = invitedDoc.data() as Omit<Workspace, 'id'>;
+                        setWorkspace({ id: invitedDoc.id, ...docData });
+                        setLoading(false);
+                        return;
+                    }
+                }
+
+                // Se não tem workspace nem convite, cria um padrão
                 const newWorkspace = {
                     name: 'Minhas Finanças',
                     members: [user.uid],

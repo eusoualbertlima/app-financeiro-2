@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useCollection } from "@/hooks/useFirestore";
-import { Wallet, Plus, Trash2, X, Edit3 } from "lucide-react";
+import { Wallet, Plus, Trash2, X, Edit3, Eye } from "lucide-react";
 import type { Account } from "@/types";
+import Link from "next/link";
 import { Header } from "@/components/Navigation";
 
 export default function ContasPage() {
@@ -110,10 +111,17 @@ export default function ContasPage() {
                                     {conta.name[0]}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <h3 className="font-semibold text-lg text-slate-900 truncate">{conta.name}</h3>
-                                    <p className="text-sm text-slate-500 capitalize">
-                                        {conta.type === 'checking' ? 'Conta Corrente' : conta.type === 'investment' ? 'Investimento' : 'Dinheiro'}
-                                    </p>
+                                    <Link href={`/dashboard/contas/${conta.id}`} className="hover:text-primary-600 transition-colors">
+                                        <h3 className="font-semibold text-lg text-slate-900 truncate">{conta.name}</h3>
+                                    </Link>
+                                    <div className="flex items-center gap-2">
+                                        <p className="text-sm text-slate-500 capitalize">
+                                            {conta.type === 'checking' ? 'Conta Corrente' : conta.type === 'investment' ? 'Investimento' : 'Dinheiro'}
+                                        </p>
+                                        <Link href={`/dashboard/contas/${conta.id}`} className="text-xs text-slate-400 hover:text-primary-500 flex items-center gap-1">
+                                            <Eye className="w-3 h-3" /> Detalhes
+                                        </Link>
+                                    </div>
                                 </div>
                                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button

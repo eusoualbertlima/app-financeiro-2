@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { useCollection } from "@/hooks/useFirestore";
 import { useCardTransactions } from "@/hooks/useTransactions";
-import { CreditCard as CardIcon, Plus, Trash2, X, Edit3 } from "lucide-react";
+import { CreditCard as CardIcon, Plus, Trash2, X, Edit3, Eye } from "lucide-react";
 import type { CreditCard } from "@/types";
 import { Header } from "@/components/Navigation";
+import Link from "next/link";
 
 // Componente para mostrar gastos de cada cartão
 function CardSpent({ cardId, limit }: { cardId: string; limit: number }) {
@@ -187,8 +188,15 @@ export default function CartoesPage() {
                                     <CardIcon className="w-8 h-8 opacity-50" />
                                 </div>
 
-                                <h3 className="text-xl font-bold mb-1">{cartao.name}</h3>
-                                <p className="text-white/70 text-sm capitalize">{cartao.brand}</p>
+                                <Link href={`/dashboard/cartoes/${cartao.id}`} className="hover:underline">
+                                    <h3 className="text-xl font-bold mb-1">{cartao.name}</h3>
+                                </Link>
+                                <div className="flex items-center gap-2">
+                                    <p className="text-white/70 text-sm capitalize">{cartao.brand}</p>
+                                    <Link href={`/dashboard/cartoes/${cartao.id}`} className="text-xs text-white/50 hover:text-white/80 flex items-center gap-1 transition-colors">
+                                        <Eye className="w-3 h-3" /> Ver fatura
+                                    </Link>
+                                </div>
 
                                 <div className="mt-6 pt-4 border-t border-white/20 grid grid-cols-3 gap-3">
                                     <div>

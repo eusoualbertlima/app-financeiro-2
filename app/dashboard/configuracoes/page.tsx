@@ -2,14 +2,29 @@
 
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/hooks/useFirestore";
 import { Header } from "@/components/Navigation";
-import { Settings, User, Shield, Bell, Palette, LogOut, ChevronRight } from "lucide-react";
+import { Settings, User, Shield, Bell, Palette, LogOut, ChevronRight, UserPlus, Users, Copy, Check } from "lucide-react";
+import { collection, query, where, getDocs, updateDoc, doc, arrayUnion } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 export default function ConfiguracoesPage() {
     const { user, signOut } = useAuth();
+    const { workspace } = useWorkspace();
     const [activeSection, setActiveSection] = useState<string | null>(null);
+    const [inviteEmail, setInviteEmail] = useState("");
+    const [inviteStatus, setInviteStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+    const [inviteMessage, setInviteMessage] = useState("");
+    const [copied, setCopied] = useState(false);
 
     const sections = [
+        {
+            id: "compartilhar",
+            icon: Users,
+            title: "Compartilhar Finanças",
+            description: "Convide alguém para compartilhar seus dados",
+            color: "bg-primary-100 text-primary-600",
+        },
         {
             id: "perfil",
             icon: User,
@@ -39,6 +54,47 @@ export default function ConfiguracoesPage() {
             color: "bg-purple-100 text-purple-600",
         },
     ];
+
+    const handleInvite = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!inviteEmail || !workspace?.id) return;
+
+        setInviteStatus("loading");
+
+        try {
+            // Search for user by email in Firebase Auth
+            // Since we can't query Auth directly from client, we'll use a simple approach:
+            // Look for workspaces owned by the email user
+            // For now, we'll add the email to a pending_invites collection
+            // and resolve it when the user logs in
+
+            if (!workspace?.id) {
+                setInviteStatus("error");
+                setInviteMessage("Workspace não encontrado");
+                return;
+            }
+
+            // Add invite to workspace
+            await updateDoc(doc(db, "workspaces", workspace.id), {
+                pendingInvites: arrayUnion(inviteEmail.toLowerCase()),
+            });
+
+            setInviteStatus("success");
+            setInviteMessage(`Convite enviado para ${inviteEmail}! Quando a pessoa fizer login, terá acesso aos dados.`);
+            setInviteEmail("");
+        } catch (error) {
+            setInviteStatus("error");
+            setInviteMessage("Erro ao enviar convite. Tente novamente.");
+        }
+    };
+
+    const copyWorkspaceId = () => {
+        if (workspace?.id) {
+            navigator.clipboard.writeText(workspace.id);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }
+    };
 
     return (
         <div className="p-6 lg:p-8 max-w-3xl mx-auto">
@@ -75,40 +131,102 @@ export default function ConfiguracoesPage() {
                 {sections.map((section) => {
                     const Icon = section.icon;
                     return (
-                        <button
-                            key={section.id}
-                            onClick={() => setActiveSection(activeSection === section.id ? null : section.id)}
-                            className="card p-4 w-full flex items-center gap-4 text-left hover:shadow-md transition-all"
-                        >
-                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${section.color}`}>
-                                <Icon className="w-6 h-6" />
-                            </div>
-                            <div className="flex-1">
-                                <p className="font-medium text-slate-900">{section.title}</p>
-                                <p className="text-sm text-slate-500">{section.description}</p>
-                            </div>
-                            <ChevronRight className={`w-5 h-5 text-slate-400 transition-transform ${activeSection === section.id ? 'rotate-90' : ''}`} />
-                        </button>
+                        <div key={section.id}>
+                            <button
+                                onClick={() => setActiveSection(activeSection === section.id ? null : section.id)}
+                                className="card p-4 w-full flex items-center gap-4 text-left hover:shadow-md transition-all"
+                            >
+                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${section.color}`}>
+                                    <Icon className="w-6 h-6" />
+                                </div>
+                                <div className="flex-1">
+                                    <p className="font-medium text-slate-900">{section.title}</p>
+                                    <p className="text-sm text-slate-500">{section.description}</p>
+                                </div>
+                                <ChevronRight className={`w-5 h-5 text-slate-400 transition-transform ${activeSection === section.id ? 'rotate-90' : ''}`} />
+                            </button>
+
+                            {/* Compartilhar Section */}
+                            {activeSection === section.id && section.id === "compartilhar" && (
+                                <div className="card p-6 mt-2 ml-4 border-l-4 border-primary-400">
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <UserPlus className="w-5 h-5 text-primary-500" />
+                                        <h3 className="font-semibold text-slate-900">Compartilhar com outra pessoa</h3>
+                                    </div>
+                                    <p className="text-sm text-slate-500 mb-4">
+                                        Convide outra pessoa (ex: cônjuge) para compartilhar os mesmos dados financeiros.
+                                        Ambos verão as mesmas contas, cartões e lançamentos.
+                                    </p>
+
+                                    <form onSubmit={handleInvite} className="flex gap-2 mb-4">
+                                        <input
+                                            type="email"
+                                            value={inviteEmail}
+                                            onChange={e => setInviteEmail(e.target.value)}
+                                            placeholder="email@exemplo.com"
+                                            className="input flex-1"
+                                            required
+                                        />
+                                        <button
+                                            type="submit"
+                                            className="btn-primary whitespace-nowrap"
+                                            disabled={inviteStatus === "loading"}
+                                        >
+                                            {inviteStatus === "loading" ? "Enviando..." : "Convidar"}
+                                        </button>
+                                    </form>
+
+                                    {inviteMessage && (
+                                        <div className={`p-3 rounded-xl text-sm ${inviteStatus === "success" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+                                            {inviteMessage}
+                                        </div>
+                                    )}
+
+                                    {/* Workspace Info */}
+                                    <div className="mt-4 pt-4 border-t border-slate-100">
+                                        <p className="text-xs text-slate-400 mb-2">ID do Workspace (para suporte)</p>
+                                        <div className="flex items-center gap-2">
+                                            <code className="text-xs bg-slate-100 px-3 py-1.5 rounded-lg text-slate-600 flex-1 truncate">
+                                                {workspace?.id}
+                                            </code>
+                                            <button
+                                                onClick={copyWorkspaceId}
+                                                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                                                title="Copiar"
+                                            >
+                                                {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-slate-400" />}
+                                            </button>
+                                        </div>
+                                        {workspace && (
+                                            <p className="text-xs text-slate-400 mt-2">
+                                                {(workspace as any).pendingInvites?.length > 0
+                                                    ? `📧 ${(workspace as any).pendingInvites.length} convite(s) pendente(s)`
+                                                    : `👤 ${workspace.members?.length || 1} membro(s)`
+                                                }
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Other sections - placeholder */}
+                            {activeSection === section.id && section.id !== "compartilhar" && (
+                                <div className="card p-6 mt-2 ml-4">
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <Settings className="w-5 h-5 text-slate-400" />
+                                        <h3 className="font-semibold text-slate-900">{section.title}</h3>
+                                    </div>
+                                    <div className="bg-slate-50 rounded-xl p-8 text-center">
+                                        <p className="text-slate-500 text-sm">
+                                            🚧 Esta seção está em desenvolvimento e estará disponível em breve.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     );
                 })}
             </div>
-
-            {/* Conteúdo expandido */}
-            {activeSection && (
-                <div className="card p-6 mb-6">
-                    <div className="flex items-center gap-2 mb-4">
-                        <Settings className="w-5 h-5 text-slate-400" />
-                        <h3 className="font-semibold text-slate-900">
-                            {sections.find(s => s.id === activeSection)?.title}
-                        </h3>
-                    </div>
-                    <div className="bg-slate-50 rounded-xl p-8 text-center">
-                        <p className="text-slate-500 text-sm">
-                            🚧 Esta seção está em desenvolvimento e estará disponível em breve.
-                        </p>
-                    </div>
-                </div>
-            )}
 
             {/* Botão Sair */}
             <button

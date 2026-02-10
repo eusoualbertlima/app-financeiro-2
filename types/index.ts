@@ -5,6 +5,7 @@ export interface Workspace {
     members: string[];
     ownerId: string;
     createdAt: number;
+    pendingInvites?: string[];
 }
 
 // Conta Bancária
