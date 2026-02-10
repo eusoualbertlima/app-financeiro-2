@@ -5,6 +5,7 @@ import { useCollection } from "@/hooks/useFirestore";
 import { Wallet, Plus, Trash2, X, Edit3, Eye } from "lucide-react";
 import type { Account } from "@/types";
 import Link from "next/link";
+import { CurrencyInput } from "@/components/CurrencyInput";
 import { Header } from "@/components/Navigation";
 
 export default function ContasPage() {
@@ -191,12 +192,9 @@ export default function ContasPage() {
 
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-2">Saldo Inicial</label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    max="999999999.99"
-                                    value={formData.balance}
-                                    onChange={e => setFormData({ ...formData, balance: Number(e.target.value) })}
+                                <CurrencyInput
+                                    value={formData.balance ?? 0}
+                                    onChange={v => setFormData({ ...formData, balance: v })}
                                     className="input"
                                     required
                                 />

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRecurringBills, useBillPayments } from "@/hooks/useBills";
 import { useCollection } from "@/hooks/useFirestore";
+import { CurrencyInput } from "@/components/CurrencyInput";
 import {
     CalendarDays, Plus, X, Check, Clock, AlertTriangle,
     ChevronLeft, ChevronRight, Edit3, Trash2, Undo2
@@ -287,15 +288,10 @@ export default function ContasFixasPage() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-2">Valor</label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        min="0.01"
-                                        max="999999999.99"
-                                        value={formData.amount || ''}
-                                        onChange={e => setFormData({ ...formData, amount: Number(e.target.value) })}
+                                    <CurrencyInput
+                                        value={formData.amount}
+                                        onChange={v => setFormData({ ...formData, amount: v })}
                                         className="input"
-                                        placeholder="0,00"
                                         required
                                     />
                                 </div>

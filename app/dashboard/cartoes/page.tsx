@@ -7,6 +7,7 @@ import { CreditCard as CardIcon, Plus, Trash2, X, Edit3, Eye } from "lucide-reac
 import type { CreditCard } from "@/types";
 import { Header } from "@/components/Navigation";
 import Link from "next/link";
+import { CurrencyInput } from "@/components/CurrencyInput";
 
 // Componente para mostrar gastos de cada cartão
 function CardSpent({ cardId, limit }: { cardId: string; limit: number }) {
@@ -248,13 +249,9 @@ export default function CartoesPage() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-2">Limite</label>
-                                    <input
-                                        type="number"
-                                        min="0.01"
-                                        max="999999999.99"
-                                        step="0.01"
-                                        value={formData.limit}
-                                        onChange={e => setFormData({ ...formData, limit: Number(e.target.value) })}
+                                    <CurrencyInput
+                                        value={formData.limit ?? 0}
+                                        onChange={v => setFormData({ ...formData, limit: v })}
                                         className="input"
                                         required
                                     />
