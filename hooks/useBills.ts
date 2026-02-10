@@ -7,7 +7,8 @@ import {
     query,
     where,
     onSnapshot,
-    increment
+    increment,
+    getDocs
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useWorkspace } from '@/hooks/useFirestore';
@@ -54,9 +55,20 @@ export function useRecurringBills() {
 
     const remove = async (id: string) => {
         if (!workspace?.id) return;
+        // Desativar a despesa fixa
         await updateDoc(doc(db, `workspaces/${workspace.id}/recurring_bills`, id), {
             isActive: false
         });
+        // Excluir pagamentos pendentes/atrasados órfãos
+        const paymentsQuery = query(
+            collection(db, `workspaces/${workspace.id}/bill_payments`),
+            where('billId', '==', id)
+        );
+        const snap = await getDocs(paymentsQuery);
+        const deletePromises = snap.docs
+            .filter(d => d.data().status !== 'paid') // manter histórico de pagos
+            .map(d => deleteDoc(doc(db, `workspaces/${workspace.id}/bill_payments`, d.id)));
+        await Promise.all(deletePromises);
     };
 
     return { bills, loading, add, update, remove };
