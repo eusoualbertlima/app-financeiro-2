@@ -95,7 +95,7 @@ export function MobileNav() {
     return (
         <nav className="mobile-nav lg:hidden">
             <div className="flex justify-around py-2 px-4">
-                {menuItems.slice(0, 4).map((item) => {
+                {menuItems.slice(0, 5).map((item) => {
                     const isActive = pathname === item.href ||
                         (item.href !== "/dashboard" && pathname.startsWith(item.href));
                     return (

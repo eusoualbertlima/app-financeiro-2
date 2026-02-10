@@ -64,9 +64,27 @@ export default function ContasFixasPage() {
         setIsModalOpen(true);
     };
 
+    const MAX_AMOUNT = 999999999.99;
+
+    const handleDelete = (bill: any) => {
+        if (confirm(`Tem certeza que deseja excluir a conta fixa "${bill.name}"? Esta ação não pode ser desfeita.`)) {
+            remove(bill.id);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.name || !formData.amount) return;
+
+        if (Number(formData.amount) > MAX_AMOUNT) {
+            alert('O valor máximo permitido é R$ 999.999.999,99');
+            return;
+        }
+
+        if (Number(formData.amount) <= 0) {
+            alert('O valor precisa ser maior que zero.');
+            return;
+        }
 
         if (editingId) {
             await update(editingId, formData);
@@ -228,7 +246,7 @@ export default function ContasFixasPage() {
                                         <Edit3 className="w-4 h-4" />
                                     </button>
                                     <button
-                                        onClick={() => remove(bill.id)}
+                                        onClick={() => handleDelete(bill)}
                                         className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg"
                                     >
                                         <Trash2 className="w-4 h-4" />
@@ -272,6 +290,8 @@ export default function ContasFixasPage() {
                                     <input
                                         type="number"
                                         step="0.01"
+                                        min="0.01"
+                                        max="999999999.99"
                                         value={formData.amount || ''}
                                         onChange={e => setFormData({ ...formData, amount: Number(e.target.value) })}
                                         className="input"
@@ -322,8 +342,8 @@ export default function ContasFixasPage() {
                                     key={conta.id}
                                     onClick={() => setSelectedAccount(conta.id)}
                                     className={`w-full p-3 rounded-xl text-left flex items-center gap-3 transition-all ${selectedAccount === conta.id
-                                            ? 'ring-2 ring-primary-500 bg-primary-50'
-                                            : 'bg-slate-50 hover:bg-slate-100'
+                                        ? 'ring-2 ring-primary-500 bg-primary-50'
+                                        : 'bg-slate-50 hover:bg-slate-100'
                                         }`}
                                 >
                                     <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold"

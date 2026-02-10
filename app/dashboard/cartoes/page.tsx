@@ -48,9 +48,27 @@ export default function CartoesPage() {
         setIsModalOpen(true);
     };
 
+    const MAX_LIMIT = 999999999.99;
+
+    const handleDelete = (cartao: CreditCard) => {
+        if (confirm(`Tem certeza que deseja excluir o cartão "${cartao.name}"? Esta ação não pode ser desfeita.`)) {
+            remove(cartao.id);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.name) return;
+
+        if (Number(formData.limit) > MAX_LIMIT) {
+            alert('O limite máximo permitido é R$ 999.999.999,99');
+            return;
+        }
+
+        if (Number(formData.limit) <= 0) {
+            alert('O limite precisa ser maior que zero.');
+            return;
+        }
 
         const data = {
             name: formData.name,
@@ -127,7 +145,7 @@ export default function CartoesPage() {
                                     <Edit3 className="w-4 h-4" />
                                 </button>
                                 <button
-                                    onClick={() => remove(cartao.id)}
+                                    onClick={() => handleDelete(cartao)}
                                     className="p-2 bg-white/20 hover:bg-red-500/50 rounded-lg transition-colors"
                                 >
                                     <Trash2 className="w-4 h-4" />
@@ -191,6 +209,9 @@ export default function CartoesPage() {
                                     <label className="block text-sm font-medium text-slate-700 mb-2">Limite</label>
                                     <input
                                         type="number"
+                                        min="0.01"
+                                        max="999999999.99"
+                                        step="0.01"
                                         value={formData.limit}
                                         onChange={e => setFormData({ ...formData, limit: Number(e.target.value) })}
                                         className="input"

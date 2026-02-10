@@ -31,9 +31,22 @@ export default function ContasPage() {
         setIsModalOpen(true);
     };
 
+    const MAX_BALANCE = 999999999.99;
+
+    const handleDelete = (conta: Account) => {
+        if (confirm(`Tem certeza que deseja excluir a conta "${conta.name}"? Esta ação não pode ser desfeita.`)) {
+            remove(conta.id);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.name) return;
+
+        if (Math.abs(Number(formData.balance)) > MAX_BALANCE) {
+            alert('O valor máximo permitido é R$ 999.999.999,99');
+            return;
+        }
 
         const data = {
             name: formData.name,
@@ -110,7 +123,7 @@ export default function ContasPage() {
                                         <Edit3 className="w-4 h-4" />
                                     </button>
                                     <button
-                                        onClick={() => remove(conta.id)}
+                                        onClick={() => handleDelete(conta)}
                                         className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                                     >
                                         <Trash2 className="w-4 h-4" />
@@ -173,6 +186,7 @@ export default function ContasPage() {
                                 <input
                                     type="number"
                                     step="0.01"
+                                    max="999999999.99"
                                     value={formData.balance}
                                     onChange={e => setFormData({ ...formData, balance: Number(e.target.value) })}
                                     className="input"

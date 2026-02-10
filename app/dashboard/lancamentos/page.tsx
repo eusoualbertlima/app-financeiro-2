@@ -71,9 +71,21 @@ export default function LancamentosPage() {
         }
     };
 
+    const MAX_AMOUNT = 999999999.99;
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.description || !formData.amount) return;
+
+        if (Number(formData.amount) > MAX_AMOUNT) {
+            alert('O valor máximo permitido é R$ 999.999.999,99');
+            return;
+        }
+
+        if (Number(formData.amount) <= 0) {
+            alert('O valor precisa ser maior que zero.');
+            return;
+        }
 
         await add({
             description: formData.description,
@@ -277,8 +289,8 @@ export default function LancamentosPage() {
                                     type="button"
                                     onClick={() => setFormData({ ...formData, type: 'expense' })}
                                     className={`flex-1 py-3 rounded-xl font-medium transition-all ${formData.type === 'expense'
-                                            ? 'bg-red-600 text-white shadow-lg'
-                                            : 'bg-red-50 text-red-600'
+                                        ? 'bg-red-600 text-white shadow-lg'
+                                        : 'bg-red-50 text-red-600'
                                         }`}
                                 >
                                     Despesa
@@ -287,8 +299,8 @@ export default function LancamentosPage() {
                                     type="button"
                                     onClick={() => setFormData({ ...formData, type: 'income' })}
                                     className={`flex-1 py-3 rounded-xl font-medium transition-all ${formData.type === 'income'
-                                            ? 'bg-green-600 text-white shadow-lg'
-                                            : 'bg-green-50 text-green-600'
+                                        ? 'bg-green-600 text-white shadow-lg'
+                                        : 'bg-green-50 text-green-600'
                                         }`}
                                 >
                                     Receita
@@ -313,6 +325,8 @@ export default function LancamentosPage() {
                                     <input
                                         type="number"
                                         step="0.01"
+                                        min="0.01"
+                                        max="999999999.99"
                                         value={formData.amount || ''}
                                         onChange={e => setFormData({ ...formData, amount: Number(e.target.value) })}
                                         className="input"
@@ -341,8 +355,8 @@ export default function LancamentosPage() {
                                             type="button"
                                             onClick={() => setFormData({ ...formData, categoryId: cat.id })}
                                             className={`p-3 rounded-xl text-center transition-all ${formData.categoryId === cat.id
-                                                    ? 'ring-2 ring-offset-2 ring-slate-400 scale-105'
-                                                    : 'hover:bg-slate-50'
+                                                ? 'ring-2 ring-offset-2 ring-slate-400 scale-105'
+                                                : 'hover:bg-slate-50'
                                                 }`}
                                         >
                                             <span className="text-2xl">{cat.icon}</span>
@@ -363,8 +377,8 @@ export default function LancamentosPage() {
                                             type="button"
                                             onClick={() => setFormData({ ...formData, accountId: conta.id, cardId: '' })}
                                             className={`p-3 rounded-xl text-left transition-all flex items-center gap-2 ${formData.accountId === conta.id
-                                                    ? 'ring-2 ring-offset-2 ring-slate-400'
-                                                    : 'bg-slate-50 hover:bg-slate-100'
+                                                ? 'ring-2 ring-offset-2 ring-slate-400'
+                                                : 'bg-slate-50 hover:bg-slate-100'
                                                 }`}
                                         >
                                             <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold"
@@ -381,8 +395,8 @@ export default function LancamentosPage() {
                                             type="button"
                                             onClick={() => setFormData({ ...formData, cardId: cartao.id, accountId: '' })}
                                             className={`p-3 rounded-xl text-left transition-all flex items-center gap-2 ${formData.cardId === cartao.id
-                                                    ? 'ring-2 ring-offset-2 ring-slate-400'
-                                                    : 'bg-slate-50 hover:bg-slate-100'
+                                                ? 'ring-2 ring-offset-2 ring-slate-400'
+                                                : 'bg-slate-50 hover:bg-slate-100'
                                                 }`}
                                         >
                                             <CreditCard className="w-5 h-5" style={{ color: cartao.color }} />
