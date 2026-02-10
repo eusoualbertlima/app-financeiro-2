@@ -7,7 +7,7 @@ import { CurrencyInput } from "@/components/CurrencyInput";
 import {
     Receipt, Plus, X, TrendingUp, TrendingDown,
     Calendar, CreditCard, Wallet, Check, Clock,
-    ChevronLeft, ChevronRight, Filter, Edit3, Trash2
+    AlertTriangle, Filter, ChevronLeft, ChevronRight, Edit3, Trash2
 } from "lucide-react";
 import { Header } from "@/components/Navigation";
 import type { Transaction, Account, CreditCard as CardType, Category } from "@/types";
@@ -237,96 +237,98 @@ export default function LancamentosPage() {
                 </div>
             </div>
 
-            {/* Source Tabs */}
-            <div className="flex gap-1 p-1 bg-slate-100 rounded-xl mb-4 max-w-md">
-                {(['all', 'account', 'card'] as const).map(src => (
-                    <button
-                        key={src}
-                        onClick={() => { setSourceFilter(src); setSpecificAccountId(''); setSpecificCardId(''); }}
-                        className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${sourceFilter === src ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                    >
-                        {src === 'all' ? '📋 Todos' : src === 'account' ? '🏦 Contas' : '💳 Cartões'}
-                    </button>
-                ))}
-            </div>
-
-            {/* Specific Account/Card Filter */}
-            {sourceFilter === 'account' && contas.length > 0 && (
-                <div className="mb-4">
-                    <select
-                        value={specificAccountId}
-                        onChange={e => setSpecificAccountId(e.target.value)}
-                        className="input max-w-xs"
-                    >
-                        <option value="">Todas as contas</option>
-                        {contas.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
+            {/* Filtros Compactos */}
+            <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-6 flex flex-wrap gap-4 items-center">
+                <div className="flex items-center gap-2">
+                    <Filter className="w-5 h-5 text-slate-400" />
+                    <span className="text-sm font-medium text-slate-700">Filtrar por:</span>
                 </div>
-            )}
-            {sourceFilter === 'card' && cartoes.length > 0 && (
-                <div className="mb-4">
+
+                {/* Tipo */}
+                <select
+                    value={typeFilter}
+                    onChange={e => setTypeFilter(e.target.value as any)}
+                    className="input py-2 pr-8 text-sm w-32"
+                >
+                    <option value="all">Todos os Tipos</option>
+                    <option value="income">Receitas</option>
+                    <option value="expense">Despesas</option>
+                </select>
+
+                {/* Fonte */}
+                <div className="flex gap-2">
                     <select
-                        value={specificCardId}
-                        onChange={e => setSpecificCardId(e.target.value)}
-                        className="input max-w-xs"
+                        value={sourceFilter}
+                        onChange={e => { setSourceFilter(e.target.value as any); setSpecificAccountId(''); setSpecificCardId(''); }}
+                        className="input py-2 pr-8 text-sm w-32"
                     >
-                        <option value="">Todos os cartões</option>
-                        {cartoes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        <option value="all">Todas Fontes</option>
+                        <option value="account">Contas</option>
+                        <option value="card">Cartões</option>
                     </select>
+
+                    {/* Específico (aparece ao lado se selecionado) */}
+                    {sourceFilter === 'account' && contas.length > 0 && (
+                        <select
+                            value={specificAccountId}
+                            onChange={e => setSpecificAccountId(e.target.value)}
+                            className="input py-2 pr-8 text-sm w-40 animate-in fade-in slide-in-from-left-2"
+                        >
+                            <option value="">Todas as contas</option>
+                            {contas.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                    )}
+                    {sourceFilter === 'card' && cartoes.length > 0 && (
+                        <select
+                            value={specificCardId}
+                            onChange={e => setSpecificCardId(e.target.value)}
+                            className="input py-2 pr-8 text-sm w-40 animate-in fade-in slide-in-from-left-2"
+                        >
+                            <option value="">Todos os cartões</option>
+                            {cartoes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                    )}
                 </div>
-            )}
 
-            {/* Category Chips */}
-            <div className="flex flex-wrap gap-1.5 mb-4">
-                <button
-                    onClick={() => setCategoryFilter('')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${!categoryFilter ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                {/* Categoria */}
+                <select
+                    value={categoryFilter}
+                    onChange={e => setCategoryFilter(e.target.value)}
+                    className="input py-2 pr-8 text-sm w-40"
                 >
-                    Todas
-                </button>
-                {defaultCategories.map(cat => (
+                    <option value="">Todas Categorias</option>
+                    {defaultCategories.map(cat => (
+                        <option key={cat.id} value={cat.id}>{cat.icon} {cat.name}</option>
+                    ))}
+                </select>
+
+                {/* Status */}
+                <select
+                    value={statusFilter}
+                    onChange={e => setStatusFilter(e.target.value as any)}
+                    className="input py-2 pr-8 text-sm w-32"
+                >
+                    <option value="all">Todos Status</option>
+                    <option value="pending">Pendentes</option>
+                    <option value="paid">Pagos</option>
+                </select>
+
+                {/* Limpar Filtros */}
+                {(typeFilter !== 'all' || sourceFilter !== 'all' || categoryFilter !== '' || statusFilter !== 'all') && (
                     <button
-                        key={cat.id}
-                        onClick={() => setCategoryFilter(categoryFilter === cat.id ? '' : cat.id)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${categoryFilter === cat.id ? 'text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                        style={categoryFilter === cat.id ? { backgroundColor: cat.color } : {}}
+                        onClick={() => {
+                            setTypeFilter('all');
+                            setSourceFilter('all');
+                            setCategoryFilter('');
+                            setStatusFilter('all');
+                            setSpecificAccountId('');
+                            setSpecificCardId('');
+                        }}
+                        className="text-sm text-red-500 hover:text-red-700 font-medium ml-auto"
                     >
-                        {cat.icon} {cat.name}
+                        Limpar Filtros
                     </button>
-                ))}
-            </div>
-
-            {/* Type/Status Filters */}
-            <div className="flex flex-wrap gap-2 mb-6">
-                <button
-                    onClick={() => setTypeFilter('all')}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${typeFilter === 'all' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                        }`}
-                >
-                    Todos
-                </button>
-                <button
-                    onClick={() => setTypeFilter('income')}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${typeFilter === 'income' ? 'bg-green-600 text-white' : 'bg-green-50 text-green-600 hover:bg-green-100'
-                        }`}
-                >
-                    Receitas
-                </button>
-                <button
-                    onClick={() => setTypeFilter('expense')}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${typeFilter === 'expense' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-600 hover:bg-red-100'
-                        }`}
-                >
-                    Despesas
-                </button>
-                <div className="w-px h-8 bg-slate-200 mx-2"></div>
-                <button
-                    onClick={() => setStatusFilter(statusFilter === 'pending' ? 'all' : 'pending')}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'pending' ? 'bg-amber-600 text-white' : 'bg-amber-50 text-amber-600 hover:bg-amber-100'
-                        }`}
-                >
-                    Pendentes
-                </button>
+                )}
             </div>
 
             {/* Lista de Transações */}

@@ -12,6 +12,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useWorkspace } from '@/hooks/useFirestore';
+import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import type { RecurringBill, BillPayment } from '@/types';
 
@@ -77,6 +78,7 @@ export function useRecurringBills() {
 export function useBillPayments(month: number, year: number) {
     const { workspace } = useWorkspace();
     const { bills } = useRecurringBills();
+    const { user } = useAuth();
     const [payments, setPayments] = useState<BillPayment[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -157,6 +159,26 @@ export function useBillPayments(month: number, year: number) {
             await updateAccountBalance(accountId, amount);
         }
 
+        // Criar lançamento correspondente para aparecer em Lançamentos
+        const transactionData: any = {
+            description: payment?.billName || 'Conta Fixa',
+            amount,
+            type: 'expense',
+            status: 'paid',
+            date: Date.now(),
+            paidAt: Date.now(),
+            userId: user?.uid || '',
+            source: 'bill_payment',
+            billPaymentId: paymentId,
+        };
+        if (accountId) transactionData.accountId = accountId;
+        if (payment?.billId) {
+            const bill = bills.find(b => b.id === payment.billId);
+            if (bill?.categoryId) transactionData.categoryId = bill.categoryId;
+        }
+        const txRef = await addDoc(collection(db, `workspaces/${workspace.id}/transactions`), transactionData);
+        updateData.transactionId = txRef.id;
+
         await updateDoc(doc(db, `workspaces/${workspace.id}/bill_payments`, paymentId), updateData);
     };
 
@@ -177,11 +199,19 @@ export function useBillPayments(month: number, year: number) {
             );
         }
 
+        // Excluir o lançamento vinculado
+        if ((payment as any).transactionId) {
+            try {
+                await deleteDoc(doc(db, `workspaces/${workspace.id}/transactions`, (payment as any).transactionId));
+            } catch (e) { /* transaction may already be deleted */ }
+        }
+
         await updateDoc(doc(db, `workspaces/${workspace.id}/bill_payments`, paymentId), {
             status: isOverdue ? 'overdue' : 'pending',
             paidAt: null,
             paidAmount: null,
-            paidAccountId: null
+            paidAccountId: null,
+            transactionId: null
         });
     };
 

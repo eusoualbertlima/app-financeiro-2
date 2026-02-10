@@ -45,6 +45,21 @@ export default function DashboardPage() {
 
     // Contas fixas pendentes/atrasadas
     const pendingBills = payments.filter(p => p.status !== 'paid').sort((a, b) => a.dueDay - b.dueDay);
+    const pendingBillsAmount = pendingBills.reduce((acc, p) => acc + p.amount, 0);
+
+    // Saldo Projetado
+    // = Saldo Atual + Receitas Pendentes - Despesas Pendentes (Transações + Contas Fixas)
+    // Nota: Transações de contas fixas pagas já estão em totals.expense se criadas, mas as pendentes estão só em pendingBills
+
+    const pendingIncomeTransactions = transactions
+        .filter(t => t.type === 'income' && t.status === 'pending')
+        .reduce((acc, t) => acc + t.amount, 0);
+
+    const pendingExpenseTransactions = transactions
+        .filter(t => t.type === 'expense' && t.status === 'pending')
+        .reduce((acc, t) => acc + t.amount, 0);
+
+    const projectedBalance = saldoTotal + pendingIncomeTransactions - (pendingExpenseTransactions + pendingBillsAmount);
 
     // Últimas transações (5 mais recentes)
     const recentTransactions = transactions.slice(0, 5);
@@ -174,6 +189,29 @@ export default function DashboardPage() {
                         </div>
                         <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-100 to-red-200 flex items-center justify-center">
                             <TrendingDown className="w-6 h-6 text-red-600" />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Projeção */}
+                <div className="stat-card">
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <p className="text-sm font-medium text-slate-500 mb-1">Saldo Projetado</p>
+                            <p className={`text-2xl lg:text-3xl font-bold ${projectedBalance >= 0 ? 'text-primary-600' : 'text-red-600'}`}>
+                                {formatCurrency(projectedBalance)}
+                            </p>
+                            <div className="flex flex-col gap-0.5 mt-2">
+                                <p className="text-xs text-slate-400">
+                                    + {formatCurrency(pendingIncomeTransactions)} a receber
+                                </p>
+                                <p className="text-xs text-slate-400">
+                                    - {formatCurrency(pendingExpenseTransactions + pendingBillsAmount)} a pagar
+                                </p>
+                            </div>
+                        </div>
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center">
+                            <CalendarDays className="w-6 h-6 text-primary-600" />
                         </div>
                     </div>
                 </div>
