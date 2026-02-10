@@ -6,7 +6,7 @@ import { useCollection } from "@/hooks/useFirestore";
 import {
     Receipt, Plus, X, TrendingUp, TrendingDown,
     Calendar, CreditCard, Wallet, Check, Clock,
-    ChevronLeft, ChevronRight, Filter
+    ChevronLeft, ChevronRight, Filter, Edit3, Trash2
 } from "lucide-react";
 import { Header } from "@/components/Navigation";
 import type { Transaction, Account, CreditCard as CardType, Category } from "@/types";
@@ -34,6 +34,7 @@ export default function LancamentosPage() {
     const { data: cartoes } = useCollection<CardType>("credit_cards");
 
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingId, setEditingId] = useState<string | null>(null);
     const [formData, setFormData] = useState({
         description: '',
         amount: 0,
@@ -44,6 +45,41 @@ export default function LancamentosPage() {
         cardId: '',
         categoryId: 'outros',
     });
+
+    const openModal = (transaction?: Transaction) => {
+        if (transaction) {
+            setEditingId(transaction.id);
+            setFormData({
+                description: transaction.description,
+                amount: transaction.amount,
+                type: transaction.type,
+                date: new Date(transaction.date).toISOString().split('T')[0],
+                status: transaction.status,
+                accountId: transaction.accountId || '',
+                cardId: transaction.cardId || '',
+                categoryId: transaction.categoryId || 'outros',
+            });
+        } else {
+            setEditingId(null);
+            setFormData({
+                description: '',
+                amount: 0,
+                type: 'expense',
+                date: new Date().toISOString().split('T')[0],
+                status: 'pending',
+                accountId: '',
+                cardId: '',
+                categoryId: 'outros',
+            });
+        }
+        setIsModalOpen(true);
+    };
+
+    const handleDelete = (t: Transaction) => {
+        if (confirm(`Tem certeza que deseja excluir "${t.description}"? Esta ação não pode ser desfeita.`)) {
+            remove(t.id);
+        }
+    };
 
     const formatCurrency = (value: number) =>
         new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -87,30 +123,34 @@ export default function LancamentosPage() {
             return;
         }
 
-        await add({
-            description: formData.description,
-            amount: Number(formData.amount),
-            type: formData.type,
-            date: new Date(formData.date).getTime(),
-            status: formData.status,
-            accountId: formData.accountId || undefined,
-            cardId: formData.cardId || undefined,
-            categoryId: formData.categoryId,
-            userId: '',
-            paidAt: formData.status === 'paid' ? Date.now() : undefined,
-        });
+        if (editingId) {
+            await update(editingId, {
+                description: formData.description,
+                amount: Number(formData.amount),
+                type: formData.type,
+                date: new Date(formData.date).getTime(),
+                status: formData.status,
+                accountId: formData.accountId || undefined,
+                cardId: formData.cardId || undefined,
+                categoryId: formData.categoryId,
+            });
+        } else {
+            await add({
+                description: formData.description,
+                amount: Number(formData.amount),
+                type: formData.type,
+                date: new Date(formData.date).getTime(),
+                status: formData.status,
+                accountId: formData.accountId || undefined,
+                cardId: formData.cardId || undefined,
+                categoryId: formData.categoryId,
+                userId: '',
+                paidAt: formData.status === 'paid' ? Date.now() : undefined,
+            });
+        }
 
         setIsModalOpen(false);
-        setFormData({
-            description: '',
-            amount: 0,
-            type: 'expense',
-            date: new Date().toISOString().split('T')[0],
-            status: 'pending',
-            accountId: '',
-            cardId: '',
-            categoryId: 'outros',
-        });
+        setEditingId(null);
     };
 
     // Filtrar transações
@@ -135,7 +175,7 @@ export default function LancamentosPage() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
                 <Header title="Lançamentos" subtitle="Receitas e despesas" />
                 <button
-                    onClick={() => setIsModalOpen(true)}
+                    onClick={() => openModal()}
                     className="btn-primary flex items-center gap-2 w-full sm:w-auto justify-center"
                 >
                     <Plus className="w-5 h-5" />
@@ -231,8 +271,12 @@ export default function LancamentosPage() {
                     <div className="divide-y divide-slate-100">
                         {filteredTransactions.map((t) => {
                             const category = getCategory(t.categoryId);
+                            const isFromPastMonth = (() => {
+                                const d = new Date(t.date);
+                                return d.getMonth() + 1 !== month || d.getFullYear() !== year;
+                            })();
                             return (
-                                <div key={t.id} className="p-4 flex items-center gap-4 hover:bg-slate-50 transition-colors">
+                                <div key={t.id} className={`p-4 flex items-center gap-4 hover:bg-slate-50 transition-colors group ${isFromPastMonth ? 'bg-amber-50/50' : ''}`}>
                                     <div
                                         className="w-12 h-12 rounded-xl flex items-center justify-center text-xl"
                                         style={{ backgroundColor: category.color + '20' }}
@@ -243,6 +287,7 @@ export default function LancamentosPage() {
                                         <p className="font-medium text-slate-900 truncate">{t.description}</p>
                                         <div className="flex items-center gap-2 text-sm text-slate-400">
                                             <span>{formatDate(t.date)}</span>
+                                            {isFromPastMonth && <span className="text-amber-600 font-medium">• Mês anterior</span>}
                                             {t.cardId && <CreditCard className="w-3 h-3" />}
                                             {t.accountId && <Wallet className="w-3 h-3" />}
                                         </div>
@@ -264,6 +309,22 @@ export default function LancamentosPage() {
                                             </span>
                                         )}
                                     </div>
+                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button
+                                            onClick={() => openModal(t)}
+                                            className="p-2 text-slate-400 hover:text-primary-500 hover:bg-primary-50 rounded-lg transition-colors"
+                                            title="Editar"
+                                        >
+                                            <Edit3 className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDelete(t)}
+                                            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                            title="Excluir"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
                                 </div>
                             );
                         })}
@@ -276,7 +337,7 @@ export default function LancamentosPage() {
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
                     <div className="card p-0 w-full max-w-md overflow-hidden">
                         <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                            <h2 className="text-lg font-semibold text-slate-900">Novo Lançamento</h2>
+                            <h2 className="text-lg font-semibold text-slate-900">{editingId ? 'Editar Lançamento' : 'Novo Lançamento'}</h2>
                             <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-lg">
                                 <X className="w-5 h-5 text-slate-500" />
                             </button>
@@ -425,7 +486,7 @@ export default function LancamentosPage() {
                                     Cancelar
                                 </button>
                                 <button type="submit" className="btn-primary flex-1">
-                                    Salvar
+                                    {editingId ? 'Salvar Alterações' : 'Salvar'}
                                 </button>
                             </div>
                         </form>

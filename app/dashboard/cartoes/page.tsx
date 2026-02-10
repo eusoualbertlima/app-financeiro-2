@@ -2,9 +2,37 @@
 
 import { useState } from "react";
 import { useCollection } from "@/hooks/useFirestore";
+import { useCardTransactions } from "@/hooks/useTransactions";
 import { CreditCard as CardIcon, Plus, Trash2, X, Edit3 } from "lucide-react";
 import type { CreditCard } from "@/types";
 import { Header } from "@/components/Navigation";
+
+// Componente para mostrar gastos de cada cartão
+function CardSpent({ cardId, limit }: { cardId: string; limit: number }) {
+    const now = new Date();
+    const { total, loading } = useCardTransactions(cardId, now.getMonth() + 1, now.getFullYear());
+    const formatCurrency = (value: number) =>
+        new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+    const available = limit - total;
+    const usedPercent = limit > 0 ? Math.min((total / limit) * 100, 100) : 0;
+
+    if (loading) return null;
+
+    return (
+        <div className="mt-4 pt-3 border-t border-white/20">
+            <div className="flex justify-between text-xs text-white/70 mb-2">
+                <span>Gasto: {formatCurrency(total)}</span>
+                <span>Disponível: {formatCurrency(available)}</span>
+            </div>
+            <div className="w-full h-2 bg-white/20 rounded-full overflow-hidden">
+                <div
+                    className={`h-full rounded-full transition-all ${usedPercent > 80 ? 'bg-red-400' : usedPercent > 50 ? 'bg-amber-400' : 'bg-green-400'}`}
+                    style={{ width: `${usedPercent}%` }}
+                />
+            </div>
+        </div>
+    );
+}
 
 const brandLogos: Record<string, string> = {
     mastercard: '🔴🟡',
@@ -162,16 +190,21 @@ export default function CartoesPage() {
                                 <h3 className="text-xl font-bold mb-1">{cartao.name}</h3>
                                 <p className="text-white/70 text-sm capitalize">{cartao.brand}</p>
 
-                                <div className="mt-6 pt-4 border-t border-white/20 grid grid-cols-2 gap-4">
+                                <div className="mt-6 pt-4 border-t border-white/20 grid grid-cols-3 gap-3">
                                     <div>
                                         <p className="text-xs text-white/60 uppercase tracking-wider mb-1">Limite</p>
-                                        <p className="text-xl font-bold">{formatCurrency(cartao.limit)}</p>
+                                        <p className="text-lg font-bold">{formatCurrency(cartao.limit)}</p>
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-xs text-white/60 uppercase tracking-wider mb-1">Fechamento</p>
+                                        <p className="text-lg font-bold">Dia {cartao.closingDay}</p>
                                     </div>
                                     <div className="text-right">
                                         <p className="text-xs text-white/60 uppercase tracking-wider mb-1">Vencimento</p>
-                                        <p className="text-xl font-bold">Dia {cartao.dueDay}</p>
+                                        <p className="text-lg font-bold">Dia {cartao.dueDay}</p>
                                     </div>
                                 </div>
+                                <CardSpent cardId={cartao.id} limit={cartao.limit} />
                             </div>
                         </div>
                     ))}

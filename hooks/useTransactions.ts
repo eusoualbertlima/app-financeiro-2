@@ -42,9 +42,15 @@ export function useTransactions(month?: number, year?: number) {
 
             // Filtrar por mês/ano se especificado
             if (month !== undefined && year !== undefined) {
+                const targetStart = new Date(year, month - 1, 1).getTime();
+                const targetEnd = new Date(year, month, 0, 23, 59, 59, 999).getTime();
+
                 items = items.filter(t => {
                     const date = new Date(t.date);
-                    return date.getMonth() + 1 === month && date.getFullYear() === year;
+                    const isInMonth = date.getMonth() + 1 === month && date.getFullYear() === year;
+                    // Também incluir transações pendentes de meses anteriores
+                    const isPendingFromPast = t.status === 'pending' && t.date < targetStart;
+                    return isInMonth || isPendingFromPast;
                 });
             }
 
