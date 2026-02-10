@@ -80,7 +80,7 @@ export default function ConfiguracoesPage() {
             });
 
             setInviteStatus("success");
-            setInviteMessage(`Convite enviado para ${inviteEmail}! Quando a pessoa fizer login, terá acesso aos dados.`);
+            setInviteMessage(`✅ Email ${inviteEmail} autorizado! Nenhum email é enviado — basta a pessoa abrir o app e fazer login com a mesma conta Google. Ela verá automaticamente os seus dados.`);
             setInviteEmail("");
         } catch (error) {
             setInviteStatus("error");
@@ -154,8 +154,9 @@ export default function ConfiguracoesPage() {
                                         <h3 className="font-semibold text-slate-900">Compartilhar com outra pessoa</h3>
                                     </div>
                                     <p className="text-sm text-slate-500 mb-4">
-                                        Convide outra pessoa (ex: cônjuge) para compartilhar os mesmos dados financeiros.
-                                        Ambos verão as mesmas contas, cartões e lançamentos.
+                                        Digite o email do Google da pessoa que você quer compartilhar.
+                                        <strong> Nenhum email será enviado</strong> — basta a pessoa abrir o app e fazer login com o Google.
+                                        Ela será adicionada automaticamente.
                                     </p>
 
                                     <form onSubmit={handleInvite} className="flex gap-2 mb-4">
@@ -163,7 +164,7 @@ export default function ConfiguracoesPage() {
                                             type="email"
                                             value={inviteEmail}
                                             onChange={e => setInviteEmail(e.target.value)}
-                                            placeholder="email@exemplo.com"
+                                            placeholder="email@gmail.com"
                                             className="input flex-1"
                                             required
                                         />
@@ -172,7 +173,7 @@ export default function ConfiguracoesPage() {
                                             className="btn-primary whitespace-nowrap"
                                             disabled={inviteStatus === "loading"}
                                         >
-                                            {inviteStatus === "loading" ? "Enviando..." : "Convidar"}
+                                            {inviteStatus === "loading" ? "Salvando..." : "Autorizar"}
                                         </button>
                                     </form>
 
