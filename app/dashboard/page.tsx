@@ -39,17 +39,17 @@ export default function DashboardPage() {
     const saldoTotal = contas.reduce((acc, conta) => acc + conta.balance, 0);
     const limiteTotal = cartoes.reduce((acc, cartao) => acc + cartao.limit, 0);
 
-    // Total de despesas do mês = transações pagas + contas fixas pagas
-    const totalDespesasMes = totals.expense + billSummary.paidAmount;
+    // Total de despesas do mês = despesas já lançadas em transações
+    const totalDespesasMes = totals.expense;
     const totalReceitasMes = totals.income;
 
     // Contas fixas pendentes/atrasadas
-    const pendingBills = payments.filter(p => p.status !== 'paid').sort((a, b) => a.dueDay - b.dueDay);
+    const pendingBills = payments.filter(p => p.status === 'pending' || p.status === 'overdue').sort((a, b) => a.dueDay - b.dueDay);
     const pendingBillsAmount = pendingBills.reduce((acc, p) => acc + p.amount, 0);
 
     // Saldo Projetado
     // = Saldo Atual + Receitas Pendentes - Despesas Pendentes (Transações + Contas Fixas)
-    // Nota: Transações de contas fixas pagas já estão em totals.expense se criadas, mas as pendentes estão só em pendingBills
+    // Nota: Contas fixas pagas já viram transação e entram em totals.expense; pendentes/atrasadas ficam em pendingBills
 
     const pendingIncomeTransactions = transactions
         .filter(t => t.type === 'income' && t.status === 'pending')
@@ -183,7 +183,7 @@ export default function DashboardPage() {
                             <div className="flex items-center gap-1 mt-2">
                                 <ArrowDownRight className="w-3 h-3 text-red-500" />
                                 <span className="text-xs text-red-600 font-medium">
-                                    {transactions.filter(t => t.type === 'expense').length} lançamento(s) + {billSummary.paid} conta(s) fixa(s)
+                                    {transactions.filter(t => t.type === 'expense').length} lançamento(s)
                                 </span>
                             </div>
                         </div>
