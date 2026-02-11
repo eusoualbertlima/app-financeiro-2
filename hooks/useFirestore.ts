@@ -17,6 +17,7 @@ import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import type { Workspace, Transaction, Account, CreditCard, Category } from '@/types';
+import { getDefaultTrialEndsAt, normalizeWorkspaceBilling } from '@/lib/billing';
 
 // Hook para gerenciar Workspaces
 export function useWorkspace() {
@@ -65,13 +66,47 @@ export function useWorkspace() {
                     name: 'Minhas Finanças',
                     members: [user.uid],
                     ownerId: user.uid,
-                    createdAt: Date.now()
+                    createdAt: Date.now(),
+                    billing: {
+                        status: 'trialing' as const,
+                        trialEndsAt: getDefaultTrialEndsAt(Date.now()),
+                        updatedAt: Date.now(),
+                    },
                 };
                 const docRef = await addDoc(collection(db, 'workspaces'), newWorkspace);
                 setWorkspace({ id: docRef.id, ...newWorkspace });
             } else {
+                const workspaceId = snapshot.docs[0].id;
                 const docData = snapshot.docs[0].data() as Omit<Workspace, 'id'>;
-                setWorkspace({ id: snapshot.docs[0].id, ...docData });
+                const normalizedBilling = normalizeWorkspaceBilling({ id: workspaceId, ...docData } as Workspace);
+
+                const shouldPatchBilling =
+                    !docData.billing
+                    || docData.billing.status !== normalizedBilling.status
+                    || docData.billing.trialEndsAt !== normalizedBilling.trialEndsAt;
+
+                if (shouldPatchBilling) {
+                    await setDoc(
+                        doc(db, 'workspaces', workspaceId),
+                        {
+                            billing: {
+                                ...docData.billing,
+                                ...normalizedBilling,
+                                updatedAt: Date.now(),
+                            }
+                        },
+                        { merge: true }
+                    );
+                }
+
+                setWorkspace({
+                    id: workspaceId,
+                    ...docData,
+                    billing: {
+                        ...docData.billing,
+                        ...normalizedBilling,
+                    },
+                });
             }
             setLoading(false);
         });

@@ -1,0 +1,61 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getAdminDb } from "@/lib/firebaseAdmin";
+import { requireUserIdFromRequest } from "@/lib/serverAuth";
+import { getAppUrl, getStripe } from "@/lib/stripe";
+import type { Workspace } from "@/types";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+type PortalBody = {
+    workspaceId?: string;
+};
+
+export async function POST(request: NextRequest) {
+    try {
+        const uid = await requireUserIdFromRequest(request);
+        const body = (await request.json()) as PortalBody;
+        const workspaceId = body.workspaceId;
+
+        if (!workspaceId) {
+            return NextResponse.json({ error: "workspaceId is required." }, { status: 400 });
+        }
+
+        const db = getAdminDb();
+        const workspaceRef = db.collection("workspaces").doc(workspaceId);
+        const workspaceSnap = await workspaceRef.get();
+
+        if (!workspaceSnap.exists) {
+            return NextResponse.json({ error: "Workspace not found." }, { status: 404 });
+        }
+
+        const workspaceData = workspaceSnap.data() as Omit<Workspace, "id">;
+        const members = workspaceData.members || [];
+        if (!members.includes(uid)) {
+            return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+        }
+
+        const customerId = workspaceData.billing?.stripeCustomerId;
+        if (!customerId) {
+            return NextResponse.json(
+                { error: "No Stripe customer linked to this workspace yet." },
+                { status: 400 }
+            );
+        }
+
+        const stripe = getStripe();
+        const appUrl = getAppUrl();
+        const session = await stripe.billingPortal.sessions.create({
+            customer: customerId,
+            return_url: `${appUrl}/dashboard/configuracoes`,
+        });
+
+        return NextResponse.json({ url: session.url });
+    } catch (error: any) {
+        console.error("create-portal-session error:", error);
+        return NextResponse.json(
+            { error: error?.message || "Unable to create portal session." },
+            { status: 500 }
+        );
+    }
+}

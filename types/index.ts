@@ -1,4 +1,19 @@
 // Workspace
+export type WorkspaceBillingStatus = 'trialing' | 'active' | 'past_due' | 'canceled' | 'inactive';
+
+export interface WorkspaceBilling {
+    status: WorkspaceBillingStatus;
+    plan?: 'monthly' | 'yearly';
+    trialEndsAt?: number;
+    currentPeriodEnd?: number;
+    cancelAtPeriodEnd?: boolean;
+    stripeCustomerId?: string;
+    stripeSubscriptionId?: string;
+    stripePriceId?: string;
+    checkoutSessionId?: string;
+    updatedAt?: number;
+}
+
 export interface Workspace {
     id: string;
     name: string;
@@ -6,6 +21,7 @@ export interface Workspace {
     ownerId: string;
     createdAt: number;
     pendingInvites?: string[];
+    billing?: WorkspaceBilling;
 }
 
 // Conta Bancária
@@ -115,4 +131,16 @@ export interface CardStatement {
     status: 'open' | 'closed' | 'paid';
     paidAt?: number;
     paidAccountId?: string;
+}
+
+// Perfil do Usuário
+export interface UserProfile {
+    uid: string;
+    email: string;
+    displayName: string;
+    photoURL?: string;
+    subscriptionStatus: 'active' | 'inactive' | 'trial' | 'trialing' | 'past_due' | 'canceled';
+    subscriptionPlan?: 'monthly' | 'yearly';
+    createdAt: number;
+    updatedAt: number;
 }

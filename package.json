@@ -12,10 +12,12 @@
     "@tailwindcss/postcss": "^4.1.18",
     "clsx": "latest",
     "firebase": "^10.0.0",
+    "firebase-admin": "^13.6.1",
     "lucide-react": "latest",
     "next": "latest",
     "react": "latest",
     "react-dom": "latest",
+    "stripe": "^20.3.1",
     "tailwind-merge": "latest"
   },
   "devDependencies": {

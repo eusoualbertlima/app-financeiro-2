@@ -3,19 +3,23 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/hooks/useFirestore";
+import { getWorkspaceAccessState } from "@/lib/billing";
 import { Header } from "@/components/Navigation";
-import { Settings, User, Shield, Bell, Palette, LogOut, ChevronRight, UserPlus, Users, Copy, Check } from "lucide-react";
+import { Settings, User, Shield, Bell, Palette, LogOut, ChevronRight, UserPlus, Users, Copy, Check, CreditCard, Loader2 } from "lucide-react";
 import { collection, query, where, getDocs, updateDoc, doc, arrayUnion } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 export default function ConfiguracoesPage() {
     const { user, signOut } = useAuth();
     const { workspace } = useWorkspace();
+    const access = getWorkspaceAccessState(workspace);
     const [activeSection, setActiveSection] = useState<string | null>(null);
     const [inviteEmail, setInviteEmail] = useState("");
     const [inviteStatus, setInviteStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
     const [inviteMessage, setInviteMessage] = useState("");
     const [copied, setCopied] = useState(false);
+    const [billingLoading, setBillingLoading] = useState<"none" | "checkout" | "portal">("none");
+    const [billingMessage, setBillingMessage] = useState("");
 
     const sections = [
         {
@@ -96,6 +100,71 @@ export default function ConfiguracoesPage() {
         }
     };
 
+    const openCheckout = async () => {
+        if (!workspace?.id || !user) return;
+
+        setBillingLoading("checkout");
+        setBillingMessage("");
+        try {
+            const token = await user.getIdToken();
+            const response = await fetch("/api/billing/create-checkout-session", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    workspaceId: workspace.id,
+                    plan: workspace.billing?.plan || "monthly",
+                }),
+            });
+
+            const data = await response.json();
+            if (!response.ok || !data?.url) {
+                throw new Error(data?.error || "Erro ao abrir checkout.");
+            }
+
+            window.location.href = data.url;
+        } catch (error) {
+            console.error(error);
+            setBillingMessage("Não foi possível abrir o checkout agora.");
+        } finally {
+            setBillingLoading("none");
+        }
+    };
+
+    const openPortal = async () => {
+        if (!workspace?.id || !user) return;
+
+        setBillingLoading("portal");
+        setBillingMessage("");
+        try {
+            const token = await user.getIdToken();
+            const response = await fetch("/api/billing/create-portal-session", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    workspaceId: workspace.id,
+                }),
+            });
+
+            const data = await response.json();
+            if (!response.ok || !data?.url) {
+                throw new Error(data?.error || "Erro ao abrir portal.");
+            }
+
+            window.location.href = data.url;
+        } catch (error) {
+            console.error(error);
+            setBillingMessage("Não foi possível abrir o portal de assinatura agora.");
+        } finally {
+            setBillingLoading("none");
+        }
+    };
+
     return (
         <div className="p-6 lg:p-8 max-w-3xl mx-auto">
             <Header title="Configurações" subtitle="Gerencie sua conta e preferências" />
@@ -124,6 +193,51 @@ export default function ConfiguracoesPage() {
                         </p>
                     </div>
                 </div>
+            </div>
+
+            {/* Billing */}
+            <div className="card p-6 mb-6">
+                <div className="flex items-center justify-between gap-4 mb-3">
+                    <div className="flex items-center gap-2">
+                        <CreditCard className="w-5 h-5 text-primary-600" />
+                        <h3 className="font-semibold text-slate-900">Assinatura</h3>
+                    </div>
+                    <span className={`text-xs font-bold px-2 py-1 rounded-full ${access.hasAccess ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                        {access.status}
+                    </span>
+                </div>
+                <p className="text-sm text-slate-500 mb-4">
+                    {access.status === "trialing"
+                        ? `Seu teste expira em ${access.trialDaysLeft || 0} dia(s).`
+                        : access.hasAccess
+                            ? "Sua assinatura está ativa."
+                            : "Seu acesso está bloqueado até a assinatura ser reativada."}
+                </p>
+                <div className="flex flex-col sm:flex-row gap-2">
+                    <button
+                        onClick={openCheckout}
+                        className="btn-primary flex-1"
+                        disabled={billingLoading !== "none"}
+                    >
+                        {billingLoading === "checkout" ? (
+                            <span className="inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Abrindo checkout...</span>
+                        ) : "Assinar / Reativar"}
+                    </button>
+                    {workspace?.billing?.stripeCustomerId && (
+                        <button
+                            onClick={openPortal}
+                            className="btn-secondary flex-1"
+                            disabled={billingLoading !== "none"}
+                        >
+                            {billingLoading === "portal" ? (
+                                <span className="inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Abrindo portal...</span>
+                            ) : "Gerenciar no Stripe"}
+                        </button>
+                    )}
+                </div>
+                {billingMessage && (
+                    <p className="text-xs text-red-500 mt-2">{billingMessage}</p>
+                )}
             </div>
 
             {/* Seções */}

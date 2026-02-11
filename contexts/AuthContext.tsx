@@ -8,9 +8,12 @@ import {
     signOut as firebaseSignOut
 } from "firebase/auth";
 import { auth, googleProvider } from "@/lib/firebase";
+import { UserProfile } from "@/types";
+import { SubscriptionService } from "@/services/subscriptionService";
 
 interface AuthContextType {
     user: User | null;
+    userProfile: UserProfile | null;
     loading: boolean;
     signInWithGoogle: () => Promise<void>;
     signOut: () => Promise<void>;
@@ -20,11 +23,26 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
+    const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
             setUser(user);
+
+            if (user) {
+                try {
+                    const profile = await SubscriptionService.checkSubscriptionStatus(user);
+                    setUserProfile(profile);
+                } catch (error) {
+                    console.error("Erro ao carregar perfil do usuário:", error);
+                    // Em caso de erro, define null ou um perfil fallback seguro
+                    setUserProfile(null);
+                }
+            } else {
+                setUserProfile(null);
+            }
+
             setLoading(false);
         });
 
@@ -43,6 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const signOut = async () => {
         try {
             await firebaseSignOut(auth);
+            setUserProfile(null);
         } catch (error) {
             console.error("Erro ao fazer logout:", error);
             throw error;
@@ -50,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     return (
-        <AuthContext.Provider value={{ user, loading, signInWithGoogle, signOut }}>
+        <AuthContext.Provider value={{ user, userProfile, loading, signInWithGoogle, signOut }}>
             {children}
         </AuthContext.Provider>
     );
