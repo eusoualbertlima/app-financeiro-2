@@ -8,7 +8,9 @@ import {
     where,
     onSnapshot,
     getDoc,
-    increment
+    getDocs,
+    increment,
+    writeBatch
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -88,6 +90,7 @@ export function useTransactions(month?: number, year?: number) {
             categoryId: item.categoryId || 'outros',
             userId: user.uid,
             paidAt: item.paidAt || null,
+            source: item.source || 'manual',
         });
 
         // Adiciona accountId ou cardId apenas se existirem
@@ -119,6 +122,33 @@ export function useTransactions(month?: number, year?: number) {
         const transactionDoc = await getDoc(doc(db, `workspaces/${workspace.id}/transactions`, id));
         if (transactionDoc.exists()) {
             const data = transactionDoc.data() as Transaction;
+
+            if (data.source === 'transfer' && data.transferId) {
+                const transferQuery = query(
+                    collection(db, `workspaces/${workspace.id}/transactions`),
+                    where('transferId', '==', data.transferId)
+                );
+                const transferSnap = await getDocs(transferQuery);
+                const batch = writeBatch(db);
+
+                transferSnap.docs.forEach((docSnap) => {
+                    const tx = docSnap.data() as Transaction;
+
+                    if (tx.status === 'paid' && tx.accountId) {
+                        const reverseChange = tx.type === 'expense' ? tx.amount : -tx.amount;
+                        batch.update(
+                            doc(db, `workspaces/${workspace.id}/accounts`, tx.accountId),
+                            { balance: increment(reverseChange) }
+                        );
+                    }
+
+                    batch.delete(doc(db, `workspaces/${workspace.id}/transactions`, docSnap.id));
+                });
+
+                await batch.commit();
+                return;
+            }
+
             if (data.status === 'paid' && data.accountId) {
                 // Reverter: se era despesa, devolve; se era receita, remove
                 await updateAccountBalance(data.accountId, data.amount, data.type === 'income');
@@ -154,17 +184,78 @@ export function useTransactions(month?: number, year?: number) {
         }
     };
 
+    const transfer = async (params: {
+        fromAccountId: string;
+        toAccountId: string;
+        amount: number;
+        date: number;
+        description?: string;
+    }) => {
+        if (!workspace?.id || !user) return;
+
+        const { fromAccountId, toAccountId, amount, date, description } = params;
+        if (!fromAccountId || !toAccountId || fromAccountId === toAccountId || amount <= 0) return;
+
+        const transferId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const transactionsCol = collection(db, `workspaces/${workspace.id}/transactions`);
+        const outgoingRef = doc(transactionsCol);
+        const incomingRef = doc(transactionsCol);
+
+        const batch = writeBatch(db);
+
+        batch.update(doc(db, `workspaces/${workspace.id}/accounts`, fromAccountId), {
+            balance: increment(-amount)
+        });
+        batch.update(doc(db, `workspaces/${workspace.id}/accounts`, toAccountId), {
+            balance: increment(amount)
+        });
+
+        const cleanDescription = description?.trim() || 'Transferência entre contas';
+        const commonData = {
+            amount,
+            date,
+            status: 'paid' as const,
+            categoryId: 'outros',
+            userId: user.uid,
+            paidAt: Date.now(),
+            source: 'transfer' as const,
+            transferId,
+        };
+
+        batch.set(outgoingRef, {
+            ...commonData,
+            description: cleanDescription,
+            type: 'expense',
+            accountId: fromAccountId,
+            transferDirection: 'out',
+            transferToAccountId: toAccountId,
+            transferPairId: incomingRef.id,
+        });
+
+        batch.set(incomingRef, {
+            ...commonData,
+            description: cleanDescription,
+            type: 'income',
+            accountId: toAccountId,
+            transferDirection: 'in',
+            transferFromAccountId: fromAccountId,
+            transferPairId: outgoingRef.id,
+        });
+
+        await batch.commit();
+    };
+
     // Calcular totais
     const totals = {
-        income: transactions.filter(t => t.type === 'income' && t.status === 'paid')
+        income: transactions.filter(t => t.type === 'income' && t.status === 'paid' && t.source !== 'transfer')
             .reduce((acc, t) => acc + t.amount, 0),
-        expense: transactions.filter(t => t.type === 'expense' && t.status === 'paid')
+        expense: transactions.filter(t => t.type === 'expense' && t.status === 'paid' && t.source !== 'transfer')
             .reduce((acc, t) => acc + t.amount, 0),
-        pending: transactions.filter(t => t.status === 'pending')
+        pending: transactions.filter(t => t.status === 'pending' && t.source !== 'transfer')
             .reduce((acc, t) => acc + t.amount, 0),
     };
 
-    return { transactions, loading, add, update, remove, markAsPaid, totals };
+    return { transactions, loading, add, update, remove, markAsPaid, transfer, totals };
 }
 
 // Transações de um cartão específico (para fatura)

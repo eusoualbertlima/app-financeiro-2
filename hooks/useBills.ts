@@ -20,7 +20,8 @@ import type { RecurringBill, BillPayment } from '@/types';
 const paymentStatusPriority: Record<BillPayment['status'], number> = {
     pending: 1,
     overdue: 2,
-    paid: 3,
+    skipped: 3,
+    paid: 4,
 };
 
 function shouldReplacePayment(existing: BillPayment, candidate: BillPayment) {
@@ -48,10 +49,11 @@ function shouldReplacePayment(existing: BillPayment, candidate: BillPayment) {
 
 function canAutoDeleteDuplicate(payment: BillPayment) {
     const unsafePayment = payment as any;
-    return payment.status !== 'paid'
+    return (payment.status === 'pending' || payment.status === 'overdue')
         && !payment.paidAt
         && !payment.paidAmount
         && !payment.paidAccountId
+        && !payment.skippedAt
         && !unsafePayment.transactionId;
 }
 
@@ -316,6 +318,36 @@ export function useBillPayments(month: number, year: number) {
             paidAt: null,
             paidAmount: null,
             paidAccountId: null,
+            skippedAt: null,
+            transactionId: null
+        });
+    };
+
+    const markAsSkipped = async (paymentId: string) => {
+        if (!workspace?.id) return;
+        const payment = payments.find(p => p.id === paymentId);
+        if (!payment) return;
+
+        // Caso já estivesse pago por algum fluxo, reverter para manter consistência
+        if (payment.paidAccountId && payment.paidAmount) {
+            await updateDoc(
+                doc(db, `workspaces/${workspace.id}/accounts`, payment.paidAccountId),
+                { balance: increment(payment.paidAmount) }
+            );
+        }
+
+        if ((payment as any).transactionId) {
+            try {
+                await deleteDoc(doc(db, `workspaces/${workspace.id}/transactions`, (payment as any).transactionId));
+            } catch (e) { /* transaction may already be deleted */ }
+        }
+
+        await updateDoc(doc(db, `workspaces/${workspace.id}/bill_payments`, paymentId), {
+            status: 'skipped',
+            skippedAt: Date.now(),
+            paidAt: null,
+            paidAmount: null,
+            paidAccountId: null,
             transactionId: null
         });
     };
@@ -326,9 +358,10 @@ export function useBillPayments(month: number, year: number) {
         paid: payments.filter(p => p.status === 'paid').length,
         pending: payments.filter(p => p.status === 'pending').length,
         overdue: payments.filter(p => p.status === 'overdue').length,
+        skipped: payments.filter(p => p.status === 'skipped').length,
         totalAmount: payments.reduce((acc, p) => acc + p.amount, 0),
         paidAmount: payments.filter(p => p.status === 'paid').reduce((acc, p) => acc + (p.paidAmount || p.amount), 0),
     };
 
-    return { payments, loading, generatePayments, markAsPaid, markAsPending, summary };
+    return { payments, loading, generatePayments, markAsPaid, markAsPending, markAsSkipped, summary };
 }

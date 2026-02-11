@@ -61,6 +61,17 @@ export interface Transaction {
 
     paidAt?: number;
     paidAccountId?: string;
+
+    // Origem e vínculos de automações/fluxos internos
+    source?: 'manual' | 'bill_payment' | 'transfer';
+    billPaymentId?: string;
+
+    // Metadados para transferência entre contas
+    transferId?: string;
+    transferDirection?: 'in' | 'out';
+    transferFromAccountId?: string;
+    transferToAccountId?: string;
+    transferPairId?: string;
 }
 
 // Despesa Fixa (Recorrente)
@@ -84,10 +95,11 @@ export interface BillPayment {
     month: number;
     year: number;
     dueDay: number;
-    status: 'paid' | 'pending' | 'overdue';
+    status: 'paid' | 'pending' | 'overdue' | 'skipped';
     paidAt?: number;
     paidAmount?: number;
     paidAccountId?: string;
+    skippedAt?: number;
 }
 
 // Fatura do Cartão

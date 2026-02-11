@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useCollection } from "@/hooks/useFirestore";
-import { Wallet, Plus, Trash2, X, Edit3, Eye } from "lucide-react";
+import { useTransactions } from "@/hooks/useTransactions";
+import { Wallet, Plus, Trash2, X, Edit3, Eye, ArrowRightLeft } from "lucide-react";
 import type { Account } from "@/types";
 import Link from "next/link";
 import { CurrencyInput } from "@/components/CurrencyInput";
@@ -10,13 +11,22 @@ import { Header } from "@/components/Navigation";
 
 export default function ContasPage() {
     const { data: contas, loading, add, remove, update } = useCollection<Account>("accounts");
+    const { transfer } = useTransactions();
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [formData, setFormData] = useState<Partial<Account>>({
         name: "",
         balance: 0,
         type: "checking",
         color: "#0ea5e9"
+    });
+    const [transferData, setTransferData] = useState({
+        fromAccountId: "",
+        toAccountId: "",
+        amount: 0,
+        date: new Date().toISOString().split('T')[0],
+        description: "",
     });
 
     const formatCurrency = (value: number) =>
@@ -31,6 +41,20 @@ export default function ContasPage() {
             setFormData({ name: "", balance: 0, type: "checking", color: "#0ea5e9" });
         }
         setIsModalOpen(true);
+    };
+
+    const openTransferModal = () => {
+        const fromDefault = contas[0]?.id || "";
+        const toDefault = contas.find(c => c.id !== fromDefault)?.id || "";
+
+        setTransferData({
+            fromAccountId: fromDefault,
+            toAccountId: toDefault,
+            amount: 0,
+            date: new Date().toISOString().split('T')[0],
+            description: "",
+        });
+        setIsTransferModalOpen(true);
     };
 
     const MAX_BALANCE = 999999999.99;
@@ -67,6 +91,44 @@ export default function ContasPage() {
         setEditingId(null);
     };
 
+    const handleTransferSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (!transferData.fromAccountId || !transferData.toAccountId) {
+            alert('Selecione conta de origem e destino.');
+            return;
+        }
+
+        if (transferData.fromAccountId === transferData.toAccountId) {
+            alert('A conta de origem e destino precisam ser diferentes.');
+            return;
+        }
+
+        if (Number(transferData.amount) <= 0) {
+            alert('O valor da transferência precisa ser maior que zero.');
+            return;
+        }
+
+        if (Math.abs(Number(transferData.amount)) > MAX_BALANCE) {
+            alert('O valor máximo permitido é R$ 999.999.999,99');
+            return;
+        }
+
+        const fromAccount = contas.find(c => c.id === transferData.fromAccountId);
+        const toAccount = contas.find(c => c.id === transferData.toAccountId);
+        const defaultDescription = `Transferência: ${fromAccount?.name || 'Conta'} → ${toAccount?.name || 'Conta'}`;
+
+        await transfer({
+            fromAccountId: transferData.fromAccountId,
+            toAccountId: transferData.toAccountId,
+            amount: Number(transferData.amount),
+            date: new Date(transferData.date).getTime(),
+            description: transferData.description.trim() || defaultDescription,
+        });
+
+        setIsTransferModalOpen(false);
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
@@ -79,13 +141,24 @@ export default function ContasPage() {
         <div className="p-6 lg:p-8 max-w-5xl mx-auto">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
                 <Header title="Contas Bancárias" subtitle="Gerencie suas contas e carteiras" />
-                <button
-                    onClick={() => openModal()}
-                    className="btn-primary flex items-center gap-2 w-full sm:w-auto justify-center"
-                >
-                    <Plus className="w-5 h-5" />
-                    Nova Conta
-                </button>
+                <div className="flex flex-col sm:flex-row gap-2">
+                    <button
+                        onClick={openTransferModal}
+                        disabled={contas.length < 2}
+                        className="btn-secondary flex items-center gap-2 w-full sm:w-auto justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={contas.length < 2 ? "Cadastre ao menos 2 contas para transferir" : "Transferir entre contas"}
+                    >
+                        <ArrowRightLeft className="w-5 h-5" />
+                        Transferir
+                    </button>
+                    <button
+                        onClick={() => openModal()}
+                        className="btn-primary flex items-center gap-2 w-full sm:w-auto justify-center"
+                    >
+                        <Plus className="w-5 h-5" />
+                        Nova Conta
+                    </button>
+                </div>
             </div>
 
             {contas.length === 0 ? (
@@ -222,6 +295,98 @@ export default function ContasPage() {
                                 </button>
                                 <button type="submit" className="btn-primary flex-1">
                                     {editingId ? 'Salvar Alterações' : 'Criar Conta'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de Transferência */}
+            {isTransferModalOpen && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                    <div className="card p-0 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                            <h2 className="text-lg font-semibold text-slate-900">Transferir entre Contas</h2>
+                            <button onClick={() => setIsTransferModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-lg transition-colors">
+                                <X className="w-5 h-5 text-slate-500" />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleTransferSubmit} className="p-6 space-y-5">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">Conta de Origem</label>
+                                <select
+                                    value={transferData.fromAccountId}
+                                    onChange={e => setTransferData({ ...transferData, fromAccountId: e.target.value })}
+                                    className="input"
+                                    required
+                                >
+                                    <option value="">Selecione a origem</option>
+                                    {contas.map(conta => (
+                                        <option key={conta.id} value={conta.id}>{conta.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">Conta de Destino</label>
+                                <select
+                                    value={transferData.toAccountId}
+                                    onChange={e => setTransferData({ ...transferData, toAccountId: e.target.value })}
+                                    className="input"
+                                    required
+                                >
+                                    <option value="">Selecione o destino</option>
+                                    {contas.map(conta => (
+                                        <option key={conta.id} value={conta.id}>{conta.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">Valor</label>
+                                    <CurrencyInput
+                                        value={transferData.amount}
+                                        onChange={v => setTransferData({ ...transferData, amount: v })}
+                                        className="input"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">Data</label>
+                                    <input
+                                        type="date"
+                                        value={transferData.date}
+                                        onChange={e => setTransferData({ ...transferData, date: e.target.value })}
+                                        className="input"
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">Descrição (opcional)</label>
+                                <input
+                                    type="text"
+                                    value={transferData.description}
+                                    onChange={e => setTransferData({ ...transferData, description: e.target.value })}
+                                    className="input"
+                                    placeholder="Ex: Reserva de emergência"
+                                />
+                            </div>
+
+                            <div className="flex gap-3 pt-4">
+                                <button type="button" onClick={() => setIsTransferModalOpen(false)} className="btn-secondary flex-1">
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="btn-primary flex-1"
+                                    disabled={!transferData.fromAccountId || !transferData.toAccountId || transferData.fromAccountId === transferData.toAccountId || Number(transferData.amount) <= 0}
+                                >
+                                    Confirmar Transferência
                                 </button>
                             </div>
                         </form>

@@ -7,7 +7,7 @@ import { CurrencyInput } from "@/components/CurrencyInput";
 import {
     Receipt, Plus, X, TrendingUp, TrendingDown,
     Calendar, CreditCard, Wallet, Check, Clock,
-    AlertTriangle, Filter, ChevronLeft, ChevronRight, Edit3, Trash2
+    AlertTriangle, Filter, ChevronLeft, ChevronRight, Edit3, Trash2, ArrowRightLeft
 } from "lucide-react";
 import { Header } from "@/components/Navigation";
 import type { Transaction, Account, CreditCard as CardType, Category } from "@/types";
@@ -342,6 +342,7 @@ export default function LancamentosPage() {
                     <div className="divide-y divide-slate-100">
                         {filteredTransactions.map((t) => {
                             const category = getCategory(t.categoryId);
+                            const isTransfer = t.source === 'transfer';
                             const isFromPastMonth = (() => {
                                 const d = new Date(t.date);
                                 return d.getMonth() + 1 !== month || d.getFullYear() !== year;
@@ -352,7 +353,7 @@ export default function LancamentosPage() {
                                         className="w-12 h-12 rounded-xl flex items-center justify-center text-xl"
                                         style={{ backgroundColor: category.color + '20' }}
                                     >
-                                        {category.icon}
+                                        {isTransfer ? <ArrowRightLeft className="w-5 h-5 text-blue-600" /> : category.icon}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="font-medium text-slate-900 truncate">{t.description}</p>
@@ -375,23 +376,26 @@ export default function LancamentosPage() {
                                                 <Clock className="w-3 h-3" /> Pendente
                                             </button>
                                         ) : (
-                                            <span className="text-xs text-green-600 flex items-center gap-1 justify-end">
-                                                <Check className="w-3 h-3" /> Pago
+                                            <span className={`text-xs flex items-center gap-1 justify-end ${isTransfer ? 'text-blue-600' : 'text-green-600'}`}>
+                                                {isTransfer ? <ArrowRightLeft className="w-3 h-3" /> : <Check className="w-3 h-3" />}
+                                                {isTransfer ? 'Transferência' : 'Pago'}
                                             </span>
                                         )}
                                     </div>
                                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button
-                                            onClick={() => openModal(t)}
-                                            className="p-2 text-slate-400 hover:text-primary-500 hover:bg-primary-50 rounded-lg transition-colors"
-                                            title="Editar"
-                                        >
-                                            <Edit3 className="w-4 h-4" />
-                                        </button>
+                                        {!isTransfer && (
+                                            <button
+                                                onClick={() => openModal(t)}
+                                                className="p-2 text-slate-400 hover:text-primary-500 hover:bg-primary-50 rounded-lg transition-colors"
+                                                title="Editar"
+                                            >
+                                                <Edit3 className="w-4 h-4" />
+                                            </button>
+                                        )}
                                         <button
                                             onClick={() => handleDelete(t)}
                                             className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                            title="Excluir"
+                                            title={isTransfer ? "Excluir transferência completa" : "Excluir"}
                                         >
                                             <Trash2 className="w-4 h-4" />
                                         </button>

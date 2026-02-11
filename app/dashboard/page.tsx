@@ -44,7 +44,9 @@ export default function DashboardPage() {
     const totalReceitasMes = totals.income;
 
     // Contas fixas pendentes/atrasadas
-    const pendingBills = payments.filter(p => p.status !== 'paid').sort((a, b) => a.dueDay - b.dueDay);
+    const pendingBills = payments
+        .filter(p => p.status === 'pending' || p.status === 'overdue')
+        .sort((a, b) => a.dueDay - b.dueDay);
     const pendingBillsAmount = pendingBills.reduce((acc, p) => acc + p.amount, 0);
 
     // Saldo Projetado
@@ -84,7 +86,12 @@ export default function DashboardPage() {
     const categorySegments = defaultCategories.map(cat => ({
         label: cat.name,
         icon: cat.icon,
-        value: transactions.filter(t => t.type === 'expense' && (t.categoryId || 'outros') === cat.id && t.status === 'paid')
+        value: transactions.filter(t =>
+            t.type === 'expense'
+            && (t.categoryId || 'outros') === cat.id
+            && t.status === 'paid'
+            && t.source !== 'transfer'
+        )
             .reduce((s, t) => s + t.amount, 0),
         color: cat.color,
     })).filter(c => c.value > 0);
@@ -162,7 +169,7 @@ export default function DashboardPage() {
                             <div className="flex items-center gap-1 mt-2">
                                 <ArrowUpRight className="w-3 h-3 text-green-500" />
                                 <span className="text-xs text-green-600 font-medium">
-                                    {transactions.filter(t => t.type === 'income').length} lançamento(s)
+                                    {transactions.filter(t => t.type === 'income' && t.source !== 'transfer').length} lançamento(s)
                                 </span>
                             </div>
                         </div>
@@ -183,7 +190,7 @@ export default function DashboardPage() {
                             <div className="flex items-center gap-1 mt-2">
                                 <ArrowDownRight className="w-3 h-3 text-red-500" />
                                 <span className="text-xs text-red-600 font-medium">
-                                    {transactions.filter(t => t.type === 'expense').length} lançamento(s) + {billSummary.paid} conta(s) fixa(s)
+                                    {transactions.filter(t => t.type === 'expense' && t.source !== 'transfer').length} lançamento(s) + {billSummary.paid} conta(s) fixa(s)
                                 </span>
                             </div>
                         </div>
@@ -261,7 +268,7 @@ export default function DashboardPage() {
 
             {/* Resumo Contas Fixas */}
             {payments.length > 0 && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
                     <div className="card p-4 text-center">
                         <p className="text-2xl font-bold text-slate-900">{billSummary.total}</p>
                         <p className="text-sm text-slate-500">Total Fixas</p>
@@ -277,6 +284,10 @@ export default function DashboardPage() {
                     <div className="card p-4 text-center border-l-4 border-red-500">
                         <p className="text-2xl font-bold text-red-600">{billSummary.overdue}</p>
                         <p className="text-sm text-slate-500">Atrasadas</p>
+                    </div>
+                    <div className="card p-4 text-center border-l-4 border-slate-400">
+                        <p className="text-2xl font-bold text-slate-600">{billSummary.skipped}</p>
+                        <p className="text-sm text-slate-500">Puladas</p>
                     </div>
                 </div>
             )}
