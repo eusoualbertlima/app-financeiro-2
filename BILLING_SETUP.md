@@ -13,6 +13,15 @@ Required:
 - `FIREBASE_PRIVATE_KEY`
 - `NEXT_PUBLIC_APP_URL`
 
+## 1.1 Quick config check
+After setting `.env.local`, run the app and open:
+- `GET /api/billing/health`
+
+Expected:
+- `ok: true`
+- `missingEnv: []`
+- `firebaseAdminReady: true`
+
 ## 2. Stripe products/prices
 Create 2 recurring prices in Stripe:
 - Monthly plan -> put ID in `STRIPE_PRICE_ID_MONTHLY`
@@ -30,6 +39,8 @@ Listen to events:
 - `customer.subscription.deleted`
 
 Set webhook signing secret in `STRIPE_WEBHOOK_SECRET`.
+
+Tip: if Stripe CLI is not installed, configure webhook directly in Stripe Dashboard.
 
 ## 4. Trial and access
 Each new workspace starts with 7-day trial (`billing.status = trialing`).
