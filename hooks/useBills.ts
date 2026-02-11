@@ -2,6 +2,7 @@ import {
     collection,
     doc,
     addDoc,
+    runTransaction,
     updateDoc,
     deleteDoc,
     query,
@@ -13,8 +14,46 @@ import {
 import { db } from '@/lib/firebase';
 import { useWorkspace } from '@/hooks/useFirestore';
 import { useAuth } from '@/contexts/AuthContext';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { RecurringBill, BillPayment } from '@/types';
+
+const paymentStatusPriority: Record<BillPayment['status'], number> = {
+    pending: 1,
+    overdue: 2,
+    paid: 3,
+};
+
+function shouldReplacePayment(existing: BillPayment, candidate: BillPayment) {
+    const existingPriority = paymentStatusPriority[existing.status];
+    const candidatePriority = paymentStatusPriority[candidate.status];
+
+    if (candidatePriority !== existingPriority) {
+        return candidatePriority > existingPriority;
+    }
+
+    const existingHasTransaction = Boolean((existing as any).transactionId);
+    const candidateHasTransaction = Boolean((candidate as any).transactionId);
+    if (existingHasTransaction !== candidateHasTransaction) {
+        return candidateHasTransaction;
+    }
+
+    const existingPaidAt = existing.paidAt || 0;
+    const candidatePaidAt = candidate.paidAt || 0;
+    if (candidatePaidAt !== existingPaidAt) {
+        return candidatePaidAt > existingPaidAt;
+    }
+
+    return candidate.id > existing.id;
+}
+
+function canAutoDeleteDuplicate(payment: BillPayment) {
+    const unsafePayment = payment as any;
+    return payment.status !== 'paid'
+        && !payment.paidAt
+        && !payment.paidAmount
+        && !payment.paidAccountId
+        && !unsafePayment.transactionId;
+}
 
 // CRUD de Despesas Fixas
 export function useRecurringBills() {
@@ -81,6 +120,7 @@ export function useBillPayments(month: number, year: number) {
     const { user } = useAuth();
     const [payments, setPayments] = useState<BillPayment[]>([]);
     const [loading, setLoading] = useState(true);
+    const cleaningIdsRef = useRef<Set<string>>(new Set());
 
     useEffect(() => {
         if (!workspace?.id) return;
@@ -97,9 +137,55 @@ export function useBillPayments(month: number, year: number) {
                 ...docSnap.data()
             })) as BillPayment[];
 
-            // Filtrar pagamentos de despesas que já foram excluídas
-            const activeBillIds = bills.map(b => b.id);
-            setPayments(items.filter(p => activeBillIds.includes(p.billId)));
+            // Filtrar pagamentos de despesas que já foram excluídas e deduplicar por billId
+            const activeBillIds = new Set(bills.map(b => b.id));
+            const dedupedByBillId = new Map<string, BillPayment>();
+            const duplicateIdsToDelete: string[] = [];
+
+            for (const payment of items) {
+                if (!activeBillIds.has(payment.billId)) continue;
+
+                const existing = dedupedByBillId.get(payment.billId);
+                if (!existing) {
+                    dedupedByBillId.set(payment.billId, payment);
+                    continue;
+                }
+
+                if (shouldReplacePayment(existing, payment)) {
+                    if (canAutoDeleteDuplicate(existing)) {
+                        duplicateIdsToDelete.push(existing.id);
+                    }
+                    dedupedByBillId.set(payment.billId, payment);
+                } else if (canAutoDeleteDuplicate(payment)) {
+                    duplicateIdsToDelete.push(payment.id);
+                }
+            }
+
+            setPayments(Array.from(dedupedByBillId.values()).sort((a, b) => a.dueDay - b.dueDay));
+
+            if (duplicateIdsToDelete.length > 0) {
+                const uniqueIds = Array.from(new Set(duplicateIdsToDelete))
+                    .filter(id => {
+                        if (cleaningIdsRef.current.has(id)) return false;
+                        cleaningIdsRef.current.add(id);
+                        return true;
+                    });
+
+                if (uniqueIds.length > 0) {
+                    Promise.all(
+                        uniqueIds.map(async (id) => {
+                            try {
+                                await deleteDoc(doc(db, `workspaces/${workspace.id}/bill_payments`, id));
+                            } finally {
+                                cleaningIdsRef.current.delete(id);
+                            }
+                        })
+                    ).catch(() => {
+                        uniqueIds.forEach(id => cleaningIdsRef.current.delete(id));
+                    });
+                }
+            }
+
             setLoading(false);
         });
 
@@ -110,15 +196,32 @@ export function useBillPayments(month: number, year: number) {
     const generatePayments = async () => {
         if (!workspace?.id || !bills.length) return;
 
-        const existingBillIds = payments.map(p => p.billId);
+        const existingPaymentsQuery = query(
+            collection(db, `workspaces/${workspace.id}/bill_payments`),
+            where('month', '==', month),
+            where('year', '==', year)
+        );
+        const existingSnapshot = await getDocs(existingPaymentsQuery);
+        const existingBillIds = new Set(
+            existingSnapshot.docs
+                .map(docSnap => (docSnap.data() as Partial<BillPayment>).billId)
+                .filter((billId): billId is string => Boolean(billId))
+        );
 
         for (const bill of bills) {
-            if (!existingBillIds.includes(bill.id)) {
-                const now = new Date();
-                const dueDate = new Date(year, month - 1, bill.dueDay);
-                const isOverdue = dueDate < now;
+            if (existingBillIds.has(bill.id)) continue;
 
-                await addDoc(collection(db, `workspaces/${workspace.id}/bill_payments`), {
+            const now = new Date();
+            const dueDate = new Date(year, month - 1, bill.dueDay);
+            const isOverdue = dueDate < now;
+            const paymentDocId = `${year}-${String(month).padStart(2, '0')}-${bill.id}`;
+            const paymentRef = doc(db, `workspaces/${workspace.id}/bill_payments`, paymentDocId);
+
+            await runTransaction(db, async (transaction) => {
+                const existingPayment = await transaction.get(paymentRef);
+                if (existingPayment.exists()) return;
+
+                transaction.set(paymentRef, {
                     billId: bill.id,
                     billName: bill.name,
                     amount: bill.amount,
@@ -127,7 +230,9 @@ export function useBillPayments(month: number, year: number) {
                     dueDay: bill.dueDay,
                     status: isOverdue ? 'overdue' : 'pending'
                 });
-            }
+            });
+
+            existingBillIds.add(bill.id);
         }
     };
 

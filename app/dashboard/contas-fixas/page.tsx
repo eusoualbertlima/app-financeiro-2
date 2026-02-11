@@ -115,6 +115,7 @@ export default function ContasFixasPage() {
     };
 
     const loading = billsLoading || paymentsLoading;
+    const sortedPayments = [...payments].sort((a, b) => a.dueDay - b.dueDay);
 
     if (loading && payments.length === 0) {
         return (
@@ -183,7 +184,7 @@ export default function ContasFixasPage() {
                 </div>
             ) : (
                 <div className="space-y-3">
-                    {payments.sort((a, b) => a.dueDay - b.dueDay).map((payment) => {
+                    {sortedPayments.map((payment) => {
                         const status = getStatusInfo(payment.status);
                         const StatusIcon = status.icon;
                         return (
