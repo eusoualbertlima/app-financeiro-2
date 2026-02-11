@@ -120,14 +120,21 @@ export default function ConfiguracoesPage() {
             });
 
             const data = await response.json();
-            if (!response.ok || !data?.url) {
+            if (!response.ok) {
+                if (response.status === 403) {
+                    throw new Error("Somente o dono do workspace pode iniciar ou alterar assinatura.");
+                }
+                throw new Error(data?.error || "Erro ao abrir checkout.");
+            }
+
+            if (!data?.url) {
                 throw new Error(data?.error || "Erro ao abrir checkout.");
             }
 
             window.location.href = data.url;
         } catch (error) {
             console.error(error);
-            setBillingMessage("Não foi possível abrir o checkout agora.");
+            setBillingMessage(error instanceof Error ? error.message : "Não foi possível abrir o checkout agora.");
         } finally {
             setBillingLoading("none");
         }
@@ -152,14 +159,21 @@ export default function ConfiguracoesPage() {
             });
 
             const data = await response.json();
-            if (!response.ok || !data?.url) {
+            if (!response.ok) {
+                if (response.status === 403) {
+                    throw new Error("Somente o dono do workspace pode gerenciar assinatura.");
+                }
+                throw new Error(data?.error || "Erro ao abrir portal.");
+            }
+
+            if (!data?.url) {
                 throw new Error(data?.error || "Erro ao abrir portal.");
             }
 
             window.location.href = data.url;
         } catch (error) {
             console.error(error);
-            setBillingMessage("Não foi possível abrir o portal de assinatura agora.");
+            setBillingMessage(error instanceof Error ? error.message : "Não foi possível abrir o portal de assinatura agora.");
         } finally {
             setBillingLoading("none");
         }
@@ -213,11 +227,16 @@ export default function ConfiguracoesPage() {
                             ? "Sua assinatura está ativa."
                             : "Seu acesso está bloqueado até a assinatura ser reativada."}
                 </p>
+                {workspace?.ownerId && user?.uid !== workspace.ownerId && (
+                    <p className="text-xs text-amber-600 mb-4">
+                        Apenas o dono do workspace pode alterar a assinatura.
+                    </p>
+                )}
                 <div className="flex flex-col sm:flex-row gap-2">
                     <button
                         onClick={openCheckout}
                         className="btn-primary flex-1"
-                        disabled={billingLoading !== "none"}
+                        disabled={billingLoading !== "none" || (workspace?.ownerId ? user?.uid !== workspace.ownerId : false)}
                     >
                         {billingLoading === "checkout" ? (
                             <span className="inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Abrindo checkout...</span>
@@ -227,7 +246,7 @@ export default function ConfiguracoesPage() {
                         <button
                             onClick={openPortal}
                             className="btn-secondary flex-1"
-                            disabled={billingLoading !== "none"}
+                            disabled={billingLoading !== "none" || (workspace?.ownerId ? user?.uid !== workspace.ownerId : false)}
                         >
                             {billingLoading === "portal" ? (
                                 <span className="inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Abrindo portal...</span>

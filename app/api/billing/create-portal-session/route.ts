@@ -30,8 +30,7 @@ export async function POST(request: NextRequest) {
         }
 
         const workspaceData = workspaceSnap.data() as Omit<Workspace, "id">;
-        const members = workspaceData.members || [];
-        if (!members.includes(uid)) {
+        if (workspaceData.ownerId !== uid) {
             return NextResponse.json({ error: "Forbidden." }, { status: 403 });
         }
 

@@ -39,3 +39,9 @@ Access is allowed only for:
 
 All other statuses are redirected to `/checkout`.
 
+## 5. Billing permissions
+Only the `workspace.ownerId` can:
+- create checkout sessions
+- open the Stripe billing portal
+
+Members keep product access according to workspace billing status, but cannot change billing.

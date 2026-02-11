@@ -17,6 +17,7 @@ export default function CheckoutPage() {
     const [portalLoading, setPortalLoading] = useState(false);
     const [message, setMessage] = useState("");
     const access = getWorkspaceAccessState(workspace);
+    const isOwner = workspace?.ownerId ? user?.uid === workspace.ownerId : true;
     const paymentSuccess = searchParams.get("success") === "1";
     const paymentCanceled = searchParams.get("canceled") === "1";
 
@@ -52,6 +53,9 @@ export default function CheckoutPage() {
 
             const data = await response.json();
             if (!response.ok) {
+                if (response.status === 403) {
+                    throw new Error("Somente o dono do workspace pode iniciar a assinatura.");
+                }
                 throw new Error(data?.error || "Erro ao iniciar checkout.");
             }
 
@@ -62,7 +66,7 @@ export default function CheckoutPage() {
             window.location.href = data.url;
         } catch (error) {
             console.error(error);
-            setMessage("Não foi possível abrir o checkout agora. Verifique as variáveis de ambiente e tente novamente.");
+            setMessage(error instanceof Error ? error.message : "Não foi possível abrir o checkout agora.");
         } finally {
             setCheckoutLoading(false);
         }
@@ -88,6 +92,9 @@ export default function CheckoutPage() {
 
             const data = await response.json();
             if (!response.ok) {
+                if (response.status === 403) {
+                    throw new Error("Somente o dono do workspace pode gerenciar a assinatura.");
+                }
                 throw new Error(data?.error || "Erro ao abrir portal.");
             }
 
@@ -98,7 +105,7 @@ export default function CheckoutPage() {
             window.location.href = data.url;
         } catch (error) {
             console.error(error);
-            setMessage("Não foi possível abrir o portal de assinatura neste momento.");
+            setMessage(error instanceof Error ? error.message : "Não foi possível abrir o portal de assinatura neste momento.");
         } finally {
             setPortalLoading(false);
         }
@@ -201,7 +208,7 @@ export default function CheckoutPage() {
 
                     <button
                         onClick={handleStartCheckout}
-                        disabled={checkoutLoading}
+                        disabled={checkoutLoading || !isOwner}
                         className="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl text-center transition-all transform hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed"
                     >
                         {checkoutLoading ? (
@@ -221,7 +228,7 @@ export default function CheckoutPage() {
                     {workspace?.billing?.stripeCustomerId && (
                         <button
                             onClick={handleOpenPortal}
-                            disabled={portalLoading}
+                            disabled={portalLoading || !isOwner}
                             className="w-full bg-slate-700 hover:bg-slate-600 text-white font-medium py-3 rounded-xl transition-colors inline-flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                         >
                             {portalLoading ? (
@@ -236,6 +243,12 @@ export default function CheckoutPage() {
                 {message && (
                     <div className="mb-4 rounded-lg bg-red-500/10 border border-red-500/30 p-3 text-xs text-red-200">
                         {message}
+                    </div>
+                )}
+
+                {!isOwner && (
+                    <div className="mb-4 rounded-lg bg-amber-500/10 border border-amber-500/30 p-3 text-xs text-amber-100">
+                        Apenas o dono do workspace pode iniciar ou gerenciar assinatura.
                     </div>
                 )}
 

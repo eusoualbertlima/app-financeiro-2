@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
-import { requireUserIdFromRequest } from "@/lib/serverAuth";
+import { requireUserFromRequest } from "@/lib/serverAuth";
 import { getAppUrl, getStripe } from "@/lib/stripe";
 import { getDefaultTrialEndsAt } from "@/lib/billing";
 import type { Workspace } from "@/types";
@@ -22,7 +22,9 @@ function getPriceId(plan: "monthly" | "yearly") {
 
 export async function POST(request: NextRequest) {
     try {
-        const uid = await requireUserIdFromRequest(request);
+        const decodedUser = await requireUserFromRequest(request);
+        const uid = decodedUser.uid;
+        const userEmail = decodedUser.email;
         const body = (await request.json()) as CheckoutBody;
         const workspaceId = body.workspaceId;
         const plan: "monthly" | "yearly" = body.plan === "yearly" ? "yearly" : "monthly";
@@ -48,8 +50,7 @@ export async function POST(request: NextRequest) {
         }
 
         const workspaceData = workspaceSnap.data() as Omit<Workspace, "id">;
-        const members = workspaceData.members || [];
-        if (!members.includes(uid)) {
+        if (workspaceData.ownerId !== uid) {
             return NextResponse.json({ error: "Forbidden." }, { status: 403 });
         }
 
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
         let customerId = billing.stripeCustomerId;
         if (!customerId) {
             const customer = await stripe.customers.create({
-                email: undefined,
+                email: userEmail,
                 name: workspaceData.name || "Workspace",
                 metadata: {
                     workspaceId,

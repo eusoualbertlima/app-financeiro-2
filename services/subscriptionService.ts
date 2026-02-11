@@ -1,7 +1,8 @@
 import { db } from "@/lib/firebase";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { UserProfile } from "@/types";
+import { collection, doc, getDoc, getDocs, query, setDoc, where } from "firebase/firestore";
+import { UserProfile, Workspace } from "@/types";
 import { User } from "firebase/auth";
+import { normalizeWorkspaceBilling, toUserSubscriptionStatus } from "@/lib/billing";
 
 export const SubscriptionService = {
     /**
@@ -11,30 +12,45 @@ export const SubscriptionService = {
     async checkSubscriptionStatus(user: User): Promise<UserProfile> {
         const userRef = doc(db, "users", user.uid);
         const userSnap = await getDoc(userRef);
+        let existingProfile: UserProfile | null = null;
 
         if (userSnap.exists()) {
-            return userSnap.data() as UserProfile;
-        } else {
-            // Cria perfil inicial se não existir
-            const initialProfile: UserProfile = {
-                uid: user.uid,
-                email: user.email || "",
-                displayName: user.displayName || "Usuário",
-                photoURL: user.photoURL || undefined,
-                subscriptionStatus: "inactive", // Começa como inativo (precisa pagar)
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
-            };
-
-            await setDoc(userRef, initialProfile);
-            return initialProfile;
+            existingProfile = userSnap.data() as UserProfile;
         }
+
+        const workspaceQuery = query(
+            collection(db, "workspaces"),
+            where("members", "array-contains", user.uid)
+        );
+        const workspaceSnap = await getDocs(workspaceQuery);
+        const workspaceDoc = workspaceSnap.empty
+            ? null
+            : ({ id: workspaceSnap.docs[0].id, ...workspaceSnap.docs[0].data() } as Workspace);
+
+        const normalizedBilling = normalizeWorkspaceBilling(workspaceDoc);
+        const profile: UserProfile = {
+            uid: user.uid,
+            email: user.email || existingProfile?.email || "",
+            displayName: user.displayName || existingProfile?.displayName || "Usuário",
+            photoURL: user.photoURL || existingProfile?.photoURL,
+            subscriptionStatus: toUserSubscriptionStatus(normalizedBilling.status),
+            subscriptionPlan: normalizedBilling.plan || existingProfile?.subscriptionPlan,
+            createdAt: existingProfile?.createdAt || Date.now(),
+            updatedAt: Date.now(),
+        };
+
+        await setDoc(userRef, profile, { merge: true });
+        return profile;
     },
 
     /**
      * Atualiza o status da assinatura (usado via Webhook ou Admin)
      */
-    async updateSubscription(uid: string, status: 'active' | 'inactive', plan: 'monthly' | 'yearly') {
+    async updateSubscription(
+        uid: string,
+        status: 'active' | 'inactive' | 'trial' | 'past_due' | 'canceled',
+        plan: 'monthly' | 'yearly'
+    ) {
         const userRef = doc(db, "users", uid);
         await setDoc(userRef, {
             subscriptionStatus: status,
