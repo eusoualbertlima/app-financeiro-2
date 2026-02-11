@@ -74,6 +74,31 @@ export function useRecurringBills() {
     return { bills, loading, add, update, remove };
 }
 
+const statusPriority: Record<BillPayment['status'], number> = {
+    paid: 4,
+    overdue: 3,
+    pending: 2,
+    skipped: 1,
+};
+
+const pickPreferredPayment = (current: BillPayment | undefined, candidate: BillPayment) => {
+    if (!current) return candidate;
+
+    const currentPriority = statusPriority[current.status] || 0;
+    const candidatePriority = statusPriority[candidate.status] || 0;
+
+    if (candidatePriority > currentPriority) return candidate;
+
+    const currentUpdated = current.paidAt || 0;
+    const candidateUpdated = candidate.paidAt || 0;
+
+    if (candidatePriority === currentPriority && candidateUpdated > currentUpdated) {
+        return candidate;
+    }
+
+    return current;
+};
+
 // Pagamentos de despesas fixas por mês
 export function useBillPayments(month: number, year: number) {
     const { workspace } = useWorkspace();
@@ -99,7 +124,16 @@ export function useBillPayments(month: number, year: number) {
 
             // Filtrar pagamentos de despesas que já foram excluídas
             const activeBillIds = bills.map(b => b.id);
-            setPayments(items.filter(p => activeBillIds.includes(p.billId)));
+            const validItems = items.filter(p => activeBillIds.includes(p.billId));
+
+            // Garantir apenas um pagamento por billId na UI
+            const uniqueByBillId = validItems.reduce((acc, payment) => {
+                const current = acc.get(payment.billId);
+                acc.set(payment.billId, pickPreferredPayment(current, payment));
+                return acc;
+            }, new Map<string, BillPayment>());
+
+            setPayments(Array.from(uniqueByBillId.values()));
             setLoading(false);
         });
 
@@ -110,24 +144,61 @@ export function useBillPayments(month: number, year: number) {
     const generatePayments = async () => {
         if (!workspace?.id || !bills.length) return;
 
-        const existingBillIds = payments.map(p => p.billId);
+        const monthlyQuery = query(
+            collection(db, `workspaces/${workspace.id}/bill_payments`),
+            where('month', '==', month),
+            where('year', '==', year)
+        );
+        const monthlySnapshot = await getDocs(monthlyQuery);
+
+        const activeBillIds = new Set(bills.map(b => b.id));
+        const snapshotsByBill = monthlySnapshot.docs.reduce((acc, docSnap) => {
+            const data = docSnap.data() as BillPayment;
+            if (!activeBillIds.has(data.billId)) return acc;
+
+            const list = acc.get(data.billId) || [];
+            list.push(docSnap);
+            acc.set(data.billId, list);
+            return acc;
+        }, new Map<string, typeof monthlySnapshot.docs>());
+
+        // Limpar duplicatas antigas, mantendo apenas um registro por billId
+        for (const [billId, docs] of snapshotsByBill.entries()) {
+            if (docs.length <= 1) continue;
+
+            let preferredDoc = docs[0];
+            for (const currentDoc of docs.slice(1)) {
+                const preferredData = { id: preferredDoc.id, ...(preferredDoc.data() as Omit<BillPayment, 'id'>) } as BillPayment;
+                const currentData = { id: currentDoc.id, ...(currentDoc.data() as Omit<BillPayment, 'id'>) } as BillPayment;
+                const selected = pickPreferredPayment(preferredData, currentData);
+                preferredDoc = selected.id === currentDoc.id ? currentDoc : preferredDoc;
+            }
+
+            const duplicates = docs.filter(d => d.id !== preferredDoc.id);
+            await Promise.all(
+                duplicates.map(d => deleteDoc(doc(db, `workspaces/${workspace.id}/bill_payments`, d.id)))
+            );
+
+            snapshotsByBill.set(billId, [preferredDoc]);
+        }
 
         for (const bill of bills) {
-            if (!existingBillIds.includes(bill.id)) {
-                const now = new Date();
-                const dueDate = new Date(year, month - 1, bill.dueDay);
-                const isOverdue = dueDate < now;
+            if ((snapshotsByBill.get(bill.id) || []).length > 0) continue;
 
-                await addDoc(collection(db, `workspaces/${workspace.id}/bill_payments`), {
-                    billId: bill.id,
-                    billName: bill.name,
-                    amount: bill.amount,
-                    month,
-                    year,
-                    dueDay: bill.dueDay,
-                    status: isOverdue ? 'overdue' : 'pending'
-                });
-            }
+            const now = new Date();
+            const dueDate = new Date(year, month - 1, bill.dueDay);
+            const isOverdue = dueDate < now;
+
+            await addDoc(collection(db, `workspaces/${workspace.id}/bill_payments`), {
+                billId: bill.id,
+                billName: bill.name,
+                amount: bill.amount,
+                month,
+                year,
+                dueDay: bill.dueDay,
+                status: isOverdue ? 'overdue' : 'pending',
+                createdAt: Date.now()
+            });
         }
     };
 
@@ -182,32 +253,55 @@ export function useBillPayments(month: number, year: number) {
         await updateDoc(doc(db, `workspaces/${workspace.id}/bill_payments`, paymentId), updateData);
     };
 
+    const unlinkPaymentFromTransaction = async (payment: BillPayment & { transactionId?: string }) => {
+        if (!workspace?.id) return;
+
+        if (payment.paidAccountId && payment.paidAmount) {
+            await updateDoc(
+                doc(db, `workspaces/${workspace.id}/accounts`, payment.paidAccountId),
+                { balance: increment(payment.paidAmount) }
+            );
+        }
+
+        if (payment.transactionId) {
+            try {
+                await deleteDoc(doc(db, `workspaces/${workspace.id}/transactions`, payment.transactionId));
+            } catch (e) { /* transaction may already be deleted */ }
+        }
+    };
+
     const markAsPending = async (paymentId: string) => {
         if (!workspace?.id) return;
-        const payment = payments.find(p => p.id === paymentId);
+        const payment = payments.find(p => p.id === paymentId) as (BillPayment & { transactionId?: string }) | undefined;
         if (!payment) return;
 
         const now = new Date();
         const dueDate = new Date(year, month - 1, payment.dueDay);
         const isOverdue = dueDate < now;
 
-        // Se tinha conta vinculada, reverter saldo
-        if (payment.paidAccountId && payment.paidAmount) {
-            await updateDoc(
-                doc(db, `workspaces/${workspace.id}/accounts`, payment.paidAccountId),
-                { balance: increment(payment.paidAmount) } // Devolve o valor
-            );
-        }
-
-        // Excluir o lançamento vinculado
-        if ((payment as any).transactionId) {
-            try {
-                await deleteDoc(doc(db, `workspaces/${workspace.id}/transactions`, (payment as any).transactionId));
-            } catch (e) { /* transaction may already be deleted */ }
-        }
+        await unlinkPaymentFromTransaction(payment);
 
         await updateDoc(doc(db, `workspaces/${workspace.id}/bill_payments`, paymentId), {
             status: isOverdue ? 'overdue' : 'pending',
+            paidAt: null,
+            paidAmount: null,
+            paidAccountId: null,
+            transactionId: null
+        });
+    };
+
+    const markAsSkipped = async (paymentId: string) => {
+        if (!workspace?.id) return;
+
+        const payment = payments.find(p => p.id === paymentId) as (BillPayment & { transactionId?: string }) | undefined;
+        if (!payment) return;
+
+        if (payment.status === 'paid') {
+            await unlinkPaymentFromTransaction(payment);
+        }
+
+        await updateDoc(doc(db, `workspaces/${workspace.id}/bill_payments`, paymentId), {
+            status: 'skipped',
             paidAt: null,
             paidAmount: null,
             paidAccountId: null,
@@ -221,9 +315,10 @@ export function useBillPayments(month: number, year: number) {
         paid: payments.filter(p => p.status === 'paid').length,
         pending: payments.filter(p => p.status === 'pending').length,
         overdue: payments.filter(p => p.status === 'overdue').length,
+        skipped: payments.filter(p => p.status === 'skipped').length,
         totalAmount: payments.reduce((acc, p) => acc + p.amount, 0),
         paidAmount: payments.filter(p => p.status === 'paid').reduce((acc, p) => acc + (p.paidAmount || p.amount), 0),
     };
 
-    return { payments, loading, generatePayments, markAsPaid, markAsPending, summary };
+    return { payments, loading, generatePayments, markAsPaid, markAsPending, markAsSkipped, summary };
 }

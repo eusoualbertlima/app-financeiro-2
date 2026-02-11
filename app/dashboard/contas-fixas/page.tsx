@@ -6,7 +6,7 @@ import { useCollection } from "@/hooks/useFirestore";
 import { CurrencyInput } from "@/components/CurrencyInput";
 import {
     CalendarDays, Plus, X, Check, Clock, AlertTriangle,
-    ChevronLeft, ChevronRight, Edit3, Trash2, Undo2
+    ChevronLeft, ChevronRight, Edit3, Trash2, Undo2, SkipForward
 } from "lucide-react";
 import { Header } from "@/components/Navigation";
 import type { Account } from "@/types";
@@ -17,7 +17,7 @@ export default function ContasFixasPage() {
     const [year, setYear] = useState(now.getFullYear());
 
     const { bills, loading: billsLoading, add, update, remove } = useRecurringBills();
-    const { payments, loading: paymentsLoading, generatePayments, markAsPaid, markAsPending, summary } = useBillPayments(month, year);
+    const { payments, loading: paymentsLoading, generatePayments, markAsPaid, markAsPending, markAsSkipped, summary } = useBillPayments(month, year);
     const { data: contas } = useCollection<Account>("accounts");
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -109,6 +109,8 @@ export default function ContasFixasPage() {
                 return { icon: Check, color: 'text-green-600', bg: 'bg-green-100', label: 'Pago' };
             case 'overdue':
                 return { icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-100', label: 'Atrasado' };
+            case 'skipped':
+                return { icon: SkipForward, color: 'text-slate-500', bg: 'bg-slate-100', label: 'Pulado' };
             default:
                 return { icon: Clock, color: 'text-amber-600', bg: 'bg-amber-100', label: 'Pendente' };
         }
@@ -151,7 +153,7 @@ export default function ContasFixasPage() {
             </div>
 
             {/* Resumo */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
                 <div className="card p-4 text-center">
                     <p className="text-2xl font-bold text-slate-900">{summary.total}</p>
                     <p className="text-sm text-slate-500">Total</p>
@@ -167,6 +169,10 @@ export default function ContasFixasPage() {
                 <div className="card p-4 text-center border-l-4 border-red-500">
                     <p className="text-2xl font-bold text-red-600">{summary.overdue}</p>
                     <p className="text-sm text-slate-500">Atrasadas</p>
+                </div>
+                <div className="card p-4 text-center border-l-4 border-slate-400">
+                    <p className="text-2xl font-bold text-slate-600">{summary.skipped}</p>
+                    <p className="text-sm text-slate-500">Puladas</p>
                 </div>
             </div>
 
@@ -200,7 +206,7 @@ export default function ContasFixasPage() {
                                     <p className={`text-xs font-medium ${status.color}`}>{status.label}</p>
                                 </div>
                                 <div className="flex gap-1">
-                                    {payment.status !== 'paid' ? (
+                                    {payment.status !== 'paid' && payment.status !== 'skipped' && (
                                         <button
                                             onClick={() => { setPayModalOpen(payment.id); setSelectedAccount(''); }}
                                             className="p-2 bg-green-100 text-green-600 hover:bg-green-200 rounded-lg transition-colors"
@@ -208,13 +214,33 @@ export default function ContasFixasPage() {
                                         >
                                             <Check className="w-4 h-4" />
                                         </button>
-                                    ) : (
+                                    )}
+
+                                    {payment.status === 'paid' ? (
                                         <button
                                             onClick={() => markAsPending(payment.id)}
                                             className="p-2 bg-slate-100 text-slate-500 hover:bg-slate-200 rounded-lg transition-colors"
                                             title="Desfazer pagamento"
                                         >
                                             <Undo2 className="w-4 h-4" />
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={() => markAsSkipped(payment.id)}
+                                            className="p-2 bg-slate-100 text-slate-500 hover:bg-slate-200 rounded-lg transition-colors"
+                                            title="Pular este mês"
+                                        >
+                                            <SkipForward className="w-4 h-4" />
+                                        </button>
+                                    )}
+
+                                    {payment.status === 'skipped' && (
+                                        <button
+                                            onClick={() => markAsPending(payment.id)}
+                                            className="p-2 bg-amber-100 text-amber-600 hover:bg-amber-200 rounded-lg transition-colors"
+                                            title="Reativar cobrança"
+                                        >
+                                            <Clock className="w-4 h-4" />
                                         </button>
                                     )}
                                 </div>
