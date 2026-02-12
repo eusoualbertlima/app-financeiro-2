@@ -3,6 +3,7 @@ import { getAdminDb } from "@/lib/firebaseAdmin";
 import { requireUserFromRequest } from "@/lib/serverAuth";
 import { getAppUrl, getStripe } from "@/lib/stripe";
 import { getDefaultTrialEndsAt } from "@/lib/billing";
+import { sendOpsAlert, serializeError } from "@/lib/opsAlerts";
 import type { Workspace } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +23,8 @@ function getPriceId(plan: "monthly" | "yearly") {
 }
 
 export async function POST(request: NextRequest) {
+    let alertContext: Record<string, unknown> = {};
+
     try {
         const decodedUser = await requireUserFromRequest(request);
         const uid = decodedUser.uid;
@@ -30,6 +33,12 @@ export async function POST(request: NextRequest) {
         const workspaceId = body.workspaceId;
         const plan: "monthly" | "yearly" = body.plan === "yearly" ? "yearly" : "monthly";
         const acceptedLegal = body.acceptedLegal === true;
+        alertContext = {
+            uid,
+            workspaceId: workspaceId || "missing",
+            plan,
+            acceptedLegal,
+        };
 
         if (!workspaceId) {
             return NextResponse.json({ error: "workspaceId is required." }, { status: 400 });
@@ -37,6 +46,12 @@ export async function POST(request: NextRequest) {
 
         const priceId = getPriceId(plan);
         if (!priceId) {
+            await sendOpsAlert({
+                source: "api/billing/create-checkout-session",
+                message: `Missing Stripe price env for ${plan}.`,
+                level: "error",
+                context: alertContext,
+            });
             return NextResponse.json(
                 { error: `Missing Stripe price env for ${plan}.` },
                 { status: 500 }
@@ -131,6 +146,15 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ url: session.url });
     } catch (error: any) {
         console.error("create-checkout-session error:", error);
+        await sendOpsAlert({
+            source: "api/billing/create-checkout-session",
+            message: "Unhandled exception while creating checkout session.",
+            level: "error",
+            context: {
+                ...alertContext,
+                error: serializeError(error),
+            },
+        });
         return NextResponse.json(
             { error: error?.message || "Unable to create checkout session." },
             { status: 500 }

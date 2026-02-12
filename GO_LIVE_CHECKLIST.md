@@ -9,9 +9,10 @@
 - [x] Páginas legais básicas (`/termos` e `/privacidade`)
 - [x] Aceite de termos/política antes de iniciar checkout
 - [x] CI básico (TypeScript + build)
+- [x] Alertas operacionais por webhook para erros críticos de billing
 
 ## 2) Alta prioridade (próximos passos)
-- [ ] Implementar monitoramento de erros (Sentry) em client + server
+- [ ] Implementar monitoramento de erros (Sentry) em client + server (além dos alertas de billing já ativos)
 - [ ] Criar rotina/admin de reconciliação de saldos por conta
 - [ ] Definir política comercial: cancelamento, reembolso e SLA de suporte
 - [ ] Página pública de suporte/contato

@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { getDefaultTrialEndsAt, toUserSubscriptionStatus } from "@/lib/billing";
 import { getStripe } from "@/lib/stripe";
+import { sendOpsAlert, serializeError } from "@/lib/opsAlerts";
 import type { Workspace, WorkspaceBillingStatus } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -125,18 +126,33 @@ async function applySubscriptionToWorkspace(workspaceId: string, subscription: S
 export async function POST(request: NextRequest) {
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
     if (!webhookSecret) {
+        await sendOpsAlert({
+            source: "api/billing/webhook",
+            message: "Missing STRIPE_WEBHOOK_SECRET.",
+            level: "error",
+        });
         return NextResponse.json({ error: "Missing STRIPE_WEBHOOK_SECRET." }, { status: 500 });
     }
 
     const signature = request.headers.get("stripe-signature");
     if (!signature) {
+        await sendOpsAlert({
+            source: "api/billing/webhook",
+            message: "Missing stripe-signature header.",
+            level: "warning",
+        });
         return NextResponse.json({ error: "Missing stripe-signature header." }, { status: 400 });
     }
 
+    let eventType: string | null = null;
+    let payloadSize = 0;
+
     try {
         const payload = await request.text();
+        payloadSize = payload.length;
         const stripe = getStripe();
         const event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+        eventType = event.type;
 
         if (event.type === "checkout.session.completed") {
             const session = event.data.object as Stripe.Checkout.Session;
@@ -148,6 +164,17 @@ export async function POST(request: NextRequest) {
                 const targetWorkspaceId = workspaceId || await findWorkspaceIdBySubscription(subscription);
                 if (targetWorkspaceId) {
                     await applySubscriptionToWorkspace(targetWorkspaceId, subscription);
+                } else {
+                    await sendOpsAlert({
+                        source: "api/billing/webhook",
+                        message: "checkout.session.completed received without resolvable workspace.",
+                        level: "warning",
+                        context: {
+                            eventType: event.type,
+                            subscriptionId,
+                            workspaceIdFromSession: workspaceId || null,
+                        },
+                    });
                 }
             }
         }
@@ -161,12 +188,32 @@ export async function POST(request: NextRequest) {
             const workspaceId = await findWorkspaceIdBySubscription(subscription);
             if (workspaceId) {
                 await applySubscriptionToWorkspace(workspaceId, subscription);
+            } else {
+                await sendOpsAlert({
+                    source: "api/billing/webhook",
+                    message: "Subscription event received without resolvable workspace.",
+                    level: "warning",
+                    context: {
+                        eventType: event.type,
+                        subscriptionId: subscription.id,
+                    },
+                });
             }
         }
 
         return NextResponse.json({ received: true });
     } catch (error: any) {
         console.error("Stripe webhook error:", error);
+        await sendOpsAlert({
+            source: "api/billing/webhook",
+            message: "Stripe webhook handler failed.",
+            level: "error",
+            context: {
+                eventType,
+                payloadSize,
+                error: serializeError(error),
+            },
+        });
         return NextResponse.json(
             { error: error?.message || "Webhook handler failed." },
             { status: 400 }

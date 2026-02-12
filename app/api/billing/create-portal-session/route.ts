@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { requireUserIdFromRequest } from "@/lib/serverAuth";
 import { getAppUrl, getStripe } from "@/lib/stripe";
+import { sendOpsAlert, serializeError } from "@/lib/opsAlerts";
 import type { Workspace } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -12,10 +13,16 @@ type PortalBody = {
 };
 
 export async function POST(request: NextRequest) {
+    let alertContext: Record<string, unknown> = {};
+
     try {
         const uid = await requireUserIdFromRequest(request);
         const body = (await request.json()) as PortalBody;
         const workspaceId = body.workspaceId;
+        alertContext = {
+            uid,
+            workspaceId: workspaceId || "missing",
+        };
 
         if (!workspaceId) {
             return NextResponse.json({ error: "workspaceId is required." }, { status: 400 });
@@ -52,6 +59,15 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ url: session.url });
     } catch (error: any) {
         console.error("create-portal-session error:", error);
+        await sendOpsAlert({
+            source: "api/billing/create-portal-session",
+            message: "Unhandled exception while creating portal session.",
+            level: "error",
+            context: {
+                ...alertContext,
+                error: serializeError(error),
+            },
+        });
         return NextResponse.json(
             { error: error?.message || "Unable to create portal session." },
             { status: 500 }
