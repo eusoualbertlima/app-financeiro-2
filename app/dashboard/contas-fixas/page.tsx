@@ -9,7 +9,7 @@ import {
     ChevronLeft, ChevronRight, Edit3, Trash2, Undo2, SkipForward
 } from "lucide-react";
 import { Header } from "@/components/Navigation";
-import type { Account } from "@/types";
+import type { Account, BillPayment } from "@/types";
 
 export default function ContasFixasPage() {
     const now = new Date();
@@ -24,6 +24,8 @@ export default function ContasFixasPage() {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [payModalOpen, setPayModalOpen] = useState<string | null>(null);
     const [selectedAccount, setSelectedAccount] = useState('');
+    const [payAmount, setPayAmount] = useState(0);
+    const [payNote, setPayNote] = useState('');
 
     const [formData, setFormData] = useState({
         name: '',
@@ -98,9 +100,21 @@ export default function ContasFixasPage() {
     };
 
     const handlePay = async (paymentId: string) => {
-        await markAsPaid(paymentId, undefined, selectedAccount || undefined);
+        if (Number(payAmount) > MAX_AMOUNT) {
+            alert('O valor máximo permitido é R$ 999.999.999,99');
+            return;
+        }
+
+        if (Number(payAmount) <= 0) {
+            alert('O valor precisa ser maior que zero.');
+            return;
+        }
+
+        await markAsPaid(paymentId, Number(payAmount), selectedAccount || undefined, payNote.trim() || undefined);
         setPayModalOpen(null);
         setSelectedAccount('');
+        setPayAmount(0);
+        setPayNote('');
     };
 
     const handleSkip = async (paymentId: string, billName: string) => {
@@ -124,6 +138,9 @@ export default function ContasFixasPage() {
 
     const loading = billsLoading || paymentsLoading;
     const sortedPayments = [...payments].sort((a, b) => a.dueDay - b.dueDay);
+    const selectedPayment = payModalOpen
+        ? sortedPayments.find((payment: BillPayment) => payment.id === payModalOpen) || null
+        : null;
 
     if (loading && payments.length === 0) {
         return (
@@ -223,7 +240,12 @@ export default function ContasFixasPage() {
                                                 <SkipForward className="w-4 h-4" />
                                             </button>
                                             <button
-                                                onClick={() => { setPayModalOpen(payment.id); setSelectedAccount(''); }}
+                                                onClick={() => {
+                                                    setPayModalOpen(payment.id);
+                                                    setSelectedAccount('');
+                                                    setPayAmount(payment.amount);
+                                                    setPayNote('');
+                                                }}
                                                 className="p-2 bg-green-100 text-green-600 hover:bg-green-200 rounded-lg transition-colors"
                                                 title="Marcar como pago"
                                             >
@@ -351,8 +373,27 @@ export default function ContasFixasPage() {
                         <h3 className="text-lg font-semibold mb-4">Confirmar Pagamento</h3>
 
                         <p className="text-sm text-slate-500 mb-4">
-                            De qual conta saiu o pagamento? (opcional)
+                            Confirme o valor pago e a conta de saída.
                         </p>
+
+                        <div className="mb-4 p-3 rounded-lg bg-slate-50">
+                            <p className="text-xs text-slate-500">Conta fixa</p>
+                            <p className="font-medium text-slate-900">{selectedPayment?.billName || 'Conta Fixa'}</p>
+                            {selectedPayment && (
+                                <p className="text-xs text-slate-500 mt-1">
+                                    Valor previsto: {formatCurrency(selectedPayment.amount)}
+                                </p>
+                            )}
+                        </div>
+
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-slate-700 mb-2">Valor pago</label>
+                            <CurrencyInput
+                                value={payAmount}
+                                onChange={setPayAmount}
+                                className="input"
+                            />
+                        </div>
 
                         <div className="space-y-2 mb-6">
                             {contas.map(conta => (
@@ -372,6 +413,16 @@ export default function ContasFixasPage() {
                                     <span>{conta.name}</span>
                                 </button>
                             ))}
+                        </div>
+
+                        <div className="mb-6">
+                            <label className="block text-sm font-medium text-slate-700 mb-2">Observação (opcional)</label>
+                            <textarea
+                                value={payNote}
+                                onChange={(e) => setPayNote(e.target.value)}
+                                className="input min-h-[88px] resize-y"
+                                placeholder="Ex: valor com desconto, ajuste pontual, taxa extra..."
+                            />
                         </div>
 
                         <div className="flex gap-3">

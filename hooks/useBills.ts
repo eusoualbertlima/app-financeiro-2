@@ -248,11 +248,12 @@ export function useBillPayments(month: number, year: number) {
         );
     };
 
-    const markAsPaid = async (paymentId: string, paidAmount?: number, accountId?: string) => {
+    const markAsPaid = async (paymentId: string, paidAmount?: number, accountId?: string, note?: string) => {
         if (!workspace?.id) return;
 
         const payment = payments.find(p => p.id === paymentId);
-        const amount = paidAmount || payment?.amount || 0;
+        const amount = paidAmount ?? payment?.amount ?? 0;
+        const normalizedNote = note?.trim();
 
         const updateData: any = {
             status: 'paid',
@@ -278,6 +279,7 @@ export function useBillPayments(month: number, year: number) {
             source: 'bill_payment',
             billPaymentId: paymentId,
         };
+        if (normalizedNote) transactionData.notes = normalizedNote;
         if (accountId) transactionData.accountId = accountId;
         if (payment?.billId) {
             const bill = bills.find(b => b.id === payment.billId);

@@ -25,6 +25,10 @@ function cleanUndefined<T extends Record<string, any>>(obj: T): Partial<T> {
     ) as Partial<T>;
 }
 
+function resolveTransactionAccountId(transaction: Partial<Transaction>) {
+    return transaction.paidAccountId || transaction.accountId;
+}
+
 export function useTransactions(month?: number, year?: number) {
     const { user } = useAuth();
     const { workspace } = useWorkspace();
@@ -83,6 +87,7 @@ export function useTransactions(month?: number, year?: number) {
         // Limpa campos undefined
         const cleanData = cleanUndefined({
             description: item.description,
+            notes: item.notes?.trim() || undefined,
             amount: item.amount,
             type: item.type,
             date: item.date,
@@ -111,8 +116,38 @@ export function useTransactions(month?: number, year?: number) {
 
     const update = async (id: string, item: Partial<Transaction>) => {
         if (!workspace?.id) return;
+
+        const txRef = doc(db, `workspaces/${workspace.id}/transactions`, id);
+        const transactionDoc = await getDoc(txRef);
+        if (!transactionDoc.exists()) return;
+
+        const currentData = {
+            id: transactionDoc.id,
+            ...transactionDoc.data(),
+        } as Transaction;
+
         const cleanData = cleanUndefined(item);
-        await updateDoc(doc(db, `workspaces/${workspace.id}/transactions`, id), cleanData);
+        const nextData = { ...currentData, ...cleanData } as Transaction;
+
+        await updateDoc(txRef, cleanData);
+
+        const currentAccountId = resolveTransactionAccountId(currentData);
+        const nextAccountId = resolveTransactionAccountId(nextData);
+        const affectsBalance =
+            currentData.status !== nextData.status ||
+            currentData.amount !== nextData.amount ||
+            currentData.type !== nextData.type ||
+            currentAccountId !== nextAccountId;
+
+        if (!affectsBalance) return;
+
+        if (currentData.status === 'paid' && currentAccountId) {
+            await updateAccountBalance(currentAccountId, currentData.amount, currentData.type === 'income');
+        }
+
+        if (nextData.status === 'paid' && nextAccountId) {
+            await updateAccountBalance(nextAccountId, nextData.amount, nextData.type === 'expense');
+        }
     };
 
     const remove = async (id: string) => {
@@ -149,9 +184,10 @@ export function useTransactions(month?: number, year?: number) {
                 return;
             }
 
-            if (data.status === 'paid' && data.accountId) {
+            const accountId = resolveTransactionAccountId(data);
+            if (data.status === 'paid' && accountId) {
                 // Reverter: se era despesa, devolve; se era receita, remove
-                await updateAccountBalance(data.accountId, data.amount, data.type === 'income');
+                await updateAccountBalance(accountId, data.amount, data.type === 'income');
             }
         }
 
@@ -172,15 +208,20 @@ export function useTransactions(month?: number, year?: number) {
             status: 'paid',
             paidAt: Date.now(),
         };
-        if (accountId) {
-            updateData.paidAccountId = accountId;
+        const effectiveAccountId = accountId || data.accountId || data.paidAccountId;
+        if (effectiveAccountId) {
+            updateData.paidAccountId = effectiveAccountId;
+
+            if (!data.accountId) {
+                updateData.accountId = effectiveAccountId;
+            }
         }
 
         await updateDoc(doc(db, `workspaces/${workspace.id}/transactions`, id), updateData);
 
         // Atualizar saldo da conta
-        if (accountId) {
-            await updateAccountBalance(accountId, data.amount, data.type === 'expense');
+        if (effectiveAccountId) {
+            await updateAccountBalance(effectiveAccountId, data.amount, data.type === 'expense');
         }
     };
 

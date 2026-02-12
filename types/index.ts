@@ -57,6 +57,7 @@ export interface Category {
 export interface Transaction {
     id: string;
     description: string;
+    notes?: string;
     amount: number;
     date: number;
     dueDate?: number;

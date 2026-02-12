@@ -4,10 +4,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/hooks/useFirestore";
 import { getWorkspaceAccessState } from "@/lib/billing";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Shield, Check, Star, LogOut, Loader2, CircleAlert, CalendarClock, CreditCard } from "lucide-react";
 
-export default function CheckoutPage() {
+function CheckoutContent() {
     const { user, loading: authLoading, signOut } = useAuth();
     const { workspace, loading: workspaceLoading } = useWorkspace();
     const router = useRouter();
@@ -260,5 +260,13 @@ export default function CheckoutPage() {
                 </button>
             </div>
         </div>
+    );
+}
+
+export default function CheckoutPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">Carregando...</div>}>
+            <CheckoutContent />
+        </Suspense>
     );
 }

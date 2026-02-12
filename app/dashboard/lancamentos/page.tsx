@@ -42,6 +42,7 @@ export default function LancamentosPage() {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [formData, setFormData] = useState({
         description: '',
+        notes: '',
         amount: 0,
         type: 'expense' as 'expense' | 'income',
         date: new Date().toISOString().split('T')[0],
@@ -56,11 +57,12 @@ export default function LancamentosPage() {
             setEditingId(transaction.id);
             setFormData({
                 description: transaction.description,
+                notes: transaction.notes || '',
                 amount: transaction.amount,
                 type: transaction.type,
                 date: new Date(transaction.date).toISOString().split('T')[0],
                 status: transaction.status,
-                accountId: transaction.accountId || '',
+                accountId: transaction.accountId || transaction.paidAccountId || '',
                 cardId: transaction.cardId || '',
                 categoryId: transaction.categoryId || 'outros',
             });
@@ -68,6 +70,7 @@ export default function LancamentosPage() {
             setEditingId(null);
             setFormData({
                 description: '',
+                notes: '',
                 amount: 0,
                 type: 'expense',
                 date: new Date().toISOString().split('T')[0],
@@ -131,6 +134,7 @@ export default function LancamentosPage() {
         if (editingId) {
             await update(editingId, {
                 description: formData.description,
+                notes: formData.notes.trim() || undefined,
                 amount: Number(formData.amount),
                 type: formData.type,
                 date: new Date(formData.date).getTime(),
@@ -142,6 +146,7 @@ export default function LancamentosPage() {
         } else {
             await add({
                 description: formData.description,
+                notes: formData.notes.trim() || undefined,
                 amount: Number(formData.amount),
                 type: formData.type,
                 date: new Date(formData.date).getTime(),
@@ -162,9 +167,9 @@ export default function LancamentosPage() {
     const filteredTransactions = transactions.filter(t => {
         if (typeFilter !== 'all' && t.type !== typeFilter) return false;
         if (statusFilter !== 'all' && t.status !== statusFilter) return false;
-        if (sourceFilter === 'account' && !t.accountId) return false;
+        if (sourceFilter === 'account' && !t.accountId && !t.paidAccountId) return false;
         if (sourceFilter === 'card' && !t.cardId) return false;
-        if (specificAccountId && t.accountId !== specificAccountId) return false;
+        if (specificAccountId && t.accountId !== specificAccountId && t.paidAccountId !== specificAccountId) return false;
         if (specificCardId && t.cardId !== specificCardId) return false;
         if (categoryFilter && (t.categoryId || 'outros') !== categoryFilter) return false;
         return true;
@@ -361,8 +366,11 @@ export default function LancamentosPage() {
                                             <span>{formatDate(t.date)}</span>
                                             {isFromPastMonth && <span className="text-amber-600 font-medium">• Mês anterior</span>}
                                             {t.cardId && <CreditCard className="w-3 h-3" />}
-                                            {t.accountId && <Wallet className="w-3 h-3" />}
+                                            {(t.accountId || t.paidAccountId) && <Wallet className="w-3 h-3" />}
                                         </div>
+                                        {t.notes && (
+                                            <p className="text-xs text-slate-500 mt-1 truncate">{t.notes}</p>
+                                        )}
                                     </div>
                                     <div className="text-right">
                                         <p className={`font-bold ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
@@ -370,7 +378,7 @@ export default function LancamentosPage() {
                                         </p>
                                         {t.status === 'pending' ? (
                                             <button
-                                                onClick={() => markAsPaid(t.id)}
+                                                onClick={() => markAsPaid(t.id, t.accountId || t.paidAccountId)}
                                                 className="text-xs text-amber-600 hover:text-amber-700 flex items-center gap-1 justify-end"
                                             >
                                                 <Clock className="w-3 h-3" /> Pendente
@@ -452,6 +460,16 @@ export default function LancamentosPage() {
                                     className="input"
                                     placeholder="Ex: Supermercado, Salário..."
                                     required
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">Observação (opcional)</label>
+                                <textarea
+                                    value={formData.notes}
+                                    onChange={e => setFormData({ ...formData, notes: e.target.value })}
+                                    className="input min-h-[88px] resize-y"
+                                    placeholder="Ex: referente a fevereiro, ajuste de valor, combinado..."
                                 />
                             </div>
 
