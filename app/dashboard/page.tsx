@@ -39,8 +39,21 @@ export default function DashboardPage() {
     const saldoTotal = contas.reduce((acc, conta) => acc + conta.balance, 0);
     const limiteTotal = cartoes.reduce((acc, cartao) => acc + cartao.limit, 0);
 
-    // Total de despesas do mês = transações pagas + contas fixas pagas
-    const totalDespesasMes = totals.expense + billSummary.paidAmount;
+    const paidExpenseTransactions = transactions.filter(
+        (transaction) =>
+            transaction.type === 'expense'
+            && transaction.status === 'paid'
+            && transaction.source !== 'transfer'
+    );
+    const paidFixedExpenseTransactions = paidExpenseTransactions.filter(
+        (transaction) => transaction.source === 'bill_payment'
+    );
+    const paidManualExpenseTransactions = paidExpenseTransactions.filter(
+        (transaction) => transaction.source !== 'bill_payment'
+    );
+
+    // totals.expense já inclui despesas manuais + contas fixas pagas (source='bill_payment')
+    const totalDespesasMes = totals.expense;
     const totalReceitasMes = totals.income;
 
     // Contas fixas pendentes/atrasadas
@@ -190,7 +203,7 @@ export default function DashboardPage() {
                             <div className="flex items-center gap-1 mt-2">
                                 <ArrowDownRight className="w-3 h-3 text-red-500" />
                                 <span className="text-xs text-red-600 font-medium">
-                                    {transactions.filter(t => t.type === 'expense' && t.source !== 'transfer').length} lançamento(s) + {billSummary.paid} conta(s) fixa(s)
+                                    {paidManualExpenseTransactions.length} lançamento(s) + {paidFixedExpenseTransactions.length} conta(s) fixa(s)
                                 </span>
                             </div>
                         </div>
