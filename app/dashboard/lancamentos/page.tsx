@@ -424,18 +424,19 @@ export default function LancamentosPage() {
                     <div className="relative card p-0 w-full max-w-md overflow-hidden max-h-[92vh]">
                         <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                             <h2 className="text-lg font-semibold text-slate-900">{editingId ? 'Editar Lançamento' : 'Novo Lançamento'}</h2>
-                            <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-lg">
-                                <X className="w-5 h-5 text-slate-500" />
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsNotesPanelOpen(v => !v)}
+                                    className={`text-xs font-semibold px-3 py-2 rounded-lg transition-colors ${isNotesPanelOpen ? 'bg-slate-900 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
+                                >
+                                    Notas
+                                </button>
+                                <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-lg">
+                                    <X className="w-5 h-5 text-slate-500" />
+                                </button>
+                            </div>
                         </div>
-
-                        <button
-                            type="button"
-                            onClick={() => setIsNotesPanelOpen(v => !v)}
-                            className="absolute right-0 top-24 translate-x-full bg-slate-900 text-white text-xs font-semibold px-3 py-2 rounded-r-lg rounded-l-none hover:bg-slate-700 transition-colors z-20"
-                        >
-                            {isNotesPanelOpen ? 'Fechar nota' : 'Nota'}
-                        </button>
 
                         <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto max-h-[calc(92vh-73px)]">
                             {/* Tipo */}
