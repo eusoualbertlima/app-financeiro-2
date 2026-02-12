@@ -14,6 +14,13 @@ export interface WorkspaceBilling {
     updatedAt?: number;
 }
 
+export interface WorkspaceLegal {
+    acceptedTermsAt?: number;
+    acceptedPrivacyAt?: number;
+    acceptedByUid?: string;
+    acceptedByEmail?: string;
+}
+
 export interface Workspace {
     id: string;
     name: string;
@@ -22,6 +29,7 @@ export interface Workspace {
     createdAt: number;
     pendingInvites?: string[];
     billing?: WorkspaceBilling;
+    legal?: WorkspaceLegal;
 }
 
 // Conta Bancária

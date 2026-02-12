@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/hooks/useFirestore";
 import { getWorkspaceAccessState } from "@/lib/billing";
@@ -8,6 +8,7 @@ import { Header } from "@/components/Navigation";
 import { Settings, User, Shield, Bell, Palette, LogOut, ChevronRight, UserPlus, Users, Copy, Check, CreditCard, Loader2 } from "lucide-react";
 import { collection, query, where, getDocs, updateDoc, doc, arrayUnion } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import Link from "next/link";
 
 export default function ConfiguracoesPage() {
     const { user, signOut } = useAuth();
@@ -20,6 +21,15 @@ export default function ConfiguracoesPage() {
     const [copied, setCopied] = useState(false);
     const [billingLoading, setBillingLoading] = useState<"none" | "checkout" | "portal">("none");
     const [billingMessage, setBillingMessage] = useState("");
+    const [acceptedLegal, setAcceptedLegal] = useState(false);
+
+    useEffect(() => {
+        if (!workspace) return;
+        const alreadyAccepted = Boolean(workspace.legal?.acceptedTermsAt && workspace.legal?.acceptedPrivacyAt);
+        if (alreadyAccepted) {
+            setAcceptedLegal(true);
+        }
+    }, [workspace]);
 
     const sections = [
         {
@@ -102,6 +112,10 @@ export default function ConfiguracoesPage() {
 
     const openCheckout = async () => {
         if (!workspace?.id || !user) return;
+        if (!acceptedLegal) {
+            setBillingMessage("Aceite os Termos e a Política de Privacidade para continuar.");
+            return;
+        }
 
         setBillingLoading("checkout");
         setBillingMessage("");
@@ -116,6 +130,7 @@ export default function ConfiguracoesPage() {
                 body: JSON.stringify({
                     workspaceId: workspace.id,
                     plan: workspace.billing?.plan || "monthly",
+                    acceptedLegal: true,
                 }),
             });
 
@@ -236,7 +251,7 @@ export default function ConfiguracoesPage() {
                     <button
                         onClick={openCheckout}
                         className="btn-primary flex-1"
-                        disabled={billingLoading !== "none" || (workspace?.ownerId ? user?.uid !== workspace.ownerId : false)}
+                        disabled={billingLoading !== "none" || !acceptedLegal || (workspace?.ownerId ? user?.uid !== workspace.ownerId : false)}
                     >
                         {billingLoading === "checkout" ? (
                             <span className="inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Abrindo checkout...</span>
@@ -254,6 +269,20 @@ export default function ConfiguracoesPage() {
                         </button>
                     )}
                 </div>
+                <label className="mt-3 flex items-start gap-2 text-xs text-slate-500">
+                    <input
+                        type="checkbox"
+                        checked={acceptedLegal}
+                        onChange={(e) => setAcceptedLegal(e.target.checked)}
+                        className="mt-0.5 w-4 h-4 rounded border-slate-300"
+                    />
+                    <span>
+                        Li e aceito os{" "}
+                        <Link href="/termos" className="underline text-primary-600" target="_blank">Termos de Uso</Link>{" "}
+                        e a{" "}
+                        <Link href="/privacidade" className="underline text-primary-600" target="_blank">Política de Privacidade</Link>.
+                    </span>
+                </label>
                 {billingMessage && (
                     <p className="text-xs text-red-500 mt-2">{billingMessage}</p>
                 )}

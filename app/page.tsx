@@ -93,6 +93,14 @@ export default function Home() {
                         </p>
                     </div>
                 </div>
+
+                <footer className="mt-16 pt-6 border-t border-gray-800 text-center text-sm text-gray-500">
+                    <div className="flex items-center justify-center gap-4">
+                        <Link href="/termos" className="hover:text-gray-300 transition-colors">Termos de Uso</Link>
+                        <span>•</span>
+                        <Link href="/privacidade" className="hover:text-gray-300 transition-colors">Política de Privacidade</Link>
+                    </div>
+                </footer>
             </div>
         </div>
     );

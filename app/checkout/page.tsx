@@ -6,6 +6,7 @@ import { getWorkspaceAccessState } from "@/lib/billing";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { Shield, Check, Star, LogOut, Loader2, CircleAlert, CalendarClock, CreditCard } from "lucide-react";
+import Link from "next/link";
 
 function CheckoutContent() {
     const { user, loading: authLoading, signOut } = useAuth();
@@ -16,6 +17,7 @@ function CheckoutContent() {
     const [checkoutLoading, setCheckoutLoading] = useState(false);
     const [portalLoading, setPortalLoading] = useState(false);
     const [message, setMessage] = useState("");
+    const [acceptedLegal, setAcceptedLegal] = useState(false);
     const access = getWorkspaceAccessState(workspace);
     const isOwner = workspace?.ownerId ? user?.uid === workspace.ownerId : true;
     const paymentSuccess = searchParams.get("success") === "1";
@@ -32,8 +34,20 @@ function CheckoutContent() {
         }
     }, [user, workspace, access.hasAccess, authLoading, workspaceLoading, router]);
 
+    useEffect(() => {
+        if (!workspace) return;
+        const alreadyAccepted = Boolean(workspace.legal?.acceptedTermsAt && workspace.legal?.acceptedPrivacyAt);
+        if (alreadyAccepted) {
+            setAcceptedLegal(true);
+        }
+    }, [workspace]);
+
     const handleStartCheckout = async () => {
         if (!user || !workspace?.id) return;
+        if (!acceptedLegal) {
+            setMessage("Você precisa aceitar os Termos e a Política de Privacidade para continuar.");
+            return;
+        }
 
         setCheckoutLoading(true);
         setMessage("");
@@ -48,6 +62,7 @@ function CheckoutContent() {
                 body: JSON.stringify({
                     workspaceId: workspace.id,
                     plan,
+                    acceptedLegal: true,
                 }),
             });
 
@@ -208,7 +223,7 @@ function CheckoutContent() {
 
                     <button
                         onClick={handleStartCheckout}
-                        disabled={checkoutLoading || !isOwner}
+                        disabled={checkoutLoading || !isOwner || !acceptedLegal}
                         className="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl text-center transition-all transform hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed"
                     >
                         {checkoutLoading ? (
@@ -239,6 +254,25 @@ function CheckoutContent() {
                         </button>
                     )}
                 </div>
+
+                <label className="mb-4 flex items-start gap-2 text-xs text-slate-300">
+                    <input
+                        type="checkbox"
+                        checked={acceptedLegal}
+                        onChange={(e) => setAcceptedLegal(e.target.checked)}
+                        className="mt-0.5 w-4 h-4 rounded border-slate-500 bg-slate-800"
+                    />
+                    <span>
+                        Li e aceito os{" "}
+                        <Link href="/termos" className="text-blue-300 hover:text-blue-200 underline" target="_blank">
+                            Termos de Uso
+                        </Link>{" "}
+                        e a{" "}
+                        <Link href="/privacidade" className="text-blue-300 hover:text-blue-200 underline" target="_blank">
+                            Política de Privacidade
+                        </Link>.
+                    </span>
+                </label>
 
                 {message && (
                     <div className="mb-4 rounded-lg bg-red-500/10 border border-red-500/30 p-3 text-xs text-red-200">

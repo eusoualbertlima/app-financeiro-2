@@ -11,6 +11,7 @@ export const runtime = "nodejs";
 type CheckoutBody = {
     workspaceId?: string;
     plan?: "monthly" | "yearly";
+    acceptedLegal?: boolean;
 };
 
 function getPriceId(plan: "monthly" | "yearly") {
@@ -28,6 +29,7 @@ export async function POST(request: NextRequest) {
         const body = (await request.json()) as CheckoutBody;
         const workspaceId = body.workspaceId;
         const plan: "monthly" | "yearly" = body.plan === "yearly" ? "yearly" : "monthly";
+        const acceptedLegal = body.acceptedLegal === true;
 
         if (!workspaceId) {
             return NextResponse.json({ error: "workspaceId is required." }, { status: 400 });
@@ -52,6 +54,16 @@ export async function POST(request: NextRequest) {
         const workspaceData = workspaceSnap.data() as Omit<Workspace, "id">;
         if (workspaceData.ownerId !== uid) {
             return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+        }
+
+        const alreadyAcceptedLegal = Boolean(
+            workspaceData.legal?.acceptedTermsAt && workspaceData.legal?.acceptedPrivacyAt
+        );
+        if (!acceptedLegal && !alreadyAcceptedLegal) {
+            return NextResponse.json(
+                { error: "Você precisa aceitar os Termos e a Política de Privacidade para continuar." },
+                { status: 400 }
+            );
         }
 
         const stripe = getStripe();
@@ -103,6 +115,17 @@ export async function POST(request: NextRequest) {
                 checkoutSessionId: session.id,
                 updatedAt: Date.now(),
             },
+            ...(acceptedLegal
+                ? {
+                    legal: {
+                        ...(workspaceData.legal || {}),
+                        acceptedTermsAt: Date.now(),
+                        acceptedPrivacyAt: Date.now(),
+                        acceptedByUid: uid,
+                        acceptedByEmail: userEmail || undefined,
+                    },
+                }
+                : {}),
         }, { merge: true });
 
         return NextResponse.json({ url: session.url });
