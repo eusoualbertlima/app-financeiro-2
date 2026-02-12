@@ -16,6 +16,7 @@ import {
     CalendarDays
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/hooks/useFirestore";
 
 const menuItems = [
     { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -23,14 +24,25 @@ const menuItems = [
     { href: "/dashboard/cartoes", icon: CreditCard, label: "Cartões" },
     { href: "/dashboard/lancamentos", icon: Receipt, label: "Lançamentos" },
     { href: "/dashboard/notas", icon: FileText, label: "Notas" },
-    { href: "/dashboard/alertas", icon: AlertTriangle, label: "Alertas" },
+    { href: "/dashboard/alertas", icon: AlertTriangle, label: "Alertas", adminOnly: true },
     { href: "/dashboard/contas-fixas", icon: CalendarDays, label: "Contas Fixas" },
     { href: "/dashboard/configuracoes", icon: Settings, label: "Configurações" },
+];
+
+const mobileMenuOrder = [
+    "/dashboard",
+    "/dashboard/contas",
+    "/dashboard/cartoes",
+    "/dashboard/lancamentos",
+    "/dashboard/contas-fixas",
 ];
 
 export function Sidebar() {
     const pathname = usePathname();
     const { user, signOut } = useAuth();
+    const { workspace } = useWorkspace();
+    const isAdmin = workspace?.ownerId ? user?.uid === workspace.ownerId : false;
+    const visibleMenuItems = menuItems.filter(item => !item.adminOnly || isAdmin);
 
     return (
         <aside className="sidebar hidden lg:flex flex-col z-50">
@@ -49,7 +61,7 @@ export function Sidebar() {
 
             {/* Menu */}
             <nav className="flex-1 py-6 space-y-1">
-                {menuItems.map((item) => {
+                {visibleMenuItems.map((item) => {
                     const isActive = pathname === item.href ||
                         (item.href !== "/dashboard" && pathname.startsWith(item.href));
                     return (
@@ -95,11 +107,18 @@ export function Sidebar() {
 
 export function MobileNav() {
     const pathname = usePathname();
+    const { user } = useAuth();
+    const { workspace } = useWorkspace();
+    const isAdmin = workspace?.ownerId ? user?.uid === workspace.ownerId : false;
+    const visibleMenuItems = menuItems.filter(item => !item.adminOnly || isAdmin);
+    const mobileMenuItems = mobileMenuOrder
+        .map((href) => visibleMenuItems.find(item => item.href === href))
+        .filter((item): item is (typeof menuItems)[number] => Boolean(item));
 
     return (
         <nav className="mobile-nav lg:hidden">
             <div className="flex justify-around py-2 px-4">
-                {menuItems.filter(item => item.href !== "/dashboard/configuracoes").map((item) => {
+                {mobileMenuItems.map((item) => {
                     const isActive = pathname === item.href ||
                         (item.href !== "/dashboard" && pathname.startsWith(item.href));
                     return (
