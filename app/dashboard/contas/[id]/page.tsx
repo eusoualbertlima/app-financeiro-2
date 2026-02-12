@@ -1,15 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useCollection } from "@/hooks/useFirestore";
 import { useTransactions } from "@/hooks/useTransactions";
 import { LineChart } from "@/components/Charts";
 import {
     Wallet, ChevronLeft, ChevronRight, ArrowLeft,
-    TrendingUp, TrendingDown, Check, Clock
+    TrendingUp, TrendingDown, Clock
 } from "lucide-react";
 import type { Account, Transaction } from "@/types";
+
+const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
+function isTransactionFromAccount(transaction: Transaction, accountId: string) {
+    return transaction.accountId === accountId || transaction.paidAccountId === accountId;
+}
+
+function transactionDelta(transaction: Transaction) {
+    return transaction.type === "income" ? transaction.amount : -transaction.amount;
+}
+
+function getMonthStart(month: number, year: number) {
+    return new Date(year, month - 1, 1).getTime();
+}
+
+function getMonthEnd(month: number, year: number) {
+    return new Date(year, month, 0, 23, 59, 59, 999).getTime();
+}
 
 export default function ContaDetalhePage() {
     const params = useParams();
@@ -21,17 +39,92 @@ export default function ContaDetalhePage() {
     const [year, setYear] = useState(now.getFullYear());
 
     const { data: contas } = useCollection<Account>("accounts");
-    const { transactions, loading } = useTransactions(month, year);
+    const { transactions: allTransactions, loading } = useTransactions();
 
     const conta = contas.find(c => c.id === accountId);
 
-    // Filter transactions for this account
-    const accountTransactions = transactions.filter(
-        t => t.accountId === accountId || t.paidAccountId === accountId
+    const accountTransactions = useMemo(
+        () =>
+            allTransactions
+                .filter((transaction) => isTransactionFromAccount(transaction, accountId))
+                .sort((a, b) => b.date - a.date),
+        [allTransactions, accountId]
     );
 
-    const income = accountTransactions.filter(t => t.type === 'income' && t.status === 'paid').reduce((s, t) => s + t.amount, 0);
-    const expense = accountTransactions.filter(t => t.type === 'expense' && t.status === 'paid').reduce((s, t) => s + t.amount, 0);
+    const paidAccountTransactions = useMemo(
+        () => accountTransactions.filter(transaction => transaction.status === "paid"),
+        [accountTransactions]
+    );
+
+    const monthStart = getMonthStart(month, year);
+    const monthEnd = getMonthEnd(month, year);
+
+    const monthTransactions = useMemo(
+        () =>
+            accountTransactions.filter((transaction) => {
+                const isInMonth = transaction.date >= monthStart && transaction.date <= monthEnd;
+                const isPendingFromPast = transaction.status === "pending" && transaction.date < monthStart;
+                return isInMonth || isPendingFromPast;
+            }),
+        [accountTransactions, monthStart, monthEnd]
+    );
+
+    const monthPaidTransactions = useMemo(
+        () => monthTransactions.filter(transaction => transaction.status === "paid"),
+        [monthTransactions]
+    );
+
+    const income = monthPaidTransactions
+        .filter(transaction => transaction.type === "income")
+        .reduce((sum, transaction) => sum + transaction.amount, 0);
+
+    const expense = monthPaidTransactions
+        .filter(transaction => transaction.type === "expense")
+        .reduce((sum, transaction) => sum + transaction.amount, 0);
+
+    const monthBalance = income - expense;
+    const accountBalance = conta?.balance || 0;
+
+    const totalPaidDelta = paidAccountTransactions.reduce(
+        (sum, transaction) => sum + transactionDelta(transaction),
+        0
+    );
+
+    const estimatedOpeningBalance = accountBalance - totalPaidDelta;
+
+    const paidDeltaBeforeMonth = paidAccountTransactions.reduce((sum, transaction) => {
+        return transaction.date < monthStart ? sum + transactionDelta(transaction) : sum;
+    }, 0);
+
+    const paidDeltaUntilMonthEnd = paidAccountTransactions.reduce((sum, transaction) => {
+        return transaction.date <= monthEnd ? sum + transactionDelta(transaction) : sum;
+    }, 0);
+
+    const monthStartBalance = estimatedOpeningBalance + paidDeltaBeforeMonth;
+    const monthEndBalance = estimatedOpeningBalance + paidDeltaUntilMonthEnd;
+
+    const balancePoints = useMemo(() => {
+        return Array.from({ length: 6 }, (_, index) => {
+            const offset = 5 - index;
+            let targetMonth = month - offset;
+            let targetYear = year;
+
+            while (targetMonth <= 0) {
+                targetMonth += 12;
+                targetYear -= 1;
+            }
+
+            const targetMonthEnd = getMonthEnd(targetMonth, targetYear);
+            const deltaUntilTargetMonth = paidAccountTransactions.reduce((sum, transaction) => {
+                return transaction.date <= targetMonthEnd ? sum + transactionDelta(transaction) : sum;
+            }, 0);
+
+            return {
+                label: monthNames[targetMonth - 1],
+                value: estimatedOpeningBalance + deltaUntilTargetMonth,
+            };
+        });
+    }, [month, year, paidAccountTransactions, estimatedOpeningBalance]);
 
     const formatCurrency = (v: number) =>
         new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
@@ -39,28 +132,23 @@ export default function ContaDetalhePage() {
     const formatDate = (ts: number) =>
         new Date(ts).toLocaleDateString("pt-BR");
 
-    const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-
     const prevMonth = () => {
-        if (month === 1) { setMonth(12); setYear(y => y - 1); }
-        else setMonth(m => m - 1);
-    };
-    const nextMonth = () => {
-        if (month === 12) { setMonth(1); setYear(y => y + 1); }
-        else setMonth(m => m + 1);
+        if (month === 1) {
+            setMonth(12);
+            setYear(currentYear => currentYear - 1);
+            return;
+        }
+        setMonth(currentMonth => currentMonth - 1);
     };
 
-    // Generate balance line chart data (last 6 months approximation)
-    const balancePoints = [];
-    for (let i = 5; i >= 0; i--) {
-        let m = month - i;
-        let y = year;
-        if (m <= 0) { m += 12; y -= 1; }
-        balancePoints.push({
-            label: monthNames[m - 1],
-            value: i === 0 ? (conta?.balance || 0) : (conta?.balance || 0) * (0.8 + Math.random() * 0.4),
-        });
-    }
+    const nextMonth = () => {
+        if (month === 12) {
+            setMonth(1);
+            setYear(currentYear => currentYear + 1);
+            return;
+        }
+        setMonth(currentMonth => currentMonth + 1);
+    };
 
     if (!conta) {
         return (
@@ -75,12 +163,10 @@ export default function ContaDetalhePage() {
 
     return (
         <div className="p-6 lg:p-8 max-w-4xl mx-auto">
-            {/* Back */}
             <button onClick={() => router.push('/dashboard/contas')} className="flex items-center gap-2 text-slate-500 hover:text-slate-700 mb-6 transition-colors">
                 <ArrowLeft className="w-5 h-5" /> Voltar para Contas
             </button>
 
-            {/* Account Header */}
             <div className="card p-6 mb-6">
                 <div className="flex items-center gap-4 mb-4">
                     <div
@@ -103,27 +189,30 @@ export default function ContaDetalhePage() {
                     </div>
                 </div>
 
-                {/* Summary Cards */}
                 <div className="grid grid-cols-3 gap-3">
                     <div className="bg-green-50 rounded-xl p-3 text-center">
                         <TrendingUp className="w-5 h-5 text-green-500 mx-auto mb-1" />
                         <p className="text-sm font-bold text-green-600">{formatCurrency(income)}</p>
-                        <p className="text-xs text-green-500">Entradas</p>
+                        <p className="text-xs text-green-500">Entradas do mês</p>
                     </div>
                     <div className="bg-red-50 rounded-xl p-3 text-center">
                         <TrendingDown className="w-5 h-5 text-red-500 mx-auto mb-1" />
                         <p className="text-sm font-bold text-red-600">{formatCurrency(expense)}</p>
-                        <p className="text-xs text-red-500">Saídas</p>
+                        <p className="text-xs text-red-500">Saídas do mês</p>
                     </div>
                     <div className="bg-slate-50 rounded-xl p-3 text-center">
                         <Wallet className="w-5 h-5 text-slate-500 mx-auto mb-1" />
-                        <p className="text-sm font-bold text-slate-700">{formatCurrency(income - expense)}</p>
-                        <p className="text-xs text-slate-500">Balanço</p>
+                        <p className="text-sm font-bold text-slate-700">{formatCurrency(monthBalance)}</p>
+                        <p className="text-xs text-slate-500">Balanço do mês</p>
                     </div>
+                </div>
+
+                <div className="mt-3 text-xs text-slate-500 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                    <span>Saldo inicial do mês: <strong className="text-slate-700">{formatCurrency(monthStartBalance)}</strong></span>
+                    <span>Saldo no mês selecionado: <strong className="text-slate-700">{formatCurrency(monthEndBalance)}</strong></span>
                 </div>
             </div>
 
-            {/* Month Nav */}
             <div className="flex items-center justify-center gap-4 mb-6">
                 <button onClick={prevMonth} className="p-2 hover:bg-slate-100 rounded-lg">
                     <ChevronLeft className="w-5 h-5 text-slate-600" />
@@ -137,41 +226,43 @@ export default function ContaDetalhePage() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Transactions */}
                 <div className="card overflow-hidden">
                     <div className="px-5 py-4 border-b border-slate-100">
-                        <h3 className="font-semibold text-slate-900">Movimentações ({accountTransactions.length})</h3>
+                        <h3 className="font-semibold text-slate-900">Movimentações ({monthTransactions.length})</h3>
                     </div>
                     {loading ? (
                         <div className="p-8 text-center text-slate-400">Carregando...</div>
-                    ) : accountTransactions.length === 0 ? (
+                    ) : monthTransactions.length === 0 ? (
                         <div className="p-8 text-center text-slate-400">
                             <Wallet className="w-8 h-8 mx-auto mb-2 opacity-50" />
                             <p>Nenhuma movimentação neste mês</p>
                         </div>
                     ) : (
                         <div className="divide-y divide-slate-50 max-h-96 overflow-y-auto">
-                            {accountTransactions.map(t => (
-                                <div key={t.id} className="px-5 py-3 flex items-center gap-3 hover:bg-slate-50">
-                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${t.type === 'income' ? 'bg-green-100' : 'bg-red-100'}`}>
-                                        {t.type === 'income'
+                            {monthTransactions.map(transaction => (
+                                <div key={transaction.id} className="px-5 py-3 flex items-center gap-3 hover:bg-slate-50">
+                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${transaction.type === 'income' ? 'bg-green-100' : 'bg-red-100'}`}>
+                                        {transaction.type === 'income'
                                             ? <TrendingUp className="w-4 h-4 text-green-600" />
                                             : <TrendingDown className="w-4 h-4 text-red-600" />
                                         }
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-slate-900 truncate">{t.description}</p>
+                                        <p className="text-sm font-medium text-slate-900 truncate">{transaction.description}</p>
+                                        {transaction.notes && (
+                                            <p className="text-xs text-slate-500 truncate">{transaction.notes}</p>
+                                        )}
                                         <div className="flex items-center gap-2">
-                                            <span className="text-xs text-slate-400">{formatDate(t.date)}</span>
-                                            {t.status === 'pending' && (
+                                            <span className="text-xs text-slate-400">{formatDate(transaction.date)}</span>
+                                            {transaction.status === 'pending' && (
                                                 <span className="text-xs text-amber-500 flex items-center gap-0.5">
                                                     <Clock className="w-3 h-3" /> Pendente
                                                 </span>
                                             )}
                                         </div>
                                     </div>
-                                    <p className={`text-sm font-bold ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                                        {t.type === 'income' ? '+' : '-'} {formatCurrency(t.amount)}
+                                    <p className={`text-sm font-bold ${transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                                        {transaction.type === 'income' ? '+' : '-'} {formatCurrency(transaction.amount)}
                                     </p>
                                 </div>
                             ))}
@@ -179,7 +270,6 @@ export default function ContaDetalhePage() {
                     )}
                 </div>
 
-                {/* Balance Chart */}
                 <div className="card p-5">
                     <h3 className="font-semibold text-slate-900 mb-4">Evolução do Saldo</h3>
                     <LineChart points={balancePoints} color={conta.color} />

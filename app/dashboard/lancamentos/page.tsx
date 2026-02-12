@@ -40,6 +40,7 @@ export default function LancamentosPage() {
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [isNotesPanelOpen, setIsNotesPanelOpen] = useState(false);
     const [formData, setFormData] = useState({
         description: '',
         notes: '',
@@ -80,6 +81,7 @@ export default function LancamentosPage() {
                 categoryId: 'outros',
             });
         }
+        setIsNotesPanelOpen(false);
         setIsModalOpen(true);
     };
 
@@ -161,6 +163,7 @@ export default function LancamentosPage() {
 
         setIsModalOpen(false);
         setEditingId(null);
+        setIsNotesPanelOpen(false);
     };
 
     // Filtrar transações
@@ -418,7 +421,7 @@ export default function LancamentosPage() {
             {/* Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-                    <div className="card p-0 w-full max-w-md overflow-hidden">
+                    <div className="relative card p-0 w-full max-w-md overflow-hidden max-h-[92vh]">
                         <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                             <h2 className="text-lg font-semibold text-slate-900">{editingId ? 'Editar Lançamento' : 'Novo Lançamento'}</h2>
                             <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-lg">
@@ -426,7 +429,15 @@ export default function LancamentosPage() {
                             </button>
                         </div>
 
-                        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+                        <button
+                            type="button"
+                            onClick={() => setIsNotesPanelOpen(v => !v)}
+                            className="absolute right-0 top-24 translate-x-full bg-slate-900 text-white text-xs font-semibold px-3 py-2 rounded-r-lg rounded-l-none hover:bg-slate-700 transition-colors z-20"
+                        >
+                            {isNotesPanelOpen ? 'Fechar nota' : 'Nota'}
+                        </button>
+
+                        <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto max-h-[calc(92vh-73px)]">
                             {/* Tipo */}
                             <div className="flex gap-2">
                                 <button
@@ -460,16 +471,6 @@ export default function LancamentosPage() {
                                     className="input"
                                     placeholder="Ex: Supermercado, Salário..."
                                     required
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-2">Observação (opcional)</label>
-                                <textarea
-                                    value={formData.notes}
-                                    onChange={e => setFormData({ ...formData, notes: e.target.value })}
-                                    className="input min-h-[88px] resize-y"
-                                    placeholder="Ex: referente a fevereiro, ajuste de valor, combinado..."
                                 />
                             </div>
 
@@ -578,6 +579,32 @@ export default function LancamentosPage() {
                                 </button>
                             </div>
                         </form>
+
+                        <div
+                            className={`absolute inset-y-0 right-0 w-full sm:w-80 bg-white border-l border-slate-200 shadow-xl transition-transform duration-300 z-10 ${isNotesPanelOpen ? 'translate-x-0' : 'translate-x-full'}`}
+                        >
+                            <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                                <h3 className="text-sm font-semibold text-slate-800">Observação do lançamento</h3>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsNotesPanelOpen(false)}
+                                    className="text-xs text-slate-500 hover:text-slate-700"
+                                >
+                                    Fechar
+                                </button>
+                            </div>
+                            <div className="p-5">
+                                <textarea
+                                    value={formData.notes}
+                                    onChange={e => setFormData({ ...formData, notes: e.target.value })}
+                                    className="input min-h-[220px] resize-y"
+                                    placeholder="Escreva algo específico sobre este lançamento..."
+                                />
+                                <p className="text-xs text-slate-400 mt-2">
+                                    Essa nota fica salva junto do lançamento.
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
