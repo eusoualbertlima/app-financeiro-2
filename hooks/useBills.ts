@@ -238,119 +238,141 @@ export function useBillPayments(month: number, year: number) {
         }
     };
 
-    // Atualizar saldo da conta
-    const updateAccountBalance = async (accountId: string, amount: number) => {
-        if (!workspace?.id || !accountId) return;
-
-        await updateDoc(
-            doc(db, `workspaces/${workspace.id}/accounts`, accountId),
-            { balance: increment(-amount) } // Despesa fixa sempre desconta
-        );
-    };
-
     const markAsPaid = async (paymentId: string, paidAmount?: number, accountId?: string, note?: string) => {
         if (!workspace?.id) return;
 
-        const payment = payments.find(p => p.id === paymentId);
-        const amount = paidAmount ?? payment?.amount ?? 0;
         const normalizedNote = note?.trim();
+        const paymentRef = doc(db, `workspaces/${workspace.id}/bill_payments`, paymentId);
+        const transactionsCol = collection(db, `workspaces/${workspace.id}/transactions`);
 
-        const updateData: any = {
-            status: 'paid',
-            paidAt: Date.now(),
-            paidAmount: amount,
-        };
+        await runTransaction(db, async (transaction) => {
+            const paymentSnap = await transaction.get(paymentRef);
+            if (!paymentSnap.exists()) return;
 
-        if (accountId) {
-            updateData.paidAccountId = accountId;
-            // Atualizar saldo da conta
-            await updateAccountBalance(accountId, amount);
-        }
+            const paymentData = {
+                id: paymentSnap.id,
+                ...paymentSnap.data(),
+            } as BillPayment & { transactionId?: string };
 
-        // Criar lançamento correspondente para aparecer em Lançamentos
-        const transactionData: any = {
-            description: payment?.billName || 'Conta Fixa',
-            amount,
-            type: 'expense',
-            status: 'paid',
-            date: Date.now(),
-            paidAt: Date.now(),
-            userId: user?.uid || '',
-            source: 'bill_payment',
-            billPaymentId: paymentId,
-        };
-        if (normalizedNote) transactionData.notes = normalizedNote;
-        if (accountId) transactionData.accountId = accountId;
-        if (payment?.billId) {
-            const bill = bills.find(b => b.id === payment.billId);
-            if (bill?.categoryId) transactionData.categoryId = bill.categoryId;
-        }
-        const txRef = await addDoc(collection(db, `workspaces/${workspace.id}/transactions`), transactionData);
-        updateData.transactionId = txRef.id;
+            if (paymentData.status === 'paid') {
+                return;
+            }
 
-        await updateDoc(doc(db, `workspaces/${workspace.id}/bill_payments`, paymentId), updateData);
+            const amount = paidAmount ?? paymentData.amount ?? 0;
+            const paidAt = Date.now();
+            const updateData: any = {
+                status: 'paid',
+                paidAt,
+                paidAmount: amount,
+            };
+
+            if (accountId) {
+                updateData.paidAccountId = accountId;
+                transaction.update(
+                    doc(db, `workspaces/${workspace.id}/accounts`, accountId),
+                    { balance: increment(-amount) }
+                );
+            }
+
+            const transactionRef = doc(transactionsCol);
+            const transactionData: any = {
+                description: paymentData.billName || 'Conta Fixa',
+                amount,
+                type: 'expense',
+                status: 'paid',
+                date: paidAt,
+                paidAt,
+                userId: user?.uid || '',
+                source: 'bill_payment',
+                billPaymentId: paymentId,
+            };
+
+            if (normalizedNote) transactionData.notes = normalizedNote;
+            if (accountId) transactionData.accountId = accountId;
+            if (paymentData.billId) {
+                const bill = bills.find(b => b.id === paymentData.billId);
+                if (bill?.categoryId) transactionData.categoryId = bill.categoryId;
+            }
+
+            transaction.set(transactionRef, transactionData);
+            updateData.transactionId = transactionRef.id;
+            transaction.update(paymentRef, updateData);
+        });
     };
 
     const markAsPending = async (paymentId: string) => {
         if (!workspace?.id) return;
-        const payment = payments.find(p => p.id === paymentId);
-        if (!payment) return;
 
-        const now = new Date();
-        const dueDate = new Date(year, month - 1, payment.dueDay);
-        const isOverdue = dueDate < now;
+        const paymentRef = doc(db, `workspaces/${workspace.id}/bill_payments`, paymentId);
 
-        // Se tinha conta vinculada, reverter saldo
-        if (payment.paidAccountId && payment.paidAmount) {
-            await updateDoc(
-                doc(db, `workspaces/${workspace.id}/accounts`, payment.paidAccountId),
-                { balance: increment(payment.paidAmount) } // Devolve o valor
-            );
-        }
+        await runTransaction(db, async (transaction) => {
+            const paymentSnap = await transaction.get(paymentRef);
+            if (!paymentSnap.exists()) return;
 
-        // Excluir o lançamento vinculado
-        if ((payment as any).transactionId) {
-            try {
-                await deleteDoc(doc(db, `workspaces/${workspace.id}/transactions`, (payment as any).transactionId));
-            } catch (e) { /* transaction may already be deleted */ }
-        }
+            const paymentData = {
+                id: paymentSnap.id,
+                ...paymentSnap.data(),
+            } as BillPayment & { transactionId?: string };
 
-        await updateDoc(doc(db, `workspaces/${workspace.id}/bill_payments`, paymentId), {
-            status: isOverdue ? 'overdue' : 'pending',
-            paidAt: null,
-            paidAmount: null,
-            paidAccountId: null,
-            skippedAt: null,
-            transactionId: null
+            if (paymentData.paidAccountId && paymentData.paidAmount) {
+                transaction.update(
+                    doc(db, `workspaces/${workspace.id}/accounts`, paymentData.paidAccountId),
+                    { balance: increment(paymentData.paidAmount) }
+                );
+            }
+
+            if (paymentData.transactionId) {
+                transaction.delete(doc(db, `workspaces/${workspace.id}/transactions`, paymentData.transactionId));
+            }
+
+            const now = new Date();
+            const dueDate = new Date(paymentData.year, paymentData.month - 1, paymentData.dueDay);
+            const isOverdue = dueDate < now;
+
+            transaction.update(paymentRef, {
+                status: isOverdue ? 'overdue' : 'pending',
+                paidAt: null,
+                paidAmount: null,
+                paidAccountId: null,
+                skippedAt: null,
+                transactionId: null
+            });
         });
     };
 
     const markAsSkipped = async (paymentId: string) => {
         if (!workspace?.id) return;
-        const payment = payments.find(p => p.id === paymentId);
-        if (!payment) return;
 
-        // Caso já estivesse pago por algum fluxo, reverter para manter consistência
-        if (payment.paidAccountId && payment.paidAmount) {
-            await updateDoc(
-                doc(db, `workspaces/${workspace.id}/accounts`, payment.paidAccountId),
-                { balance: increment(payment.paidAmount) }
-            );
-        }
+        const paymentRef = doc(db, `workspaces/${workspace.id}/bill_payments`, paymentId);
 
-        if ((payment as any).transactionId) {
-            try {
-                await deleteDoc(doc(db, `workspaces/${workspace.id}/transactions`, (payment as any).transactionId));
-            } catch (e) { /* transaction may already be deleted */ }
-        }
+        await runTransaction(db, async (transaction) => {
+            const paymentSnap = await transaction.get(paymentRef);
+            if (!paymentSnap.exists()) return;
 
-        await updateDoc(doc(db, `workspaces/${workspace.id}/bill_payments`, paymentId), {
-            status: 'skipped',
-            skippedAt: Date.now(),
-            paidAt: null,
-            paidAmount: null,
-            paidAccountId: null,
-            transactionId: null
+            const paymentData = {
+                id: paymentSnap.id,
+                ...paymentSnap.data(),
+            } as BillPayment & { transactionId?: string };
+
+            if (paymentData.paidAccountId && paymentData.paidAmount) {
+                transaction.update(
+                    doc(db, `workspaces/${workspace.id}/accounts`, paymentData.paidAccountId),
+                    { balance: increment(paymentData.paidAmount) }
+                );
+            }
+
+            if (paymentData.transactionId) {
+                transaction.delete(doc(db, `workspaces/${workspace.id}/transactions`, paymentData.transactionId));
+            }
+
+            transaction.update(paymentRef, {
+                status: 'skipped',
+                skippedAt: Date.now(),
+                paidAt: null,
+                paidAmount: null,
+                paidAccountId: null,
+                transactionId: null
+            });
         });
     };
 

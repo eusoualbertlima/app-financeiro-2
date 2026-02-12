@@ -2,6 +2,7 @@ import {
     collection,
     doc,
     addDoc,
+    runTransaction,
     updateDoc,
     deleteDoc,
     query,
@@ -70,17 +71,6 @@ export function useTransactions(month?: number, year?: number) {
         return () => unsubscribe();
     }, [workspace?.id, month, year]);
 
-    // Atualizar saldo da conta
-    const updateAccountBalance = async (accountId: string, amount: number, isExpense: boolean) => {
-        if (!workspace?.id || !accountId) return;
-
-        const change = isExpense ? -amount : amount;
-        await updateDoc(
-            doc(db, `workspaces/${workspace.id}/accounts`, accountId),
-            { balance: increment(change) }
-        );
-    };
-
     const add = async (item: Omit<Transaction, 'id'>) => {
         if (!workspace?.id || !user) return;
 
@@ -106,48 +96,66 @@ export function useTransactions(month?: number, year?: number) {
             (cleanData as any).cardId = item.cardId;
         }
 
-        await addDoc(collection(db, `workspaces/${workspace.id}/transactions`), cleanData);
-
-        // Se já está pago e tem conta vinculada, atualiza saldo
         if (item.status === 'paid' && item.accountId) {
-            await updateAccountBalance(item.accountId, item.amount, item.type === 'expense');
+            const transactionsCol = collection(db, `workspaces/${workspace.id}/transactions`);
+            const txRef = doc(transactionsCol);
+            const batch = writeBatch(db);
+
+            batch.set(txRef, cleanData as any);
+            batch.update(
+                doc(db, `workspaces/${workspace.id}/accounts`, item.accountId),
+                { balance: increment(item.type === 'expense' ? -item.amount : item.amount) }
+            );
+
+            await batch.commit();
+            return;
         }
+
+        await addDoc(collection(db, `workspaces/${workspace.id}/transactions`), cleanData);
     };
 
     const update = async (id: string, item: Partial<Transaction>) => {
         if (!workspace?.id) return;
 
         const txRef = doc(db, `workspaces/${workspace.id}/transactions`, id);
-        const transactionDoc = await getDoc(txRef);
-        if (!transactionDoc.exists()) return;
-
-        const currentData = {
-            id: transactionDoc.id,
-            ...transactionDoc.data(),
-        } as Transaction;
-
         const cleanData = cleanUndefined(item);
-        const nextData = { ...currentData, ...cleanData } as Transaction;
 
-        await updateDoc(txRef, cleanData);
+        await runTransaction(db, async (transaction) => {
+            const transactionDoc = await transaction.get(txRef);
+            if (!transactionDoc.exists()) return;
 
-        const currentAccountId = resolveTransactionAccountId(currentData);
-        const nextAccountId = resolveTransactionAccountId(nextData);
-        const affectsBalance =
-            currentData.status !== nextData.status ||
-            currentData.amount !== nextData.amount ||
-            currentData.type !== nextData.type ||
-            currentAccountId !== nextAccountId;
+            const currentData = {
+                id: transactionDoc.id,
+                ...transactionDoc.data(),
+            } as Transaction;
+            const nextData = { ...currentData, ...cleanData } as Transaction;
 
-        if (!affectsBalance) return;
+            const currentAccountId = resolveTransactionAccountId(currentData);
+            const nextAccountId = resolveTransactionAccountId(nextData);
+            const affectsBalance =
+                currentData.status !== nextData.status ||
+                currentData.amount !== nextData.amount ||
+                currentData.type !== nextData.type ||
+                currentAccountId !== nextAccountId;
 
-        if (currentData.status === 'paid' && currentAccountId) {
-            await updateAccountBalance(currentAccountId, currentData.amount, currentData.type === 'income');
-        }
+            transaction.update(txRef, cleanData);
 
-        if (nextData.status === 'paid' && nextAccountId) {
-            await updateAccountBalance(nextAccountId, nextData.amount, nextData.type === 'expense');
-        }
+            if (!affectsBalance) return;
+
+            if (currentData.status === 'paid' && currentAccountId) {
+                transaction.update(
+                    doc(db, `workspaces/${workspace.id}/accounts`, currentAccountId),
+                    { balance: increment(currentData.type === 'income' ? -currentData.amount : currentData.amount) }
+                );
+            }
+
+            if (nextData.status === 'paid' && nextAccountId) {
+                transaction.update(
+                    doc(db, `workspaces/${workspace.id}/accounts`, nextAccountId),
+                    { balance: increment(nextData.type === 'expense' ? -nextData.amount : nextData.amount) }
+                );
+            }
+        });
     };
 
     const remove = async (id: string) => {
@@ -184,11 +192,27 @@ export function useTransactions(month?: number, year?: number) {
                 return;
             }
 
-            const accountId = resolveTransactionAccountId(data);
-            if (data.status === 'paid' && accountId) {
-                // Reverter: se era despesa, devolve; se era receita, remove
-                await updateAccountBalance(accountId, data.amount, data.type === 'income');
-            }
+            await runTransaction(db, async (transaction) => {
+                const txRef = doc(db, `workspaces/${workspace.id}/transactions`, id);
+                const freshDoc = await transaction.get(txRef);
+                if (!freshDoc.exists()) return;
+
+                const freshData = {
+                    id: freshDoc.id,
+                    ...freshDoc.data(),
+                } as Transaction;
+
+                const accountId = resolveTransactionAccountId(freshData);
+                if (freshData.status === 'paid' && accountId) {
+                    transaction.update(
+                        doc(db, `workspaces/${workspace.id}/accounts`, accountId),
+                        { balance: increment(freshData.type === 'income' ? -freshData.amount : freshData.amount) }
+                    );
+                }
+
+                transaction.delete(txRef);
+            });
+            return;
         }
 
         await deleteDoc(doc(db, `workspaces/${workspace.id}/transactions`, id));
@@ -197,32 +221,38 @@ export function useTransactions(month?: number, year?: number) {
     const markAsPaid = async (id: string, accountId?: string) => {
         if (!workspace?.id) return;
 
-        // Buscar transação para saber o valor e tipo
-        const transactionDoc = await getDoc(doc(db, `workspaces/${workspace.id}/transactions`, id));
-        if (!transactionDoc.exists()) return;
+        const txRef = doc(db, `workspaces/${workspace.id}/transactions`, id);
 
-        const data = transactionDoc.data() as Transaction;
+        await runTransaction(db, async (transaction) => {
+            const transactionDoc = await transaction.get(txRef);
+            if (!transactionDoc.exists()) return;
 
-        // Atualizar transação
-        const updateData: any = {
-            status: 'paid',
-            paidAt: Date.now(),
-        };
-        const effectiveAccountId = accountId || data.accountId || data.paidAccountId;
-        if (effectiveAccountId) {
-            updateData.paidAccountId = effectiveAccountId;
-
-            if (!data.accountId) {
-                updateData.accountId = effectiveAccountId;
+            const data = transactionDoc.data() as Transaction;
+            if (data.status === 'paid') {
+                return;
             }
-        }
 
-        await updateDoc(doc(db, `workspaces/${workspace.id}/transactions`, id), updateData);
+            const paidAt = Date.now();
+            const updateData: any = {
+                status: 'paid',
+                paidAt,
+            };
+            const effectiveAccountId = accountId || data.accountId || data.paidAccountId;
+            if (effectiveAccountId) {
+                updateData.paidAccountId = effectiveAccountId;
 
-        // Atualizar saldo da conta
-        if (effectiveAccountId) {
-            await updateAccountBalance(effectiveAccountId, data.amount, data.type === 'expense');
-        }
+                if (!data.accountId) {
+                    updateData.accountId = effectiveAccountId;
+                }
+
+                transaction.update(
+                    doc(db, `workspaces/${workspace.id}/accounts`, effectiveAccountId),
+                    { balance: increment(data.type === 'expense' ? -data.amount : data.amount) }
+                );
+            }
+
+            transaction.update(txRef, updateData);
+        });
     };
 
     const transfer = async (params: {
