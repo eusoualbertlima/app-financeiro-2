@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
                 source: "api/billing/create-checkout-session",
                 message: `Missing Stripe price env for ${plan}.`,
                 level: "error",
+                workspaceId: workspaceId || undefined,
                 context: alertContext,
             });
             return NextResponse.json(
@@ -150,6 +151,7 @@ export async function POST(request: NextRequest) {
             source: "api/billing/create-checkout-session",
             message: "Unhandled exception while creating checkout session.",
             level: "error",
+            workspaceId: typeof alertContext.workspaceId === "string" ? alertContext.workspaceId : undefined,
             context: {
                 ...alertContext,
                 error: serializeError(error),

@@ -141,6 +141,23 @@ export interface FinancialNote {
     updatedAt: number;
 }
 
+export interface OpsAlert {
+    id: string;
+    app?: string;
+    env?: string;
+    level: 'info' | 'warning' | 'error';
+    source: string;
+    message: string;
+    workspaceId?: string;
+    context?: Record<string, any>;
+    timestamp?: string;
+    createdAt: number;
+    delivery?: {
+        webhook?: boolean;
+        firestore?: boolean;
+    };
+}
+
 // Fatura do Cartão
 export interface CardStatement {
     id: string;

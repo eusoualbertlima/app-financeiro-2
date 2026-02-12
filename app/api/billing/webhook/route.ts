@@ -146,6 +146,7 @@ export async function POST(request: NextRequest) {
 
     let eventType: string | null = null;
     let payloadSize = 0;
+    let lastWorkspaceId: string | undefined;
 
     try {
         const payload = await request.text();
@@ -163,12 +164,14 @@ export async function POST(request: NextRequest) {
                 const subscription = await stripe.subscriptions.retrieve(subscriptionId);
                 const targetWorkspaceId = workspaceId || await findWorkspaceIdBySubscription(subscription);
                 if (targetWorkspaceId) {
+                    lastWorkspaceId = targetWorkspaceId;
                     await applySubscriptionToWorkspace(targetWorkspaceId, subscription);
                 } else {
                     await sendOpsAlert({
                         source: "api/billing/webhook",
                         message: "checkout.session.completed received without resolvable workspace.",
                         level: "warning",
+                        workspaceId: workspaceId || undefined,
                         context: {
                             eventType: event.type,
                             subscriptionId,
@@ -187,6 +190,7 @@ export async function POST(request: NextRequest) {
             const subscription = event.data.object as Stripe.Subscription;
             const workspaceId = await findWorkspaceIdBySubscription(subscription);
             if (workspaceId) {
+                lastWorkspaceId = workspaceId;
                 await applySubscriptionToWorkspace(workspaceId, subscription);
             } else {
                 await sendOpsAlert({
@@ -208,6 +212,7 @@ export async function POST(request: NextRequest) {
             source: "api/billing/webhook",
             message: "Stripe webhook handler failed.",
             level: "error",
+            workspaceId: lastWorkspaceId,
             context: {
                 eventType,
                 payloadSize,

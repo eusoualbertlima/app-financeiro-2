@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
             source: "api/billing/create-portal-session",
             message: "Unhandled exception while creating portal session.",
             level: "error",
+            workspaceId: typeof alertContext.workspaceId === "string" ? alertContext.workspaceId : undefined,
             context: {
                 ...alertContext,
                 error: serializeError(error),

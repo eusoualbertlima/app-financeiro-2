@@ -8,6 +8,7 @@ import {
     CreditCard,
     Receipt,
     FileText,
+    AlertTriangle,
     Settings,
     LogOut,
     TrendingUp,
@@ -22,6 +23,7 @@ const menuItems = [
     { href: "/dashboard/cartoes", icon: CreditCard, label: "Cartões" },
     { href: "/dashboard/lancamentos", icon: Receipt, label: "Lançamentos" },
     { href: "/dashboard/notas", icon: FileText, label: "Notas" },
+    { href: "/dashboard/alertas", icon: AlertTriangle, label: "Alertas" },
     { href: "/dashboard/contas-fixas", icon: CalendarDays, label: "Contas Fixas" },
     { href: "/dashboard/configuracoes", icon: Settings, label: "Configurações" },
 ];

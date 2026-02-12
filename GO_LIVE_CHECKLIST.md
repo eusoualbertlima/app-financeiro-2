@@ -10,6 +10,7 @@
 - [x] Aceite de termos/política antes de iniciar checkout
 - [x] CI básico (TypeScript + build)
 - [x] Alertas operacionais por webhook para erros críticos de billing
+- [x] Centro interno de alertas no dashboard (`/dashboard/alertas`)
 
 ## 2) Alta prioridade (próximos passos)
 - [ ] Implementar monitoramento de erros (Sentry) em client + server (além dos alertas de billing já ativos)
