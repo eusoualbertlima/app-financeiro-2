@@ -7,6 +7,7 @@ import {
     Wallet,
     CreditCard,
     Receipt,
+    FileText,
     Settings,
     LogOut,
     TrendingUp,
@@ -20,6 +21,7 @@ const menuItems = [
     { href: "/dashboard/contas", icon: Wallet, label: "Contas" },
     { href: "/dashboard/cartoes", icon: CreditCard, label: "Cartões" },
     { href: "/dashboard/lancamentos", icon: Receipt, label: "Lançamentos" },
+    { href: "/dashboard/notas", icon: FileText, label: "Notas" },
     { href: "/dashboard/contas-fixas", icon: CalendarDays, label: "Contas Fixas" },
     { href: "/dashboard/configuracoes", icon: Settings, label: "Configurações" },
 ];
@@ -95,7 +97,7 @@ export function MobileNav() {
     return (
         <nav className="mobile-nav lg:hidden">
             <div className="flex justify-around py-2 px-4">
-                {menuItems.slice(0, 5).map((item) => {
+                {menuItems.filter(item => item.href !== "/dashboard/configuracoes").map((item) => {
                     const isActive = pathname === item.href ||
                         (item.href !== "/dashboard" && pathname.startsWith(item.href));
                     return (

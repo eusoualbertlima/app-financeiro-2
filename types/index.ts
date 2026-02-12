@@ -119,6 +119,20 @@ export interface BillPayment {
     skippedAt?: number;
 }
 
+// Nota Financeira (bloco de notas / empréstimos)
+export interface FinancialNote {
+    id: string;
+    title: string;
+    description?: string;
+    type: 'general' | 'to_receive' | 'to_pay';
+    status: 'open' | 'resolved';
+    personName?: string | null;
+    amount?: number | null;
+    dueDate?: number | null;
+    createdAt: number;
+    updatedAt: number;
+}
+
 // Fatura do Cartão
 export interface CardStatement {
     id: string;
