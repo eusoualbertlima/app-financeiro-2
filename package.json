@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
+    "@sentry/nextjs": "^10.38.0",
     "@tailwindcss/postcss": "^4.1.18",
     "clsx": "latest",
     "firebase": "^10.0.0",

@@ -13,7 +13,7 @@
 - [x] Centro interno de alertas no dashboard (`/dashboard/alertas`)
 
 ## 2) Alta prioridade (próximos passos)
-- [ ] Implementar monitoramento de erros (Sentry) em client + server (além dos alertas de billing já ativos)
+- [x] Implementar monitoramento de erros (Sentry) em client + server (além dos alertas de billing já ativos) — implementação pronta, falta configurar DSN no Vercel (`SENTRY_SETUP.md`)
 - [ ] Criar rotina/admin de reconciliação de saldos por conta
 - [x] Definir política comercial: cancelamento, reembolso e SLA de suporte (`/politica-comercial`)
 - [x] Página pública de suporte/contato (`/suporte`)
@@ -34,5 +34,5 @@
   - lançamento pago/pendente
   - contas fixas (pagar/desfazer)
   - assinatura (checkout/webhook/portal)
-- [ ] Observabilidade mínima em produção com alertas acionáveis
+- [ ] Observabilidade mínima em produção com alertas acionáveis (Sentry no código; pendente DSN/env em produção)
 - [x] Processo de suporte com tempo de resposta definido (`/suporte`)
