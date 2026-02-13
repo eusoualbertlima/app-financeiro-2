@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/hooks/useFirestore";
 import { getWorkspaceAccessState } from "@/lib/billing";
+import { getClientDevAdminAllowlist, hasDevAdminAccess } from "@/lib/devAdmin";
 import { Header } from "@/components/Navigation";
 import { Settings, User, Shield, Bell, Palette, LogOut, ChevronRight, UserPlus, Users, Copy, Check, CreditCard, Loader2 } from "lucide-react";
 import { collection, query, where, getDocs, updateDoc, doc, arrayUnion } from "firebase/firestore";
@@ -14,6 +15,12 @@ export default function ConfiguracoesPage() {
     const { user, signOut } = useAuth();
     const { workspace } = useWorkspace();
     const access = getWorkspaceAccessState(workspace);
+    const isDevAdmin = hasDevAdminAccess({
+        uid: user?.uid,
+        email: user?.email,
+        allowlist: getClientDevAdminAllowlist(),
+    });
+    const hasEffectiveAccess = access.hasAccess || isDevAdmin;
     const [activeSection, setActiveSection] = useState<string | null>(null);
     const [inviteEmail, setInviteEmail] = useState("");
     const [inviteStatus, setInviteStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
@@ -231,14 +238,16 @@ export default function ConfiguracoesPage() {
                         <CreditCard className="w-5 h-5 text-primary-600" />
                         <h3 className="font-semibold text-slate-900">Assinatura</h3>
                     </div>
-                    <span className={`text-xs font-bold px-2 py-1 rounded-full ${access.hasAccess ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
-                        {access.status}
+                    <span className={`text-xs font-bold px-2 py-1 rounded-full ${hasEffectiveAccess ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                        {isDevAdmin && !access.hasAccess ? "internal_active" : access.status}
                     </span>
                 </div>
                 <p className="text-sm text-slate-500 mb-4">
-                    {access.status === "trialing"
+                    {isDevAdmin && !access.hasAccess
+                        ? "Acesso interno liberado por conta dev-admin (bypass de cobrança ativo somente para sua conta)."
+                        : access.status === "trialing"
                         ? `Seu teste expira em ${access.trialDaysLeft || 0} dia(s).`
-                        : access.hasAccess
+                        : hasEffectiveAccess
                             ? "Sua assinatura está ativa."
                             : "Seu acesso está bloqueado até a assinatura ser reativada."}
                 </p>

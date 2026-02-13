@@ -4,6 +4,7 @@ import { Sidebar, MobileNav } from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/hooks/useFirestore";
 import { getWorkspaceAccessState } from "@/lib/billing";
+import { getClientDevAdminAllowlist, hasDevAdminAccess } from "@/lib/devAdmin";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
@@ -16,6 +17,12 @@ export default function DashboardLayout({
     const { workspace, loading: workspaceLoading } = useWorkspace();
     const router = useRouter();
     const access = getWorkspaceAccessState(workspace);
+    const isDevAdmin = hasDevAdminAccess({
+        uid: user?.uid,
+        email: user?.email,
+        allowlist: getClientDevAdminAllowlist(),
+    });
+    const hasEffectiveAccess = access.hasAccess || isDevAdmin;
 
     useEffect(() => {
         if (authLoading || workspaceLoading) return;
@@ -25,10 +32,10 @@ export default function DashboardLayout({
             return;
         }
 
-        if (workspace && !access.hasAccess) {
+        if (workspace && !hasEffectiveAccess) {
             router.push("/checkout");
         }
-    }, [user, workspace, access.hasAccess, authLoading, workspaceLoading, router]);
+    }, [user, workspace, hasEffectiveAccess, authLoading, workspaceLoading, router]);
 
     if (authLoading || workspaceLoading) {
         return (
@@ -41,7 +48,7 @@ export default function DashboardLayout({
         );
     }
 
-    if (!user || !workspace || !access.hasAccess) return null;
+    if (!user || !workspace || !hasEffectiveAccess) return null;
 
     return (
         <div className="min-h-screen bg-slate-50">

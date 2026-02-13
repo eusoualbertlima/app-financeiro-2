@@ -3,6 +3,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/hooks/useFirestore";
 import { getWorkspaceAccessState } from "@/lib/billing";
+import { getClientDevAdminAllowlist, hasDevAdminAccess } from "@/lib/devAdmin";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { Shield, Check, Star, LogOut, Loader2, CircleAlert, CalendarClock, CreditCard } from "lucide-react";
@@ -19,6 +20,12 @@ function CheckoutContent() {
     const [message, setMessage] = useState("");
     const [acceptedLegal, setAcceptedLegal] = useState(false);
     const access = getWorkspaceAccessState(workspace);
+    const isDevAdmin = hasDevAdminAccess({
+        uid: user?.uid,
+        email: user?.email,
+        allowlist: getClientDevAdminAllowlist(),
+    });
+    const hasEffectiveAccess = access.hasAccess || isDevAdmin;
     const isOwner = workspace?.ownerId ? user?.uid === workspace.ownerId : true;
     const paymentSuccess = searchParams.get("success") === "1";
     const paymentCanceled = searchParams.get("canceled") === "1";
@@ -29,10 +36,10 @@ function CheckoutContent() {
             return;
         }
 
-        if (!authLoading && !workspaceLoading && user && workspace && access.hasAccess) {
+        if (!authLoading && !workspaceLoading && user && workspace && hasEffectiveAccess) {
             router.push("/dashboard");
         }
-    }, [user, workspace, access.hasAccess, authLoading, workspaceLoading, router]);
+    }, [user, workspace, hasEffectiveAccess, authLoading, workspaceLoading, router]);
 
     useEffect(() => {
         if (!workspace) return;
