@@ -27,6 +27,12 @@ export default function TermosPage() {
                         <p>
                             Recursos pagos podem ser cobrados de forma recorrente por meio da Stripe. Cancelamentos e alterações de plano seguem as regras do provedor de pagamento e do plano contratado.
                         </p>
+                        <p className="mt-2">
+                            Consulte também a{" "}
+                            <Link href="/politica-comercial" className="text-primary-600 hover:underline">
+                                Política Comercial
+                            </Link>.
+                        </p>
                     </section>
 
                     <section>
@@ -47,6 +53,16 @@ export default function TermosPage() {
                         <h2 className="font-semibold text-slate-900 mb-1">6. Alterações</h2>
                         <p>
                             Estes termos podem ser atualizados periodicamente. O uso contínuo após alterações implica concordância com a versão vigente.
+                        </p>
+                    </section>
+
+                    <section>
+                        <h2 className="font-semibold text-slate-900 mb-1">7. Suporte</h2>
+                        <p>
+                            Para suporte técnico ou dúvidas comerciais, utilize o canal oficial em{" "}
+                            <Link href="/suporte" className="text-primary-600 hover:underline">
+                                /suporte
+                            </Link>.
                         </p>
                     </section>
                 </div>

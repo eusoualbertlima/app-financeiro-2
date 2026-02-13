@@ -1,6 +1,6 @@
 # Go-Live Comercial (App Financeiro 2.0)
 
-Última atualização: 12 de fevereiro de 2026
+Última atualização: 13 de fevereiro de 2026
 
 ## 1) Mínimo para vender (feito)
 - [x] Build de produção estável (`npm run build`)
@@ -15,8 +15,8 @@
 ## 2) Alta prioridade (próximos passos)
 - [ ] Implementar monitoramento de erros (Sentry) em client + server (além dos alertas de billing já ativos)
 - [ ] Criar rotina/admin de reconciliação de saldos por conta
-- [ ] Definir política comercial: cancelamento, reembolso e SLA de suporte
-- [ ] Página pública de suporte/contato
+- [x] Definir política comercial: cancelamento, reembolso e SLA de suporte (`/politica-comercial`)
+- [x] Página pública de suporte/contato (`/suporte`)
 
 ## 3) Segurança e operação
 - [ ] Revisar regras de segurança do Firestore por coleção
@@ -35,4 +35,4 @@
   - contas fixas (pagar/desfazer)
   - assinatura (checkout/webhook/portal)
 - [ ] Observabilidade mínima em produção com alertas acionáveis
-- [ ] Processo de suporte com tempo de resposta definido
+- [x] Processo de suporte com tempo de resposta definido (`/suporte`)

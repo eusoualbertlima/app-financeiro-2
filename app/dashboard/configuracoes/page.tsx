@@ -280,9 +280,15 @@ export default function ConfiguracoesPage() {
                         Li e aceito os{" "}
                         <Link href="/termos" className="underline text-primary-600" target="_blank">Termos de Uso</Link>{" "}
                         e a{" "}
-                        <Link href="/privacidade" className="underline text-primary-600" target="_blank">Política de Privacidade</Link>.
+                        <Link href="/privacidade" className="underline text-primary-600" target="_blank">Política de Privacidade</Link>{" "}
+                        e a{" "}
+                        <Link href="/politica-comercial" className="underline text-primary-600" target="_blank">Política Comercial</Link>.
                     </span>
                 </label>
+                <p className="text-xs text-slate-500 mt-2">
+                    Precisa de ajuda com cobrança ou cancelamento?{" "}
+                    <Link href="/suporte" className="underline text-primary-600" target="_blank">Suporte</Link>.
+                </p>
                 {billingMessage && (
                     <p className="text-xs text-red-500 mt-2">{billingMessage}</p>
                 )}

@@ -46,7 +46,10 @@ export default function PrivacidadePage() {
                     <section>
                         <h2 className="font-semibold text-slate-900 mb-1">6. Contato</h2>
                         <p>
-                            Para solicitações relacionadas à privacidade, utilize o canal de suporte do produto.
+                            Para solicitações relacionadas à privacidade, utilize o canal oficial em{" "}
+                            <Link href="/suporte" className="text-primary-600 hover:underline">
+                                /suporte
+                            </Link>.
                         </p>
                     </section>
                 </div>

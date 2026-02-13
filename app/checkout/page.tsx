@@ -270,9 +270,20 @@ function CheckoutContent() {
                         e a{" "}
                         <Link href="/privacidade" className="text-blue-300 hover:text-blue-200 underline" target="_blank">
                             Política de Privacidade
+                        </Link>{" "}
+                        e a{" "}
+                        <Link href="/politica-comercial" className="text-blue-300 hover:text-blue-200 underline" target="_blank">
+                            Política Comercial
                         </Link>.
                     </span>
                 </label>
+
+                <p className="text-xs text-slate-400 mb-4">
+                    Dúvidas de cobrança ou cancelamento?{" "}
+                    <Link href="/suporte" className="text-blue-300 hover:text-blue-200 underline" target="_blank">
+                        Fale com o suporte
+                    </Link>.
+                </p>
 
                 {message && (
                     <div className="mb-4 rounded-lg bg-red-500/10 border border-red-500/30 p-3 text-xs text-red-200">

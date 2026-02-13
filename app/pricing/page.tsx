@@ -64,8 +64,16 @@ export default function PricingPage() {
                         </button>
                     </div>
                 </div>
+
+                <div className="text-center text-xs text-slate-500 mt-8">
+                    Ao assinar, você concorda com os{" "}
+                    <Link href="/termos" className="text-slate-300 hover:underline">Termos</Link>,{" "}
+                    <Link href="/privacidade" className="text-slate-300 hover:underline">Privacidade</Link> e{" "}
+                    <Link href="/politica-comercial" className="text-slate-300 hover:underline">Política Comercial</Link>.
+                    {" "}Precisa de ajuda?{" "}
+                    <Link href="/suporte" className="text-slate-300 hover:underline">Suporte</Link>.
+                </div>
             </div>
         </div>
     );
 }
-

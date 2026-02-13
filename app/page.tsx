@@ -99,6 +99,10 @@ export default function Home() {
                         <Link href="/termos" className="hover:text-gray-300 transition-colors">Termos de Uso</Link>
                         <span>•</span>
                         <Link href="/privacidade" className="hover:text-gray-300 transition-colors">Política de Privacidade</Link>
+                        <span>•</span>
+                        <Link href="/politica-comercial" className="hover:text-gray-300 transition-colors">Política Comercial</Link>
+                        <span>•</span>
+                        <Link href="/suporte" className="hover:text-gray-300 transition-colors">Suporte</Link>
                     </div>
                 </footer>
             </div>
