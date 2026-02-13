@@ -299,6 +299,17 @@ export async function GET(request: NextRequest) {
         const uniqueMembersCount = new Set(
             clients.flatMap((workspace) => workspace.members.map((member) => member.uid))
         ).size;
+        const missingProfilesSet = new Set<string>();
+        clients.forEach((workspace) => {
+            if (workspace.owner && !workspace.owner.hasProfileDoc) {
+                missingProfilesSet.add(workspace.owner.uid);
+            }
+            workspace.members.forEach((member) => {
+                if (!member.hasProfileDoc) {
+                    missingProfilesSet.add(member.uid);
+                }
+            });
+        });
 
         const statusBreakdown = clients.reduce<Record<string, number>>((acc, workspace) => {
             const status = workspace.billing.status || "unknown";
@@ -311,6 +322,7 @@ export async function GET(request: NextRequest) {
             totals: {
                 workspaces: clients.length,
                 uniqueMembers: uniqueMembersCount,
+                missingProfiles: missingProfilesSet.size,
                 pendingInvites: clients.reduce((sum, workspace) => sum + workspace.pendingInvites.length, 0),
                 billingStatus: statusBreakdown,
             },

@@ -15,6 +15,7 @@ import {
     ShieldCheck,
     UserMinus,
     Users,
+    Wrench,
 } from "lucide-react";
 
 type UserSummary = {
@@ -69,6 +70,7 @@ type AdminClientsResponse = {
     totals: {
         workspaces: number;
         uniqueMembers: number;
+        missingProfiles: number;
         pendingInvites: number;
         billingStatus: Record<string, number>;
     };
@@ -78,6 +80,19 @@ type AdminClientsResponse = {
 type AdminApiError = {
     error?: string;
     details?: string;
+};
+
+type BackfillResponse = {
+    ok: boolean;
+    message: string;
+    stats: {
+        workspaces: number;
+        usersInWorkspaces: number;
+        authRecordsFound: number;
+        updatedProfiles: number;
+        skippedProfiles: number;
+        missingAuthRecords: number;
+    };
 };
 
 type AccessPayload = {
@@ -199,6 +214,45 @@ export default function AdminDashboardPage() {
         }
     };
 
+    const runBackfillMissingProfiles = async () => {
+        if (!user) return;
+
+        setUpdatingKey("backfill-profiles");
+        setActionFeedback(null);
+
+        try {
+            const token = await user.getIdToken();
+            const response = await fetch("/api/admin/users/backfill", {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            const body = (await response.json()) as BackfillResponse & AdminApiError;
+            if (!response.ok) {
+                throw new Error(body.error || "Não foi possível corrigir perfis ausentes.");
+            }
+
+            const stats = body.stats;
+            setActionFeedback({
+                type: "success",
+                text:
+                    `${body.message} Atualizados: ${stats.updatedProfiles}. `
+                    + `Ignorados: ${stats.skippedProfiles}. `
+                    + `Sem Auth: ${stats.missingAuthRecords}.`,
+            });
+            await fetchData(true);
+        } catch (err) {
+            setActionFeedback({
+                type: "error",
+                text: err instanceof Error ? err.message : "Erro ao corrigir perfis ausentes.",
+            });
+        } finally {
+            setUpdatingKey(null);
+        }
+    };
+
     useEffect(() => {
         if (!user) {
             setLoading(false);
@@ -281,7 +335,7 @@ export default function AdminDashboardPage() {
         <div className="p-6 lg:p-8 max-w-7xl mx-auto">
             <Header title="Admin" subtitle="Gestão global de clientes, acessos e assinatura" />
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
                 <div className="card p-4">
                     <p className="text-sm text-slate-500">Workspaces</p>
                     <p className="text-2xl font-bold text-slate-900">{data?.totals.workspaces || 0}</p>
@@ -289,6 +343,10 @@ export default function AdminDashboardPage() {
                 <div className="card p-4">
                     <p className="text-sm text-slate-500">Usuários únicos</p>
                     <p className="text-2xl font-bold text-slate-900">{data?.totals.uniqueMembers || 0}</p>
+                </div>
+                <div className="card p-4">
+                    <p className="text-sm text-slate-500">Perfis ausentes</p>
+                    <p className="text-2xl font-bold text-amber-600">{data?.totals.missingProfiles || 0}</p>
                 </div>
                 <div className="card p-4">
                     <p className="text-sm text-slate-500">Convites pendentes</p>
@@ -310,14 +368,28 @@ export default function AdminDashboardPage() {
                         className="input pl-9"
                     />
                 </div>
-                <button
-                    onClick={() => fetchData(true)}
-                    className="btn-secondary inline-flex items-center justify-center gap-2 min-w-[180px]"
-                    disabled={refreshing}
-                >
-                    {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                    Atualizar dados
-                </button>
+                <div className="flex gap-2 flex-wrap lg:justify-end">
+                    <button
+                        onClick={runBackfillMissingProfiles}
+                        className="btn-secondary inline-flex items-center justify-center gap-2 min-w-[220px]"
+                        disabled={Boolean(updatingKey)}
+                    >
+                        {updatingKey === "backfill-profiles" ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                            <Wrench className="w-4 h-4" />
+                        )}
+                        Corrigir perfis ausentes
+                    </button>
+                    <button
+                        onClick={() => fetchData(true)}
+                        className="btn-secondary inline-flex items-center justify-center gap-2 min-w-[180px]"
+                        disabled={refreshing || Boolean(updatingKey)}
+                    >
+                        {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                        Atualizar dados
+                    </button>
+                </div>
             </div>
 
             {actionFeedback && (
