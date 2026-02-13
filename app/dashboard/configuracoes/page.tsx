@@ -239,11 +239,11 @@ export default function ConfiguracoesPage() {
                         <h3 className="font-semibold text-slate-900">Assinatura</h3>
                     </div>
                     <span className={`text-xs font-bold px-2 py-1 rounded-full ${hasEffectiveAccess ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
-                        {isDevAdmin && !access.hasAccess ? "internal_active" : access.status}
+                        {isDevAdmin ? "internal_active" : access.status}
                     </span>
                 </div>
                 <p className="text-sm text-slate-500 mb-4">
-                    {isDevAdmin && !access.hasAccess
+                    {isDevAdmin
                         ? "Acesso interno liberado por conta dev-admin (bypass de cobrança ativo somente para sua conta)."
                         : access.status === "trialing"
                         ? `Seu teste expira em ${access.trialDaysLeft || 0} dia(s).`
