@@ -37,6 +37,7 @@ export const SubscriptionService = {
             subscriptionPlan: normalizedBilling.plan || existingProfile?.subscriptionPlan,
             createdAt: existingProfile?.createdAt || Date.now(),
             updatedAt: Date.now(),
+            lastSeenAt: Date.now(),
         };
 
         await setDoc(userRef, profile, { merge: true });

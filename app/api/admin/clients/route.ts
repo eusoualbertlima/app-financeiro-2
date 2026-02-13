@@ -21,8 +21,12 @@ type UserSummary = {
     createdAt: number | null;
     authCreatedAt: number | null;
     lastSignInAt: number | null;
+    lastSeenAt: number | null;
+    profileUpdatedAt: number | null;
+    lastActivityAt: number | null;
     emailVerified: boolean | null;
     disabled: boolean | null;
+    providerIds: string[];
     subscriptionStatus: UserProfile["subscriptionStatus"] | null;
     subscriptionPlan: UserProfile["subscriptionPlan"] | null;
     hasProfileDoc: boolean;
@@ -133,6 +137,12 @@ function toUserSummary(
 ): UserSummary {
     const profileCreatedAt = toNumberOrNull(profile?.createdAt);
     const authCreatedAt = toTimestampOrNull(authRecord?.metadata.creationTime);
+    const profileUpdatedAt = toNumberOrNull(profile?.updatedAt);
+    const lastSeenAt = toNumberOrNull(profile?.lastSeenAt);
+    const lastSignInAt = toTimestampOrNull(authRecord?.metadata.lastSignInTime);
+    const lastActivityAt = [lastSeenAt, profileUpdatedAt, lastSignInAt]
+        .filter((value): value is number => typeof value === "number")
+        .sort((a, b) => b - a)[0] || null;
 
     return {
         uid,
@@ -141,9 +151,13 @@ function toUserSummary(
         phoneNumber: toStringOrNull(authRecord?.phoneNumber),
         createdAt: profileCreatedAt || authCreatedAt,
         authCreatedAt,
-        lastSignInAt: toTimestampOrNull(authRecord?.metadata.lastSignInTime),
+        lastSignInAt,
+        lastSeenAt,
+        profileUpdatedAt,
+        lastActivityAt,
         emailVerified: toBooleanOrNull(authRecord?.emailVerified),
         disabled: toBooleanOrNull(authRecord?.disabled),
+        providerIds: (authRecord?.providerData || []).map((item) => item.providerId).filter(Boolean),
         subscriptionStatus: (profile?.subscriptionStatus || null) as UserSummary["subscriptionStatus"],
         subscriptionPlan: (profile?.subscriptionPlan || null) as UserSummary["subscriptionPlan"],
         hasProfileDoc: Boolean(profile),

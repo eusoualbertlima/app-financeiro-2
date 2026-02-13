@@ -21,6 +21,16 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+async function syncUserPresence(user: User) {
+    const token = await user.getIdToken();
+    await fetch("/api/users/presence", {
+        method: "POST",
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    });
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -38,6 +48,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     console.error("Erro ao carregar perfil do usuário:", error);
                     // Em caso de erro, define null ou um perfil fallback seguro
                     setUserProfile(null);
+                }
+
+                try {
+                    await syncUserPresence(user);
+                } catch (error) {
+                    console.error("Erro ao sincronizar presença do usuário:", error);
                 }
             } else {
                 setUserProfile(null);

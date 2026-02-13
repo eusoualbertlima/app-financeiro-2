@@ -25,8 +25,12 @@ type UserSummary = {
     createdAt: number | null;
     authCreatedAt: number | null;
     lastSignInAt: number | null;
+    lastSeenAt: number | null;
+    profileUpdatedAt: number | null;
+    lastActivityAt: number | null;
     emailVerified: boolean | null;
     disabled: boolean | null;
+    providerIds: string[];
     subscriptionStatus: string | null;
     subscriptionPlan: string | null;
     hasProfileDoc: boolean;
@@ -407,8 +411,13 @@ export default function AdminDashboardPage() {
                                     <p className="text-xs text-slate-500">Telefone: {formatLabel(client.owner?.phoneNumber, "Não informado")}</p>
                                     <p className="text-xs text-slate-500">Email verificado: {formatBoolean(client.owner?.emailVerified)}</p>
                                     <p className="text-xs text-slate-500">Conta desabilitada: {formatBoolean(client.owner?.disabled)}</p>
-                                    <p className="text-xs text-slate-500">Último login: {formatDate(client.owner?.lastSignInAt)}</p>
+                                    <p className="text-xs text-slate-500">Último acesso no app: {formatDate(client.owner?.lastActivityAt)}</p>
+                                    <p className="text-xs text-slate-500">Último login Google: {formatDate(client.owner?.lastSignInAt)}</p>
+                                    <p className="text-xs text-slate-500">Último heartbeat de sessão: {formatDate(client.owner?.lastSeenAt)}</p>
                                     <p className="text-xs text-slate-500">Criado (auth): {formatDate(client.owner?.authCreatedAt)}</p>
+                                    <p className="text-xs text-slate-500">
+                                        Provedores: {client.owner?.providerIds?.length ? client.owner.providerIds.join(", ") : "-"}
+                                    </p>
                                     <p className="text-xs text-slate-500">
                                         Assinatura (perfil): {formatLabel(client.owner?.subscriptionStatus)}
                                         {" • "}
@@ -446,8 +455,13 @@ export default function AdminDashboardPage() {
                                                                 {" • "}
                                                                 Desabilitado: {formatBoolean(member.disabled)}
                                                             </p>
-                                                            <p className="text-slate-500">Último login: {formatDate(member.lastSignInAt)}</p>
+                                                            <p className="text-slate-500">Último acesso app: {formatDate(member.lastActivityAt)}</p>
+                                                            <p className="text-slate-500">Último login Google: {formatDate(member.lastSignInAt)}</p>
+                                                            <p className="text-slate-500">Último heartbeat: {formatDate(member.lastSeenAt)}</p>
                                                             <p className="text-slate-500">Criado (auth): {formatDate(member.authCreatedAt)}</p>
+                                                            <p className="text-slate-500">
+                                                                Provedores: {member.providerIds?.length ? member.providerIds.join(", ") : "-"}
+                                                            </p>
                                                             <p className="text-slate-500">
                                                                 Assinatura: {formatLabel(member.subscriptionStatus)}
                                                                 {" • "}

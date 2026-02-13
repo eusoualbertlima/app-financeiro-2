@@ -183,4 +183,5 @@ export interface UserProfile {
     subscriptionPlan?: 'monthly' | 'yearly';
     createdAt: number;
     updatedAt: number;
+    lastSeenAt?: number;
 }
