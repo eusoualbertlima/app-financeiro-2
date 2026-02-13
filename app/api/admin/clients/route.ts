@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminDb } from "@/lib/firebaseAdmin";
+import { getAdminAuth, getAdminDb } from "@/lib/firebaseAdmin";
 import { requireUserFromRequest } from "@/lib/serverAuth";
 import {
     getServerDevAdminAllowlist,
     hasConfiguredDevAdminAllowlist,
     hasDevAdminAccess,
 } from "@/lib/devAdmin";
+import { normalizeWorkspaceBilling } from "@/lib/billing";
+import type { UserRecord } from "firebase-admin/auth";
 import type { UserProfile, Workspace } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -15,9 +17,16 @@ type UserSummary = {
     uid: string;
     displayName: string | null;
     email: string | null;
+    phoneNumber: string | null;
     createdAt: number | null;
+    authCreatedAt: number | null;
+    lastSignInAt: number | null;
+    emailVerified: boolean | null;
+    disabled: boolean | null;
     subscriptionStatus: UserProfile["subscriptionStatus"] | null;
     subscriptionPlan: UserProfile["subscriptionPlan"] | null;
+    hasProfileDoc: boolean;
+    hasAuthRecord: boolean;
 };
 
 type ClientWorkspaceSummary = {
@@ -84,6 +93,14 @@ function mapAdminError(error: unknown) {
         };
     }
 
+    if (message.includes("permission") || message.includes("insufficient")) {
+        return {
+            status: 500,
+            error: "Sem permissão para ler usuários no Firebase Auth. Verifique permissões da service account.",
+            details: rawMessage,
+        };
+    }
+
     return {
         status: 500,
         error: "Erro ao carregar dados administrativos.",
@@ -103,19 +120,47 @@ function toBooleanOrNull(value: unknown): boolean | null {
     return typeof value === "boolean" ? value : null;
 }
 
-function toUserSummary(uid: string, profile: Partial<UserProfile> | undefined): UserSummary {
+function toTimestampOrNull(value: unknown): number | null {
+    if (typeof value !== "string") return null;
+    const timestamp = Date.parse(value);
+    return Number.isNaN(timestamp) ? null : timestamp;
+}
+
+function toUserSummary(
+    uid: string,
+    profile: Partial<UserProfile> | undefined,
+    authRecord: UserRecord | undefined
+): UserSummary {
+    const profileCreatedAt = toNumberOrNull(profile?.createdAt);
+    const authCreatedAt = toTimestampOrNull(authRecord?.metadata.creationTime);
+
     return {
         uid,
-        displayName: toStringOrNull(profile?.displayName),
-        email: toStringOrNull(profile?.email),
-        createdAt: toNumberOrNull(profile?.createdAt),
+        displayName: toStringOrNull(profile?.displayName) || toStringOrNull(authRecord?.displayName),
+        email: toStringOrNull(profile?.email) || toStringOrNull(authRecord?.email),
+        phoneNumber: toStringOrNull(authRecord?.phoneNumber),
+        createdAt: profileCreatedAt || authCreatedAt,
+        authCreatedAt,
+        lastSignInAt: toTimestampOrNull(authRecord?.metadata.lastSignInTime),
+        emailVerified: toBooleanOrNull(authRecord?.emailVerified),
+        disabled: toBooleanOrNull(authRecord?.disabled),
         subscriptionStatus: (profile?.subscriptionStatus || null) as UserSummary["subscriptionStatus"],
         subscriptionPlan: (profile?.subscriptionPlan || null) as UserSummary["subscriptionPlan"],
+        hasProfileDoc: Boolean(profile),
+        hasAuthRecord: Boolean(authRecord),
     };
 }
 
 function unique(values: string[]) {
     return Array.from(new Set(values.filter(Boolean)));
+}
+
+function chunkArray<T>(input: T[], size: number) {
+    const chunks: T[][] = [];
+    for (let i = 0; i < input.length; i += size) {
+        chunks.push(input.slice(i, i + size));
+    }
+    return chunks;
 }
 
 export async function GET(request: NextRequest) {
@@ -174,17 +219,40 @@ export async function GET(request: NextRequest) {
             });
         }
 
+        const authUserMap = new Map<string, UserRecord>();
+        if (allUserIds.length > 0) {
+            const adminAuth = getAdminAuth();
+            const userIdChunks = chunkArray(allUserIds, 100);
+            for (const chunk of userIdChunks) {
+                const authLookup = await adminAuth.getUsers(chunk.map((uid) => ({ uid })));
+                authLookup.users.forEach((record) => {
+                    authUserMap.set(record.uid, record);
+                });
+            }
+        }
+
         const clients: ClientWorkspaceSummary[] = workspaceDocs.map((workspaceDoc) => {
+            const normalizedBilling = normalizeWorkspaceBilling({
+                id: workspaceDoc.id,
+                ...(workspaceDoc as Omit<Workspace, "id">),
+            } as Workspace);
+
             const members = unique(Array.isArray(workspaceDoc.members) ? workspaceDoc.members : []).map((uid) =>
-                toUserSummary(uid, userMap.get(uid))
+                toUserSummary(uid, userMap.get(uid), authUserMap.get(uid))
             );
 
             const owner = workspaceDoc.ownerId
-                ? toUserSummary(workspaceDoc.ownerId, userMap.get(workspaceDoc.ownerId))
+                ? toUserSummary(
+                    workspaceDoc.ownerId,
+                    userMap.get(workspaceDoc.ownerId),
+                    authUserMap.get(workspaceDoc.ownerId)
+                )
                 : null;
 
             const acceptedByUid = toStringOrNull(workspaceDoc.legal?.acceptedByUid);
-            const acceptedByUser = acceptedByUid ? toUserSummary(acceptedByUid, userMap.get(acceptedByUid)) : null;
+            const acceptedByUser = acceptedByUid
+                ? toUserSummary(acceptedByUid, userMap.get(acceptedByUid), authUserMap.get(acceptedByUid))
+                : null;
 
             return {
                 workspaceId: workspaceDoc.id,
@@ -195,14 +263,14 @@ export async function GET(request: NextRequest) {
                 members,
                 pendingInvites: Array.isArray(workspaceDoc.pendingInvites) ? workspaceDoc.pendingInvites : [],
                 billing: {
-                    status: (workspaceDoc.billing?.status || null) as ClientWorkspaceSummary["billing"]["status"],
-                    plan: (workspaceDoc.billing?.plan || null) as ClientWorkspaceSummary["billing"]["plan"],
-                    trialEndsAt: toNumberOrNull(workspaceDoc.billing?.trialEndsAt),
-                    currentPeriodEnd: toNumberOrNull(workspaceDoc.billing?.currentPeriodEnd),
-                    cancelAtPeriodEnd: toBooleanOrNull(workspaceDoc.billing?.cancelAtPeriodEnd),
-                    stripeCustomerId: toStringOrNull(workspaceDoc.billing?.stripeCustomerId),
-                    stripeSubscriptionId: toStringOrNull(workspaceDoc.billing?.stripeSubscriptionId),
-                    updatedAt: toNumberOrNull(workspaceDoc.billing?.updatedAt),
+                    status: (normalizedBilling.status || null) as ClientWorkspaceSummary["billing"]["status"],
+                    plan: (normalizedBilling.plan || null) as ClientWorkspaceSummary["billing"]["plan"],
+                    trialEndsAt: toNumberOrNull(normalizedBilling.trialEndsAt),
+                    currentPeriodEnd: toNumberOrNull(normalizedBilling.currentPeriodEnd),
+                    cancelAtPeriodEnd: toBooleanOrNull(normalizedBilling.cancelAtPeriodEnd),
+                    stripeCustomerId: toStringOrNull(normalizedBilling.stripeCustomerId),
+                    stripeSubscriptionId: toStringOrNull(normalizedBilling.stripeSubscriptionId),
+                    updatedAt: toNumberOrNull(normalizedBilling.updatedAt),
                 },
                 legal: {
                     acceptedTermsAt: toNumberOrNull(workspaceDoc.legal?.acceptedTermsAt),

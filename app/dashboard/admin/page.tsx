@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
     BadgeCheck,
     Building2,
+    CircleX,
     Loader2,
     Mail,
     Plus,
@@ -20,9 +21,16 @@ type UserSummary = {
     uid: string;
     displayName: string | null;
     email: string | null;
+    phoneNumber: string | null;
     createdAt: number | null;
+    authCreatedAt: number | null;
+    lastSignInAt: number | null;
+    emailVerified: boolean | null;
+    disabled: boolean | null;
     subscriptionStatus: string | null;
     subscriptionPlan: string | null;
+    hasProfileDoc: boolean;
+    hasAuthRecord: boolean;
 };
 
 type ClientWorkspaceSummary = {
@@ -69,7 +77,7 @@ type AdminApiError = {
 };
 
 type AccessPayload = {
-    action: "removeMember" | "addPendingInvite" | "removePendingInvite";
+    action: "removeMember" | "addPendingInvite" | "removePendingInvite" | "deleteWorkspace";
     workspaceId: string;
     uid?: string;
     email?: string;
@@ -83,6 +91,11 @@ function formatDate(timestamp: number | null | undefined) {
 function formatLabel(value: string | null | undefined, fallback = "-") {
     if (!value) return fallback;
     return value;
+}
+
+function formatBoolean(value: boolean | null | undefined, trueLabel = "Sim", falseLabel = "Não") {
+    if (value === null || value === undefined) return "-";
+    return value ? trueLabel : falseLabel;
 }
 
 function statusClasses(status: string | null) {
@@ -204,7 +217,13 @@ export default function AdminDashboardPage() {
             const memberMatch = client.members.some((member) => {
                 const name = member.displayName?.toLowerCase() || "";
                 const email = member.email?.toLowerCase() || "";
-                return name.includes(q) || email.includes(q) || member.uid.toLowerCase().includes(q);
+                const phone = member.phoneNumber?.toLowerCase() || "";
+                return (
+                    name.includes(q)
+                    || email.includes(q)
+                    || phone.includes(q)
+                    || member.uid.toLowerCase().includes(q)
+                );
             });
 
             return (
@@ -283,7 +302,7 @@ export default function AdminDashboardPage() {
                     <input
                         value={search}
                         onChange={(event) => setSearch(event.target.value)}
-                        placeholder="Buscar por workspace, email, nome ou UID"
+                        placeholder="Buscar por workspace, email, nome, telefone ou UID"
                         className="input pl-9"
                     />
                 </div>
@@ -341,8 +360,37 @@ export default function AdminDashboardPage() {
                                     <p className="text-xs text-slate-500 break-all">Workspace ID: {client.workspaceId}</p>
                                     <p className="text-xs text-slate-400">Criado em: {formatDate(client.createdAt)}</p>
                                 </div>
-                                <div className="text-xs text-slate-500">
-                                    Plano: <strong className="text-slate-700">{formatLabel(client.billing.plan, "sem plano")}</strong>
+                                <div className="flex flex-col items-start lg:items-end gap-2">
+                                    <div className="text-xs text-slate-500">
+                                        Plano: <strong className="text-slate-700">{formatLabel(client.billing.plan, "sem plano")}</strong>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            const confirmedId = window.prompt(
+                                                `Para excluir permanentemente este workspace, digite o ID exato:\n${client.workspaceId}`
+                                            );
+                                            if (confirmedId !== client.workspaceId) {
+                                                setActionFeedback({
+                                                    type: "error",
+                                                    text: "Exclusão cancelada: ID de confirmação não confere.",
+                                                });
+                                                return;
+                                            }
+
+                                            runAccessAction(
+                                                {
+                                                    action: "deleteWorkspace",
+                                                    workspaceId: client.workspaceId,
+                                                },
+                                                `delete-workspace-${client.workspaceId}`
+                                            );
+                                        }}
+                                        disabled={Boolean(updatingKey)}
+                                        className="text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md px-2 py-1 disabled:opacity-50 inline-flex items-center gap-1"
+                                    >
+                                        <CircleX className="w-3 h-3" />
+                                        Excluir workspace
+                                    </button>
                                 </div>
                             </div>
 
@@ -356,7 +404,25 @@ export default function AdminDashboardPage() {
                                         {formatLabel(client.owner?.displayName, "Sem nome")}
                                     </p>
                                     <p className="text-xs text-slate-500 break-all">{formatLabel(client.owner?.email, "Sem email")}</p>
+                                    <p className="text-xs text-slate-500">Telefone: {formatLabel(client.owner?.phoneNumber, "Não informado")}</p>
+                                    <p className="text-xs text-slate-500">Email verificado: {formatBoolean(client.owner?.emailVerified)}</p>
+                                    <p className="text-xs text-slate-500">Conta desabilitada: {formatBoolean(client.owner?.disabled)}</p>
+                                    <p className="text-xs text-slate-500">Último login: {formatDate(client.owner?.lastSignInAt)}</p>
+                                    <p className="text-xs text-slate-500">Criado (auth): {formatDate(client.owner?.authCreatedAt)}</p>
+                                    <p className="text-xs text-slate-500">
+                                        Assinatura (perfil): {formatLabel(client.owner?.subscriptionStatus)}
+                                        {" • "}
+                                        Plano: {formatLabel(client.owner?.subscriptionPlan)}
+                                    </p>
                                     <p className="text-xs text-slate-400 break-all">UID: {client.ownerId || "-"}</p>
+                                    <div className="mt-1 flex gap-2 flex-wrap">
+                                        <span className={`text-[11px] px-2 py-0.5 rounded-full ${client.owner?.hasAuthRecord ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                                            Auth: {client.owner?.hasAuthRecord ? "ok" : "ausente"}
+                                        </span>
+                                        <span className={`text-[11px] px-2 py-0.5 rounded-full ${client.owner?.hasProfileDoc ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"}`}>
+                                            Perfil Firestore: {client.owner?.hasProfileDoc ? "ok" : "ausente"}
+                                        </span>
+                                    </div>
                                 </div>
 
                                 <div className="bg-slate-50 rounded-xl p-4">
@@ -374,7 +440,28 @@ export default function AdminDashboardPage() {
                                                         <div className="min-w-0">
                                                             <p className="font-medium text-slate-800">{formatLabel(member.displayName, "Sem nome")}</p>
                                                             <p className="text-slate-500 break-all">{formatLabel(member.email, "Sem email")}</p>
+                                                            <p className="text-slate-500">Telefone: {formatLabel(member.phoneNumber, "Não informado")}</p>
+                                                            <p className="text-slate-500">
+                                                                Verificado: {formatBoolean(member.emailVerified)}
+                                                                {" • "}
+                                                                Desabilitado: {formatBoolean(member.disabled)}
+                                                            </p>
+                                                            <p className="text-slate-500">Último login: {formatDate(member.lastSignInAt)}</p>
+                                                            <p className="text-slate-500">Criado (auth): {formatDate(member.authCreatedAt)}</p>
+                                                            <p className="text-slate-500">
+                                                                Assinatura: {formatLabel(member.subscriptionStatus)}
+                                                                {" • "}
+                                                                Plano: {formatLabel(member.subscriptionPlan)}
+                                                            </p>
                                                             <p className="text-slate-400 break-all">UID: {member.uid}</p>
+                                                            <div className="mt-1 flex gap-2 flex-wrap">
+                                                                <span className={`text-[11px] px-2 py-0.5 rounded-full ${member.hasAuthRecord ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                                                                    Auth: {member.hasAuthRecord ? "ok" : "ausente"}
+                                                                </span>
+                                                                <span className={`text-[11px] px-2 py-0.5 rounded-full ${member.hasProfileDoc ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"}`}>
+                                                                    Perfil: {member.hasProfileDoc ? "ok" : "ausente"}
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                         {member.uid !== client.ownerId && (
                                                             <button
@@ -430,6 +517,9 @@ export default function AdminDashboardPage() {
                                     <p className="text-xs text-slate-600">
                                         Cancela no fim do ciclo: {client.billing.cancelAtPeriodEnd ? "Sim" : "Não"}
                                     </p>
+                                    <p className="text-xs text-slate-500 break-all">Stripe customer: {formatLabel(client.billing.stripeCustomerId)}</p>
+                                    <p className="text-xs text-slate-500 break-all">Stripe subscription: {formatLabel(client.billing.stripeSubscriptionId)}</p>
+                                    <p className="text-xs text-slate-500">Billing atualizado em: {formatDate(client.billing.updatedAt)}</p>
                                     <div className="mt-3 flex gap-2">
                                         <input
                                             value={inviteDrafts[client.workspaceId] || ""}

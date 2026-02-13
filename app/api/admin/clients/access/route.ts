@@ -11,7 +11,11 @@ import type { Workspace } from "@/types";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-type AccessAction = "removeMember" | "addPendingInvite" | "removePendingInvite";
+type AccessAction =
+    | "removeMember"
+    | "addPendingInvite"
+    | "removePendingInvite"
+    | "deleteWorkspace";
 
 type AccessBody = {
     action?: AccessAction;
@@ -185,6 +189,15 @@ export async function POST(request: NextRequest) {
                 message: "Convite pendente removido.",
                 workspaceId,
                 pendingInvitesCount: nextPendingInvites.length,
+            });
+        }
+
+        if (action === "deleteWorkspace") {
+            await db.recursiveDelete(workspaceRef);
+            return NextResponse.json({
+                ok: true,
+                message: "Workspace excluído com sucesso.",
+                workspaceId,
             });
         }
 
