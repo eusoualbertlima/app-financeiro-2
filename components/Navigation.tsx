@@ -34,6 +34,7 @@ const mobileMenuOrder = [
     "/dashboard/contas",
     "/dashboard/cartoes",
     "/dashboard/lancamentos",
+    "/dashboard/notas",
     "/dashboard/contas-fixas",
 ];
 
@@ -117,7 +118,7 @@ export function MobileNav() {
 
     return (
         <nav className="mobile-nav lg:hidden">
-            <div className="flex justify-around py-2 px-4">
+            <div className="flex gap-1 overflow-x-auto py-2 px-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                 {mobileMenuItems.map((item) => {
                     const isActive = pathname === item.href ||
                         (item.href !== "/dashboard" && pathname.startsWith(item.href));
@@ -125,7 +126,7 @@ export function MobileNav() {
                         <Link
                             key={item.href}
                             href={item.href}
-                            className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all duration-200 ${isActive
+                            className={`flex min-w-[72px] shrink-0 flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all duration-200 ${isActive
                                 ? "text-primary-500 bg-primary-50"
                                 : "text-slate-400 hover:text-slate-600"
                                 }`}
