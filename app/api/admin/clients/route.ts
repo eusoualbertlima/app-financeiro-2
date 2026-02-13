@@ -49,6 +49,47 @@ type ClientWorkspaceSummary = {
 
 type WorkspaceRecord = Omit<Workspace, "id">;
 
+function normalizeErrorMessage(error: unknown) {
+    if (error instanceof Error) return error.message;
+    if (typeof error === "string") return error;
+    return "Unknown error";
+}
+
+function mapAdminError(error: unknown) {
+    const rawMessage = normalizeErrorMessage(error);
+    const message = rawMessage.toLowerCase();
+
+    if (message.includes("missing bearer token")) {
+        return { status: 401, error: "Sessao invalida. Faça login novamente." };
+    }
+
+    if (
+        message.includes("verifyidtoken")
+        || message.includes("id token")
+        || message.includes("token has expired")
+    ) {
+        return { status: 401, error: "Token invalido ou expirado. Faça login novamente." };
+    }
+
+    if (
+        message.includes("default credentials")
+        || message.includes("service account")
+        || message.includes("private key")
+        || message.includes("certificate")
+    ) {
+        return {
+            status: 500,
+            error: "Firebase Admin não configurado no servidor. Configure FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL e FIREBASE_PRIVATE_KEY no Vercel.",
+        };
+    }
+
+    return {
+        status: 500,
+        error: "Erro ao carregar dados administrativos.",
+        details: rawMessage,
+    };
+}
+
 function toNumberOrNull(value: unknown): number | null {
     return typeof value === "number" ? value : null;
 }
@@ -194,6 +235,13 @@ export async function GET(request: NextRequest) {
         });
     } catch (error) {
         console.error("admin clients error:", error);
-        return NextResponse.json({ error: "Erro ao carregar dados administrativos." }, { status: 500 });
+        const mapped = mapAdminError(error);
+        return NextResponse.json(
+            {
+                error: mapped.error,
+                ...(mapped.details ? { details: mapped.details } : {}),
+            },
+            { status: mapped.status }
+        );
     }
 }

@@ -20,6 +20,47 @@ type AccessBody = {
     email?: string;
 };
 
+function normalizeErrorMessage(error: unknown) {
+    if (error instanceof Error) return error.message;
+    if (typeof error === "string") return error;
+    return "Unknown error";
+}
+
+function mapAdminError(error: unknown) {
+    const rawMessage = normalizeErrorMessage(error);
+    const message = rawMessage.toLowerCase();
+
+    if (message.includes("missing bearer token")) {
+        return { status: 401, error: "Sessao invalida. Faça login novamente." };
+    }
+
+    if (
+        message.includes("verifyidtoken")
+        || message.includes("id token")
+        || message.includes("token has expired")
+    ) {
+        return { status: 401, error: "Token invalido ou expirado. Faça login novamente." };
+    }
+
+    if (
+        message.includes("default credentials")
+        || message.includes("service account")
+        || message.includes("private key")
+        || message.includes("certificate")
+    ) {
+        return {
+            status: 500,
+            error: "Firebase Admin não configurado no servidor. Configure FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL e FIREBASE_PRIVATE_KEY no Vercel.",
+        };
+    }
+
+    return {
+        status: 500,
+        error: "Erro ao atualizar acesso do cliente.",
+        details: rawMessage,
+    };
+}
+
 function normalizeEmail(email: string) {
     return email.trim().toLowerCase();
 }
@@ -149,9 +190,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Ação inválida." }, { status: 400 });
     } catch (error) {
         console.error("admin clients access error:", error);
+        const mapped = mapAdminError(error);
         return NextResponse.json(
-            { error: "Erro ao atualizar acesso do cliente." },
-            { status: 500 }
+            {
+                error: mapped.error,
+                ...(mapped.details ? { details: mapped.details } : {}),
+            },
+            { status: mapped.status }
         );
     }
 }

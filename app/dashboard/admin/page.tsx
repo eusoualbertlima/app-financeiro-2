@@ -63,6 +63,11 @@ type AdminClientsResponse = {
     clients: ClientWorkspaceSummary[];
 };
 
+type AdminApiError = {
+    error?: string;
+    details?: string;
+};
+
 type AccessPayload = {
     action: "removeMember" | "addPendingInvite" | "removePendingInvite";
     workspaceId: string;
@@ -94,6 +99,7 @@ export default function AdminDashboardPage() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [errorDetails, setErrorDetails] = useState<string | null>(null);
     const [search, setSearch] = useState("");
     const [updatingKey, setUpdatingKey] = useState<string | null>(null);
     const [inviteDrafts, setInviteDrafts] = useState<Record<string, string>>({});
@@ -108,6 +114,7 @@ export default function AdminDashboardPage() {
             setLoading(true);
         }
         setError(null);
+        setErrorDetails(null);
 
         try {
             const token = await user.getIdToken();
@@ -118,9 +125,10 @@ export default function AdminDashboardPage() {
                 },
             });
 
-            const payload = (await response.json()) as AdminClientsResponse & { error?: string };
+            const payload = (await response.json()) as AdminClientsResponse & AdminApiError;
 
             if (!response.ok) {
+                setErrorDetails(payload.details || null);
                 throw new Error(payload.error || "Falha ao carregar painel administrativo.");
             }
 
@@ -233,8 +241,11 @@ export default function AdminDashboardPage() {
                 <div className="card p-6 border-l-4 border-red-500">
                     <p className="text-red-700 font-medium">{error}</p>
                     <p className="text-sm text-slate-500 mt-2">
-                        Se for erro de permissão, configure `DEV_ADMIN_EMAILS`/`DEV_ADMIN_UIDS` no servidor.
+                        Verifique também `/api/billing/health` para validar credenciais Firebase Admin no servidor.
                     </p>
+                    {errorDetails && (
+                        <p className="text-xs text-slate-400 mt-2 break-words">Detalhe técnico: {errorDetails}</p>
+                    )}
                     <button onClick={() => fetchData()} className="btn-secondary mt-4">
                         Tentar novamente
                     </button>
