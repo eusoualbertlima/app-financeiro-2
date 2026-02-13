@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { useCollection } from "@/hooks/useFirestore";
 import { useTransactions } from "@/hooks/useTransactions";
-import { Wallet, Plus, Trash2, X, Edit3, Eye, ArrowRightLeft } from "lucide-react";
+import { Wallet, Plus, Trash2, X, Edit3, Eye, ArrowRightLeft, Download } from "lucide-react";
 import type { Account } from "@/types";
 import Link from "next/link";
 import { CurrencyInput } from "@/components/CurrencyInput";
 import { Header } from "@/components/Navigation";
+import { downloadCsv } from "@/lib/csv";
 
 export default function ContasPage() {
     const { data: contas, loading, add, remove, update } = useCollection<Account>("accounts");
@@ -31,6 +32,32 @@ export default function ContasPage() {
 
     const formatCurrency = (value: number) =>
         new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+
+    const handleExportCsv = () => {
+        if (!contas.length) return;
+
+        const rows = contas.map((conta) => ({
+            nome: conta.name,
+            tipo: conta.type === 'checking' ? 'Conta Corrente' : conta.type === 'investment' ? 'Investimento' : 'Dinheiro',
+            saldo_atual: conta.balance,
+            saldo_inicial: conta.startingBalance ?? conta.balance,
+            ultima_reconciliacao: conta.lastReconciledAt ? new Date(conta.lastReconciledAt).toISOString() : '',
+            cor: conta.color,
+        }));
+
+        downloadCsv({
+            filename: `contas-${new Date().toISOString().slice(0, 10)}.csv`,
+            rows,
+            columns: [
+                { header: 'Nome', key: 'nome' },
+                { header: 'Tipo', key: 'tipo' },
+                { header: 'Saldo Atual', key: 'saldo_atual' },
+                { header: 'Saldo Inicial', key: 'saldo_inicial' },
+                { header: 'Última Reconciliacao', key: 'ultima_reconciliacao' },
+                { header: 'Cor', key: 'cor' },
+            ],
+        });
+    };
 
     const openModal = (conta?: Account) => {
         if (conta) {
@@ -142,6 +169,14 @@ export default function ContasPage() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
                 <Header title="Contas Bancárias" subtitle="Gerencie suas contas e carteiras" />
                 <div className="flex flex-col sm:flex-row gap-2">
+                    <button
+                        onClick={handleExportCsv}
+                        disabled={contas.length === 0}
+                        className="btn-secondary flex items-center gap-2 w-full sm:w-auto justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <Download className="w-5 h-5" />
+                        Exportar CSV
+                    </button>
                     <button
                         onClick={openTransferModal}
                         disabled={contas.length < 2}

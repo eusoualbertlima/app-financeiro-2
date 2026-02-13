@@ -37,6 +37,8 @@ export interface Account {
     id: string;
     name: string;
     balance: number;
+    startingBalance?: number;
+    lastReconciledAt?: number;
     type: 'checking' | 'investment' | 'cash';
     color: string;
 }
@@ -156,6 +158,17 @@ export interface OpsAlert {
         webhook?: boolean;
         firestore?: boolean;
     };
+}
+
+export interface AuditLog {
+    id: string;
+    action: string;
+    entity: string;
+    entityId?: string | null;
+    actorUid?: string | null;
+    summary?: string;
+    payload?: Record<string, any>;
+    createdAt: number;
 }
 
 // Fatura do Cartão

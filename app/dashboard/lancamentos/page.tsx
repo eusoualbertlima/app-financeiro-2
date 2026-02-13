@@ -7,10 +7,11 @@ import { CurrencyInput } from "@/components/CurrencyInput";
 import {
     Receipt, Plus, X, TrendingUp, TrendingDown,
     Calendar, CreditCard, Wallet, Check, Clock,
-    AlertTriangle, Filter, ChevronLeft, ChevronRight, Edit3, Trash2, ArrowRightLeft
+    AlertTriangle, Filter, ChevronLeft, ChevronRight, Edit3, Trash2, ArrowRightLeft, Download
 } from "lucide-react";
 import { Header } from "@/components/Navigation";
 import type { Transaction, Account, CreditCard as CardType, Category } from "@/types";
+import { downloadCsv } from "@/lib/csv";
 
 const defaultCategories = [
     { id: 'alimentacao', name: 'Alimentação', icon: '🍔', color: '#f59e0b' },
@@ -172,6 +173,52 @@ export default function LancamentosPage() {
 
     const getCategory = (id?: string) => defaultCategories.find(c => c.id === id) || defaultCategories[7];
 
+    const handleExportCsv = () => {
+        if (!filteredTransactions.length) return;
+
+        const accountNameById = new Map(contas.map((conta) => [conta.id, conta.name]));
+        const cardNameById = new Map(cartoes.map((cartao) => [cartao.id, cartao.name]));
+
+        const rows = filteredTransactions.map((transaction) => {
+            const category = getCategory(transaction.categoryId);
+            const accountId = transaction.paidAccountId || transaction.accountId || '';
+            const cardId = transaction.cardId || '';
+
+            return {
+                id: transaction.id,
+                data: new Date(transaction.date).toISOString(),
+                descricao: transaction.description,
+                categoria: category.name,
+                tipo: transaction.type === 'income' ? 'receita' : 'despesa',
+                status: transaction.status,
+                valor: transaction.amount,
+                origem: transaction.source || 'manual',
+                conta: accountId ? (accountNameById.get(accountId) || accountId) : '',
+                cartao: cardId ? (cardNameById.get(cardId) || cardId) : '',
+                observacoes: transaction.notes || '',
+            };
+        });
+
+        const monthLabel = String(month).padStart(2, '0');
+        downloadCsv({
+            filename: `lancamentos-${year}-${monthLabel}.csv`,
+            rows,
+            columns: [
+                { header: 'ID', key: 'id' },
+                { header: 'Data', key: 'data' },
+                { header: 'Descricao', key: 'descricao' },
+                { header: 'Categoria', key: 'categoria' },
+                { header: 'Tipo', key: 'tipo' },
+                { header: 'Status', key: 'status' },
+                { header: 'Valor', key: 'valor' },
+                { header: 'Origem', key: 'origem' },
+                { header: 'Conta', key: 'conta' },
+                { header: 'Cartao', key: 'cartao' },
+                { header: 'Observacoes', key: 'observacoes' },
+            ],
+        });
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
@@ -184,13 +231,23 @@ export default function LancamentosPage() {
         <div className="p-6 lg:p-8 max-w-5xl mx-auto">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
                 <Header title="Lançamentos" subtitle="Receitas e despesas" />
-                <button
-                    onClick={() => openModal()}
-                    className="btn-primary flex items-center gap-2 w-full sm:w-auto justify-center"
-                >
-                    <Plus className="w-5 h-5" />
-                    Novo Lançamento
-                </button>
+                <div className="flex flex-col sm:flex-row gap-2">
+                    <button
+                        onClick={handleExportCsv}
+                        disabled={filteredTransactions.length === 0}
+                        className="btn-secondary flex items-center gap-2 w-full sm:w-auto justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <Download className="w-5 h-5" />
+                        Exportar CSV
+                    </button>
+                    <button
+                        onClick={() => openModal()}
+                        className="btn-primary flex items-center gap-2 w-full sm:w-auto justify-center"
+                    >
+                        <Plus className="w-5 h-5" />
+                        Novo Lançamento
+                    </button>
+                </div>
             </div>
 
             {/* Navegação de Mês */}

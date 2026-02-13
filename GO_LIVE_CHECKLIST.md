@@ -13,20 +13,20 @@
 - [x] Centro interno de alertas no dashboard (`/dashboard/alertas`)
 
 ## 2) Alta prioridade (próximos passos)
-- [x] Implementar monitoramento de erros (Sentry) em client + server (além dos alertas de billing já ativos) — implementação pronta, falta configurar DSN no Vercel (`SENTRY_SETUP.md`)
-- [ ] Criar rotina/admin de reconciliação de saldos por conta
+- [x] Implementar monitoramento de erros (Sentry) em client + server (além dos alertas de billing já ativos) (`SENTRY_SETUP.md`)
+- [x] Criar rotina/admin de reconciliação de saldos por conta (API `POST /api/admin/reconcile-balances` + ações no painel `/dashboard/admin`)
 - [x] Definir política comercial: cancelamento, reembolso e SLA de suporte (`/politica-comercial`)
 - [x] Página pública de suporte/contato (`/suporte`)
 
 ## 3) Segurança e operação
-- [ ] Revisar regras de segurança do Firestore por coleção
-- [ ] Ativar alertas de falha de deploy/webhook (Vercel + Stripe)
-- [ ] Revisar gestão de segredos no Vercel (produção vs teste)
+- [ ] Revisar regras de segurança do Firestore por coleção (guia em `OPERACOES_PRODUCAO.md`)
+- [ ] Ativar alertas de falha de deploy/webhook (Vercel + Stripe) (guia em `OPERACOES_PRODUCAO.md`)
+- [ ] Revisar gestão de segredos no Vercel (produção vs teste) (matriz em `OPERACOES_PRODUCAO.md`)
 
 ## 4) Produto e retenção
-- [ ] Onboarding guiado para primeiro uso
-- [ ] Registro de auditoria para ações críticas (editar/excluir financeiro)
-- [ ] Exportação CSV para lançamentos/contas/notas
+- [x] Onboarding guiado para primeiro uso (componente `OnboardingGuide` no dashboard)
+- [x] Registro de auditoria para ações críticas (editar/excluir/marcações em coleções financeiras em `workspaces/{id}/audit_logs`)
+- [x] Exportação CSV para lançamentos/contas/notas
 
 ## 5) Definição de pronto para escala
 - [ ] Testes E2E dos fluxos críticos:
@@ -34,5 +34,5 @@
   - lançamento pago/pendente
   - contas fixas (pagar/desfazer)
   - assinatura (checkout/webhook/portal)
-- [ ] Observabilidade mínima em produção com alertas acionáveis (Sentry no código; pendente DSN/env em produção)
+- [x] Observabilidade mínima em produção com alertas acionáveis (Sentry com DSN/env configurado e evento de teste validado em produção)
 - [x] Processo de suporte com tempo de resposta definido (`/suporte`)

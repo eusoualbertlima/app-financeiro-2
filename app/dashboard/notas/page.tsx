@@ -6,6 +6,7 @@ import { CurrencyInput } from "@/components/CurrencyInput";
 import { useCollection } from "@/hooks/useFirestore";
 import {
     Plus,
+    Download,
     X,
     Edit3,
     Trash2,
@@ -17,6 +18,7 @@ import {
     TrendingDown
 } from "lucide-react";
 import type { FinancialNote } from "@/types";
+import { downloadCsv } from "@/lib/csv";
 
 type NoteType = FinancialNote["type"];
 type NoteStatus = FinancialNote["status"];
@@ -164,6 +166,40 @@ export default function NotasPage() {
         .filter(note => note.type === "to_pay" && (note.amount || 0) > 0)
         .reduce((sum, note) => sum + (note.amount || 0), 0);
 
+    const handleExportCsv = () => {
+        if (!sortedNotes.length) return;
+
+        const rows = sortedNotes.map((note) => ({
+            id: note.id,
+            titulo: note.title,
+            tipo: note.type,
+            status: note.status,
+            pessoa: note.personName || "",
+            valor: note.amount ?? "",
+            prazo: note.dueDate ? new Date(note.dueDate).toISOString() : "",
+            descricao: note.description || "",
+            criado_em: note.createdAt ? new Date(note.createdAt).toISOString() : "",
+            atualizado_em: note.updatedAt ? new Date(note.updatedAt).toISOString() : "",
+        }));
+
+        downloadCsv({
+            filename: `notas-financeiras-${new Date().toISOString().slice(0, 10)}.csv`,
+            rows,
+            columns: [
+                { header: "ID", key: "id" },
+                { header: "Titulo", key: "titulo" },
+                { header: "Tipo", key: "tipo" },
+                { header: "Status", key: "status" },
+                { header: "Pessoa", key: "pessoa" },
+                { header: "Valor", key: "valor" },
+                { header: "Prazo", key: "prazo" },
+                { header: "Descricao", key: "descricao" },
+                { header: "Criado Em", key: "criado_em" },
+                { header: "Atualizado Em", key: "atualizado_em" },
+            ],
+        });
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
@@ -176,13 +212,23 @@ export default function NotasPage() {
         <div className="p-6 lg:p-8 max-w-5xl mx-auto">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
                 <Header title="Notas" subtitle="Bloco de notas financeiro, empréstimos e pendências" />
-                <button
-                    onClick={() => openModal()}
-                    className="btn-primary flex items-center gap-2 w-full sm:w-auto justify-center"
-                >
-                    <Plus className="w-5 h-5" />
-                    Nova Nota
-                </button>
+                <div className="flex flex-col sm:flex-row gap-2">
+                    <button
+                        onClick={handleExportCsv}
+                        disabled={sortedNotes.length === 0}
+                        className="btn-secondary flex items-center gap-2 w-full sm:w-auto justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <Download className="w-5 h-5" />
+                        Exportar CSV
+                    </button>
+                    <button
+                        onClick={() => openModal()}
+                        className="btn-primary flex items-center gap-2 w-full sm:w-auto justify-center"
+                    >
+                        <Plus className="w-5 h-5" />
+                        Nova Nota
+                    </button>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">

@@ -102,6 +102,21 @@ type AccessPayload = {
     email?: string;
 };
 
+type ReconcileResponse = {
+    ok: boolean;
+    dryRun: boolean;
+    generatedAt: number;
+    totals: {
+        workspacesScanned: number;
+        workspacesWithIssues: number;
+        accountsEvaluated: number;
+        accountsWithDrift: number;
+        accountsUpdated: number;
+        accountsBackfilled: number;
+        totalAbsoluteDrift: number;
+    };
+};
+
 function formatDate(timestamp: number | null | undefined) {
     if (!timestamp) return "-";
     return new Date(timestamp).toLocaleString("pt-BR");
@@ -256,6 +271,62 @@ export default function AdminDashboardPage() {
         }
     };
 
+    const runReconcileBalances = async (applyChanges: boolean) => {
+        if (!user) return;
+
+        if (applyChanges) {
+            const confirmed = window.confirm(
+                "Aplicar reconciliação vai ajustar saldos divergentes e salvar saldo inicial ausente. Deseja continuar?"
+            );
+            if (!confirmed) return;
+        }
+
+        const actionKey = applyChanges ? "reconcile-apply" : "reconcile-dry-run";
+        setUpdatingKey(actionKey);
+        setActionFeedback(null);
+
+        try {
+            const token = await user.getIdToken();
+            const response = await fetch("/api/admin/reconcile-balances", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    apply: applyChanges,
+                }),
+            });
+
+            const body = (await response.json()) as ReconcileResponse & AdminApiError;
+            if (!response.ok) {
+                throw new Error(body.error || "Não foi possível reconciliar os saldos.");
+            }
+
+            const totals = body.totals;
+            const mode = body.dryRun ? "Simulação" : "Aplicação";
+            setActionFeedback({
+                type: "success",
+                text:
+                    `${mode} concluída. Workspaces com divergência: ${totals.workspacesWithIssues}. `
+                    + `Contas com drift: ${totals.accountsWithDrift}. `
+                    + `Contas ajustadas: ${totals.accountsUpdated}. `
+                    + `Saldos iniciais preenchidos: ${totals.accountsBackfilled}.`,
+            });
+
+            if (applyChanges) {
+                await fetchData(true);
+            }
+        } catch (err) {
+            setActionFeedback({
+                type: "error",
+                text: err instanceof Error ? err.message : "Erro ao reconciliar saldos.",
+            });
+        } finally {
+            setUpdatingKey(null);
+        }
+    };
+
     useEffect(() => {
         if (!user) {
             setLoading(false);
@@ -372,6 +443,30 @@ export default function AdminDashboardPage() {
                     />
                 </div>
                 <div className="flex gap-2 flex-wrap lg:justify-end">
+                    <button
+                        onClick={() => runReconcileBalances(false)}
+                        className="btn-secondary inline-flex items-center justify-center gap-2 min-w-[220px]"
+                        disabled={Boolean(updatingKey)}
+                    >
+                        {updatingKey === "reconcile-dry-run" ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                            <Wrench className="w-4 h-4" />
+                        )}
+                        Reconciliar saldos (simular)
+                    </button>
+                    <button
+                        onClick={() => runReconcileBalances(true)}
+                        className="btn-secondary inline-flex items-center justify-center gap-2 min-w-[220px]"
+                        disabled={Boolean(updatingKey)}
+                    >
+                        {updatingKey === "reconcile-apply" ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                            <Wrench className="w-4 h-4" />
+                        )}
+                        Reconciliar saldos (aplicar)
+                    </button>
                     <button
                         onClick={runBackfillMissingProfiles}
                         className="btn-secondary inline-flex items-center justify-center gap-2 min-w-[220px]"

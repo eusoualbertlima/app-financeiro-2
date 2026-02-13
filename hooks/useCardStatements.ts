@@ -15,9 +15,12 @@ import { db } from '@/lib/firebase';
 import { useWorkspace } from '@/hooks/useFirestore';
 import { useState, useEffect } from 'react';
 import type { CardStatement, Transaction } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
+import { recordWorkspaceAuditEvent } from '@/lib/audit';
 
 export function useCardStatements(cardId: string, month?: number, year?: number) {
     const { workspace } = useWorkspace();
+    const { user } = useAuth();
     const [statement, setStatement] = useState<CardStatement | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -76,6 +79,21 @@ export function useCardStatements(cardId: string, month?: number, year?: number)
             totalAmount: totalFromTransactions,
             status: 'open',
         });
+
+        await recordWorkspaceAuditEvent({
+            workspaceId: workspace.id,
+            actorUid: user?.uid,
+            action: 'create',
+            entity: 'card_statements',
+            summary: 'Fatura gerada automaticamente.',
+            payload: {
+                cardId,
+                cardName,
+                month,
+                year,
+                totalAmount: totalFromTransactions,
+            },
+        });
     };
 
     // Atualizar valor da fatura
@@ -85,6 +103,19 @@ export function useCardStatements(cardId: string, month?: number, year?: number)
             doc(db, `workspaces/${workspace.id}/card_statements`, statement.id),
             { totalAmount: newAmount }
         );
+
+        await recordWorkspaceAuditEvent({
+            workspaceId: workspace.id,
+            actorUid: user?.uid,
+            action: 'update',
+            entity: 'card_statements',
+            entityId: statement.id,
+            summary: 'Valor da fatura atualizado.',
+            payload: {
+                previousAmount: statement.totalAmount,
+                newAmount,
+            },
+        });
     };
 
     // Pagar fatura
@@ -108,6 +139,19 @@ export function useCardStatements(cardId: string, month?: number, year?: number)
                 { balance: increment(-statement.totalAmount) }
             );
         }
+
+        await recordWorkspaceAuditEvent({
+            workspaceId: workspace.id,
+            actorUid: user?.uid,
+            action: 'mark_paid',
+            entity: 'card_statements',
+            entityId: statement.id,
+            summary: 'Fatura marcada como paga.',
+            payload: {
+                accountId,
+                amount: statement.totalAmount,
+            },
+        });
     };
 
     // Reabrir fatura
@@ -130,6 +174,20 @@ export function useCardStatements(cardId: string, month?: number, year?: number)
                 paidAccountId: null,
             }
         );
+
+        await recordWorkspaceAuditEvent({
+            workspaceId: workspace.id,
+            actorUid: user?.uid,
+            action: 'update',
+            entity: 'card_statements',
+            entityId: statement.id,
+            summary: 'Fatura reaberta.',
+            payload: {
+                previousStatus: statement.status,
+                paidAccountId: statement.paidAccountId || null,
+                amount: statement.totalAmount,
+            },
+        });
     };
 
     return {

@@ -19,14 +19,16 @@ import {
     Receipt
 } from "lucide-react";
 import Link from "next/link";
-import type { Account, CreditCard as CardType } from "@/types";
+import type { Account, CreditCard as CardType, RecurringBill } from "@/types";
 import { Header } from "@/components/Navigation";
 import { DonutChart, BarChart } from "@/components/Charts";
+import { OnboardingGuide } from "@/components/OnboardingGuide";
 
 export default function DashboardPage() {
     const { workspace, loading: workspaceLoading } = useWorkspace();
     const { data: contas } = useCollection<Account>("accounts");
     const { data: cartoes } = useCollection<CardType>("credit_cards");
+    const { data: recurringBills } = useCollection<RecurringBill>("recurring_bills");
 
     // Dados do mês atual
     const now = new Date();
@@ -136,6 +138,14 @@ export default function DashboardPage() {
     return (
         <div className="p-6 lg:p-8 max-w-7xl mx-auto">
             <Header title="Dashboard" subtitle={`${workspace?.name} • ${monthNames[currentMonth - 1]} ${currentYear}`} />
+
+            <OnboardingGuide
+                workspaceId={workspace?.id}
+                accountsCount={contas.length}
+                cardsCount={cartoes.length}
+                transactionsCount={transactions.length}
+                recurringBillsCount={recurringBills.filter((bill) => bill.isActive).length}
+            />
 
             {/* Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-8">

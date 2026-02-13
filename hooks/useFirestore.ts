@@ -7,8 +7,8 @@ import {
     query,
     where,
     onSnapshot,
-    serverTimestamp,
     getDocs,
+    getDoc,
     setDoc,
     arrayUnion,
     arrayRemove
@@ -16,8 +16,9 @@ import {
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
-import type { Workspace, Transaction, Account, CreditCard, Category } from '@/types';
+import type { Workspace } from '@/types';
 import { getDefaultTrialEndsAt, normalizeWorkspaceBilling } from '@/lib/billing';
+import { recordWorkspaceAuditEvent } from '@/lib/audit';
 
 // Hook para gerenciar Workspaces
 export function useWorkspace() {
@@ -119,6 +120,7 @@ export function useWorkspace() {
 
 // Hook genérico para coleções dentro do workspace
 export function useCollection<T>(collectionName: string) {
+    const { user } = useAuth();
     const { workspace } = useWorkspace();
     const [data, setData] = useState<T[]>([]);
     const [loading, setLoading] = useState(true);
@@ -142,17 +144,69 @@ export function useCollection<T>(collectionName: string) {
 
     const add = async (item: Omit<T, 'id'>) => {
         if (!workspace?.id) return;
-        await addDoc(collection(db, `workspaces/${workspace.id}/${collectionName}`), item);
+        const payload: Record<string, unknown> = { ...(item as Record<string, unknown>) };
+
+        // Keep an immutable opening balance for future reconciliations.
+        if (collectionName === 'accounts' && typeof payload.balance === 'number' && typeof payload.startingBalance !== 'number') {
+            payload.startingBalance = payload.balance;
+        }
+
+        const docRef = await addDoc(collection(db, `workspaces/${workspace.id}/${collectionName}`), payload);
+        await recordWorkspaceAuditEvent({
+            workspaceId: workspace.id,
+            actorUid: user?.uid,
+            action: 'create',
+            entity: collectionName,
+            entityId: docRef.id,
+            summary: `Criado item em ${collectionName}.`,
+            payload,
+        });
     };
 
     const update = async (id: string, item: Partial<T>) => {
         if (!workspace?.id) return;
-        await updateDoc(doc(db, `workspaces/${workspace.id}/${collectionName}`, id), item);
+        const docRef = doc(db, `workspaces/${workspace.id}/${collectionName}`, id);
+        const beforeSnap = await getDoc(docRef);
+        const beforeData = beforeSnap.exists() ? beforeSnap.data() : null;
+        const payload: Record<string, unknown> = { ...(item as Record<string, unknown>) };
+
+        if (collectionName === 'accounts' && typeof payload.balance === 'number' && typeof payload.startingBalance !== 'number') {
+            payload.startingBalance = payload.balance;
+        }
+
+        await updateDoc(docRef, payload);
+        await recordWorkspaceAuditEvent({
+            workspaceId: workspace.id,
+            actorUid: user?.uid,
+            action: 'update',
+            entity: collectionName,
+            entityId: id,
+            summary: `Atualizado item em ${collectionName}.`,
+            payload: {
+                before: beforeData as any,
+                changes: payload as any,
+            },
+        });
     };
 
     const remove = async (id: string) => {
         if (!workspace?.id) return;
-        await deleteDoc(doc(db, `workspaces/${workspace.id}/${collectionName}`, id));
+        const docRef = doc(db, `workspaces/${workspace.id}/${collectionName}`, id);
+        const beforeSnap = await getDoc(docRef);
+        const beforeData = beforeSnap.exists() ? beforeSnap.data() : null;
+
+        await deleteDoc(docRef);
+        await recordWorkspaceAuditEvent({
+            workspaceId: workspace.id,
+            actorUid: user?.uid,
+            action: 'delete',
+            entity: collectionName,
+            entityId: id,
+            summary: `Removido item de ${collectionName}.`,
+            payload: {
+                before: beforeData as any,
+            },
+        });
     };
 
     return { data, loading, add, update, remove };

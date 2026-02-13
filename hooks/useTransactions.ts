@@ -18,6 +18,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useWorkspace } from '@/hooks/useFirestore';
 import { useState, useEffect } from 'react';
 import type { Transaction } from '@/types';
+import { recordWorkspaceAuditEvent } from '@/lib/audit';
 
 // Remove campos undefined de um objeto (Firebase não aceita undefined)
 function cleanUndefined<T extends Record<string, any>>(obj: T): Partial<T> {
@@ -108,10 +109,33 @@ export function useTransactions(month?: number, year?: number) {
             );
 
             await batch.commit();
+            await recordWorkspaceAuditEvent({
+                workspaceId: workspace.id,
+                actorUid: user.uid,
+                action: 'create',
+                entity: 'transactions',
+                entityId: txRef.id,
+                summary: 'Lançamento criado e refletido no saldo da conta.',
+                payload: {
+                    transaction: cleanData as any,
+                    accountId: item.accountId,
+                },
+            });
             return;
         }
 
-        await addDoc(collection(db, `workspaces/${workspace.id}/transactions`), cleanData);
+        const docRef = await addDoc(collection(db, `workspaces/${workspace.id}/transactions`), cleanData);
+        await recordWorkspaceAuditEvent({
+            workspaceId: workspace.id,
+            actorUid: user.uid,
+            action: 'create',
+            entity: 'transactions',
+            entityId: docRef.id,
+            summary: 'Lançamento criado.',
+            payload: {
+                transaction: cleanData as any,
+            },
+        });
     };
 
     const update = async (id: string, item: Partial<Transaction>) => {
@@ -156,6 +180,18 @@ export function useTransactions(month?: number, year?: number) {
                 );
             }
         });
+
+        await recordWorkspaceAuditEvent({
+            workspaceId: workspace.id,
+            actorUid: user?.uid,
+            action: 'update',
+            entity: 'transactions',
+            entityId: id,
+            summary: 'Lançamento atualizado.',
+            payload: {
+                changes: cleanData as any,
+            },
+        });
     };
 
     const remove = async (id: string) => {
@@ -189,6 +225,18 @@ export function useTransactions(month?: number, year?: number) {
                 });
 
                 await batch.commit();
+                await recordWorkspaceAuditEvent({
+                    workspaceId: workspace.id,
+                    actorUid: user?.uid,
+                    action: 'delete',
+                    entity: 'transactions',
+                    entityId: data.transferId,
+                    summary: 'Transferência removida (par de lançamentos).',
+                    payload: {
+                        transferId: data.transferId,
+                        removedTransactions: transferSnap.docs.length,
+                    },
+                });
                 return;
             }
 
@@ -212,10 +260,29 @@ export function useTransactions(month?: number, year?: number) {
 
                 transaction.delete(txRef);
             });
+            await recordWorkspaceAuditEvent({
+                workspaceId: workspace.id,
+                actorUid: user?.uid,
+                action: 'delete',
+                entity: 'transactions',
+                entityId: id,
+                summary: 'Lançamento removido.',
+                payload: {
+                    previous: data as any,
+                },
+            });
             return;
         }
 
         await deleteDoc(doc(db, `workspaces/${workspace.id}/transactions`, id));
+        await recordWorkspaceAuditEvent({
+            workspaceId: workspace.id,
+            actorUid: user?.uid,
+            action: 'delete',
+            entity: 'transactions',
+            entityId: id,
+            summary: 'Lançamento removido sem snapshot prévio.',
+        });
     };
 
     const markAsPaid = async (id: string, accountId?: string) => {
@@ -252,6 +319,18 @@ export function useTransactions(month?: number, year?: number) {
             }
 
             transaction.update(txRef, updateData);
+        });
+
+        await recordWorkspaceAuditEvent({
+            workspaceId: workspace.id,
+            actorUid: user?.uid,
+            action: 'mark_paid',
+            entity: 'transactions',
+            entityId: id,
+            summary: 'Lançamento marcado como pago.',
+            payload: {
+                paidAccountId: accountId || null,
+            },
         });
     };
 
@@ -314,6 +393,21 @@ export function useTransactions(month?: number, year?: number) {
         });
 
         await batch.commit();
+        await recordWorkspaceAuditEvent({
+            workspaceId: workspace.id,
+            actorUid: user.uid,
+            action: 'transfer',
+            entity: 'accounts',
+            entityId: transferId,
+            summary: 'Transferência entre contas registrada.',
+            payload: {
+                fromAccountId,
+                toAccountId,
+                amount,
+                outgoingTransactionId: outgoingRef.id,
+                incomingTransactionId: incomingRef.id,
+            },
+        });
     };
 
     // Calcular totais

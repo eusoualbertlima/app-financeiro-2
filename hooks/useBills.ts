@@ -16,6 +16,7 @@ import { useWorkspace } from '@/hooks/useFirestore';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect, useRef } from 'react';
 import type { RecurringBill, BillPayment } from '@/types';
+import { recordWorkspaceAuditEvent } from '@/lib/audit';
 
 const paymentStatusPriority: Record<BillPayment['status'], number> = {
     pending: 1,
@@ -60,6 +61,7 @@ function canAutoDeleteDuplicate(payment: BillPayment) {
 // CRUD de Despesas Fixas
 export function useRecurringBills() {
     const { workspace } = useWorkspace();
+    const { user } = useAuth();
     const [bills, setBills] = useState<RecurringBill[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -83,16 +85,40 @@ export function useRecurringBills() {
 
     const add = async (bill: Omit<RecurringBill, 'id' | 'createdAt' | 'isActive'>) => {
         if (!workspace?.id) return;
-        await addDoc(collection(db, `workspaces/${workspace.id}/recurring_bills`), {
+        const payload = {
             ...bill,
             isActive: true,
             createdAt: Date.now()
+        };
+
+        const docRef = await addDoc(collection(db, `workspaces/${workspace.id}/recurring_bills`), payload);
+        await recordWorkspaceAuditEvent({
+            workspaceId: workspace.id,
+            actorUid: user?.uid,
+            action: 'create',
+            entity: 'recurring_bills',
+            entityId: docRef.id,
+            summary: 'Despesa fixa criada.',
+            payload: {
+                bill: payload as any,
+            },
         });
     };
 
     const update = async (id: string, bill: Partial<RecurringBill>) => {
         if (!workspace?.id) return;
         await updateDoc(doc(db, `workspaces/${workspace.id}/recurring_bills`, id), bill);
+        await recordWorkspaceAuditEvent({
+            workspaceId: workspace.id,
+            actorUid: user?.uid,
+            action: 'update',
+            entity: 'recurring_bills',
+            entityId: id,
+            summary: 'Despesa fixa atualizada.',
+            payload: {
+                changes: bill as any,
+            },
+        });
     };
 
     const remove = async (id: string) => {
@@ -110,6 +136,18 @@ export function useRecurringBills() {
         const deletePromises = snap.docs
             .map(d => deleteDoc(doc(db, `workspaces/${workspace.id}/bill_payments`, d.id)));
         await Promise.all(deletePromises);
+
+        await recordWorkspaceAuditEvent({
+            workspaceId: workspace.id,
+            actorUid: user?.uid,
+            action: 'delete',
+            entity: 'recurring_bills',
+            entityId: id,
+            summary: 'Despesa fixa desativada e pagamentos órfãos removidos.',
+            payload: {
+                removedPayments: snap.docs.length,
+            },
+        });
     };
 
     return { bills, loading, add, update, remove };
@@ -298,6 +336,20 @@ export function useBillPayments(month: number, year: number) {
             updateData.transactionId = transactionRef.id;
             transaction.update(paymentRef, updateData);
         });
+
+        await recordWorkspaceAuditEvent({
+            workspaceId: workspace.id,
+            actorUid: user?.uid,
+            action: 'mark_paid',
+            entity: 'bill_payments',
+            entityId: paymentId,
+            summary: 'Conta fixa marcada como paga.',
+            payload: {
+                paidAmount: paidAmount || null,
+                accountId: accountId || null,
+                note: normalizedNote || null,
+            },
+        });
     };
 
     const markAsPending = async (paymentId: string) => {
@@ -338,6 +390,15 @@ export function useBillPayments(month: number, year: number) {
                 transactionId: null
             });
         });
+
+        await recordWorkspaceAuditEvent({
+            workspaceId: workspace.id,
+            actorUid: user?.uid,
+            action: 'mark_pending',
+            entity: 'bill_payments',
+            entityId: paymentId,
+            summary: 'Conta fixa voltou para pendente/atrasada.',
+        });
     };
 
     const markAsSkipped = async (paymentId: string) => {
@@ -373,6 +434,15 @@ export function useBillPayments(month: number, year: number) {
                 paidAccountId: null,
                 transactionId: null
             });
+        });
+
+        await recordWorkspaceAuditEvent({
+            workspaceId: workspace.id,
+            actorUid: user?.uid,
+            action: 'mark_skipped',
+            entity: 'bill_payments',
+            entityId: paymentId,
+            summary: 'Conta fixa marcada como pulada.',
         });
     };
 
