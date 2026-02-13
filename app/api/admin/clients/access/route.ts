@@ -47,6 +47,7 @@ function mapAdminError(error: unknown) {
         || message.includes("service account")
         || message.includes("private key")
         || message.includes("certificate")
+        || message.includes("missing firebase admin env")
     ) {
         return {
             status: 500,
