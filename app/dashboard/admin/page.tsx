@@ -231,7 +231,10 @@ export default function AdminDashboardPage() {
 
             const body = (await response.json()) as BackfillResponse & AdminApiError;
             if (!response.ok) {
-                throw new Error(body.error || "Não foi possível corrigir perfis ausentes.");
+                const message = body.details
+                    ? `${body.error || "Não foi possível corrigir perfis ausentes."} (${body.details})`
+                    : body.error || "Não foi possível corrigir perfis ausentes.";
+                throw new Error(message);
             }
 
             const stats = body.stats;

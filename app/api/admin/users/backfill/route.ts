@@ -46,6 +46,12 @@ function shouldBackfillProfile(profile: Partial<UserProfile> | null | undefined)
     );
 }
 
+function omitUndefined<T extends Record<string, unknown>>(input: T) {
+    return Object.fromEntries(
+        Object.entries(input).filter(([, value]) => value !== undefined)
+    ) as Partial<T>;
+}
+
 export async function POST(request: NextRequest) {
     try {
         const decodedUser = await requireUserFromRequest(request);
@@ -149,7 +155,7 @@ export async function POST(request: NextRequest) {
             const authCreatedAt = toTimestampOrNull(authRecord.metadata.creationTime);
             const authLastSignInAt = toTimestampOrNull(authRecord.metadata.lastSignInTime);
 
-            const profile: Partial<UserProfile> = {
+            const profile = omitUndefined({
                 uid,
                 email: authRecord.email || existingProfile?.email || "",
                 displayName: authRecord.displayName || existingProfile?.displayName || "Usuário",
@@ -159,7 +165,7 @@ export async function POST(request: NextRequest) {
                 createdAt: existingProfile?.createdAt || authCreatedAt || now,
                 updatedAt: now,
                 lastSeenAt: existingProfile?.lastSeenAt || authLastSignInAt || now,
-            };
+            } satisfies Partial<UserProfile> & Record<string, unknown>);
 
             writeQueue.push(db.collection("users").doc(uid).set(profile, { merge: true }));
             updatedProfiles += 1;
