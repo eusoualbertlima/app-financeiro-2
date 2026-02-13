@@ -13,21 +13,46 @@ import {
     LogOut,
     TrendingUp,
     ChevronRight,
-    CalendarDays
+    CalendarDays,
+    Shield
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/hooks/useFirestore";
+import { getClientDevAdminAllowlist, hasDevAdminAccess } from "@/lib/devAdmin";
 
-const menuItems = [
+type MenuItem = {
+    href: string;
+    icon: LucideIcon;
+    label: string;
+    adminOnly?: boolean;
+    developerOnly?: boolean;
+};
+
+const menuItems: MenuItem[] = [
     { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
     { href: "/dashboard/contas", icon: Wallet, label: "Contas" },
     { href: "/dashboard/cartoes", icon: CreditCard, label: "Cartões" },
     { href: "/dashboard/lancamentos", icon: Receipt, label: "Lançamentos" },
     { href: "/dashboard/notas", icon: FileText, label: "Notas" },
+    { href: "/dashboard/admin", icon: Shield, label: "Admin", developerOnly: true },
     { href: "/dashboard/alertas", icon: AlertTriangle, label: "Alertas", adminOnly: true },
     { href: "/dashboard/contas-fixas", icon: CalendarDays, label: "Contas Fixas" },
     { href: "/dashboard/configuracoes", icon: Settings, label: "Configurações" },
 ];
+
+const clientDevAdminAllowlist = getClientDevAdminAllowlist();
+
+function getVisibleMenuItems(
+    items: MenuItem[],
+    flags: { isAdmin: boolean; isDeveloperAdmin: boolean }
+) {
+    return items.filter((item) => {
+        if (item.adminOnly && !flags.isAdmin) return false;
+        if (item.developerOnly && !flags.isDeveloperAdmin) return false;
+        return true;
+    });
+}
 
 const mobileMenuOrder = [
     "/dashboard",
@@ -43,7 +68,12 @@ export function Sidebar() {
     const { user, signOut } = useAuth();
     const { workspace } = useWorkspace();
     const isAdmin = workspace?.ownerId ? user?.uid === workspace.ownerId : false;
-    const visibleMenuItems = menuItems.filter(item => !item.adminOnly || isAdmin);
+    const isDeveloperAdmin = hasDevAdminAccess({
+        uid: user?.uid,
+        email: user?.email,
+        allowlist: clientDevAdminAllowlist,
+    });
+    const visibleMenuItems = getVisibleMenuItems(menuItems, { isAdmin, isDeveloperAdmin });
 
     return (
         <aside className="sidebar hidden lg:flex flex-col z-50">
@@ -111,10 +141,15 @@ export function MobileNav() {
     const { user } = useAuth();
     const { workspace } = useWorkspace();
     const isAdmin = workspace?.ownerId ? user?.uid === workspace.ownerId : false;
-    const visibleMenuItems = menuItems.filter(item => !item.adminOnly || isAdmin);
+    const isDeveloperAdmin = hasDevAdminAccess({
+        uid: user?.uid,
+        email: user?.email,
+        allowlist: clientDevAdminAllowlist,
+    });
+    const visibleMenuItems = getVisibleMenuItems(menuItems, { isAdmin, isDeveloperAdmin });
     const mobileMenuItems = mobileMenuOrder
         .map((href) => visibleMenuItems.find(item => item.href === href))
-        .filter((item): item is (typeof menuItems)[number] => Boolean(item));
+        .filter((item): item is MenuItem => Boolean(item));
 
     return (
         <nav className="mobile-nav lg:hidden">
