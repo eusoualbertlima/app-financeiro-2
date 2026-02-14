@@ -29,90 +29,118 @@ export function useWorkspace() {
     // Buscar ou criar workspace automático para o usuário
     useEffect(() => {
         if (!user) {
+            setWorkspace(null);
             setLoading(false);
             return;
         }
+
+        setLoading(true);
+        let isActive = true;
 
         const q = query(
             collection(db, 'workspaces'),
             where('members', 'array-contains', user.uid)
         );
 
-        const unsubscribe = onSnapshot(q, async (snapshot) => {
-            if (snapshot.empty) {
-                // Verificar se existe convite pendente por email
-                if (user.email) {
-                    const inviteQuery = query(
-                        collection(db, 'workspaces'),
-                        where('pendingInvites', 'array-contains', user.email.toLowerCase())
-                    );
-                    const inviteSnapshot = await getDocs(inviteQuery);
+        const unsubscribe = onSnapshot(
+            q,
+            async (snapshot) => {
+                try {
+                    if (snapshot.empty) {
+                        // Verificar se existe convite pendente por email
+                        if (user.email) {
+                            const inviteQuery = query(
+                                collection(db, 'workspaces'),
+                                where('pendingInvites', 'array-contains', user.email.toLowerCase())
+                            );
+                            const inviteSnapshot = await getDocs(inviteQuery);
 
-                    if (!inviteSnapshot.empty) {
-                        // Aceitar convite: adicionar como membro e remover do pendingInvites
-                        const invitedDoc = inviteSnapshot.docs[0];
-                        await updateDoc(doc(db, 'workspaces', invitedDoc.id), {
-                            members: arrayUnion(user.uid),
-                            pendingInvites: arrayRemove(user.email.toLowerCase())
-                        });
-                        const docData = invitedDoc.data() as Omit<Workspace, 'id'>;
-                        setWorkspace({ id: invitedDoc.id, ...docData });
+                            if (!inviteSnapshot.empty) {
+                                // Aceitar convite: adicionar como membro e remover do pendingInvites
+                                const invitedDoc = inviteSnapshot.docs[0];
+                                await updateDoc(doc(db, 'workspaces', invitedDoc.id), {
+                                    members: arrayUnion(user.uid),
+                                    pendingInvites: arrayRemove(user.email.toLowerCase())
+                                });
+                                const docData = invitedDoc.data() as Omit<Workspace, 'id'>;
+                                if (isActive) {
+                                    setWorkspace({ id: invitedDoc.id, ...docData });
+                                }
+                                return;
+                            }
+                        }
+
+                        // Se não tem workspace nem convite, cria um padrão
+                        const newWorkspace = {
+                            name: 'Minhas Finanças',
+                            members: [user.uid],
+                            ownerId: user.uid,
+                            createdAt: Date.now(),
+                            billing: {
+                                status: 'trialing' as const,
+                                trialEndsAt: getDefaultTrialEndsAt(Date.now()),
+                                updatedAt: Date.now(),
+                            },
+                        };
+                        const docRef = await addDoc(collection(db, 'workspaces'), newWorkspace);
+                        if (isActive) {
+                            setWorkspace({ id: docRef.id, ...newWorkspace });
+                        }
+                    } else {
+                        const workspaceId = snapshot.docs[0].id;
+                        const docData = snapshot.docs[0].data() as Omit<Workspace, 'id'>;
+                        const normalizedBilling = normalizeWorkspaceBilling({ id: workspaceId, ...docData } as Workspace);
+
+                        const shouldPatchBilling =
+                            !docData.billing
+                            || docData.billing.status !== normalizedBilling.status
+                            || docData.billing.trialEndsAt !== normalizedBilling.trialEndsAt;
+
+                        if (shouldPatchBilling) {
+                            await setDoc(
+                                doc(db, 'workspaces', workspaceId),
+                                {
+                                    billing: {
+                                        ...docData.billing,
+                                        ...normalizedBilling,
+                                        updatedAt: Date.now(),
+                                    }
+                                },
+                                { merge: true }
+                            );
+                        }
+
+                        if (isActive) {
+                            setWorkspace({
+                                id: workspaceId,
+                                ...docData,
+                                billing: {
+                                    ...docData.billing,
+                                    ...normalizedBilling,
+                                },
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.error('Erro ao carregar workspace:', error);
+                } finally {
+                    if (isActive) {
                         setLoading(false);
-                        return;
                     }
                 }
-
-                // Se não tem workspace nem convite, cria um padrão
-                const newWorkspace = {
-                    name: 'Minhas Finanças',
-                    members: [user.uid],
-                    ownerId: user.uid,
-                    createdAt: Date.now(),
-                    billing: {
-                        status: 'trialing' as const,
-                        trialEndsAt: getDefaultTrialEndsAt(Date.now()),
-                        updatedAt: Date.now(),
-                    },
-                };
-                const docRef = await addDoc(collection(db, 'workspaces'), newWorkspace);
-                setWorkspace({ id: docRef.id, ...newWorkspace });
-            } else {
-                const workspaceId = snapshot.docs[0].id;
-                const docData = snapshot.docs[0].data() as Omit<Workspace, 'id'>;
-                const normalizedBilling = normalizeWorkspaceBilling({ id: workspaceId, ...docData } as Workspace);
-
-                const shouldPatchBilling =
-                    !docData.billing
-                    || docData.billing.status !== normalizedBilling.status
-                    || docData.billing.trialEndsAt !== normalizedBilling.trialEndsAt;
-
-                if (shouldPatchBilling) {
-                    await setDoc(
-                        doc(db, 'workspaces', workspaceId),
-                        {
-                            billing: {
-                                ...docData.billing,
-                                ...normalizedBilling,
-                                updatedAt: Date.now(),
-                            }
-                        },
-                        { merge: true }
-                    );
+            },
+            (error) => {
+                console.error('Erro no listener de workspace:', error);
+                if (isActive) {
+                    setLoading(false);
                 }
-
-                setWorkspace({
-                    id: workspaceId,
-                    ...docData,
-                    billing: {
-                        ...docData.billing,
-                        ...normalizedBilling,
-                    },
-                });
             }
-            setLoading(false);
-        });
+        );
 
-        return () => unsubscribe();
+        return () => {
+            isActive = false;
+            unsubscribe();
+        };
     }, [user]);
 
     return { workspace, loading };
@@ -130,14 +158,21 @@ export function useCollection<T>(collectionName: string) {
 
         const q = collection(db, `workspaces/${workspace.id}/${collectionName}`);
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const items = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            })) as T[];
-            setData(items);
-            setLoading(false);
-        });
+        const unsubscribe = onSnapshot(
+            q,
+            (snapshot) => {
+                const items = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                })) as T[];
+                setData(items);
+                setLoading(false);
+            },
+            (error) => {
+                console.error(`Erro ao carregar coleção ${collectionName}:`, error);
+                setLoading(false);
+            }
+        );
 
         return () => unsubscribe();
     }, [workspace?.id, collectionName]);
