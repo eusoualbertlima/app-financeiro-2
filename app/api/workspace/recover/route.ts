@@ -12,6 +12,15 @@ type RecoverRequestBody = {
 };
 
 type WorkspaceRecord = Omit<Workspace, "id">;
+const DATA_COLLECTIONS = [
+    "accounts",
+    "credit_cards",
+    "transactions",
+    "financial_notes",
+    "recurring_bills",
+    "bill_payments",
+    "card_statements",
+] as const;
 
 function normalizeEmail(email: string | null | undefined) {
     return (email || "").trim().toLowerCase();
@@ -71,6 +80,69 @@ function pickPreferredWorkspace(
     return ranked[0];
 }
 
+function isSafeDuplicateCandidateForDeletion(
+    workspaceId: string,
+    selectedWorkspaceId: string,
+    workspace: WorkspaceRecord,
+    uid: string
+) {
+    if (workspaceId === selectedWorkspaceId) return false;
+    if (workspace.ownerId !== uid) return false;
+
+    const members = unique(Array.isArray(workspace.members) ? workspace.members : []);
+    if (!(members.length === 1 && members[0] === uid)) return false;
+
+    const pendingInvites = Array.isArray(workspace.pendingInvites) ? workspace.pendingInvites : [];
+    if (pendingInvites.length > 0) return false;
+
+    if (workspace.legal?.acceptedTermsAt || workspace.legal?.acceptedPrivacyAt) return false;
+
+    const billing = workspace.billing;
+    if (billing?.stripeCustomerId || billing?.stripeSubscriptionId) return false;
+
+    const normalizedName = (workspace.name || "").trim().toLowerCase();
+    if (normalizedName && normalizedName !== "minhas finanças") return false;
+
+    return true;
+}
+
+async function workspaceHasBusinessData(workspaceRef: FirebaseFirestore.DocumentReference) {
+    for (const collectionName of DATA_COLLECTIONS) {
+        const snapshot = await workspaceRef.collection(collectionName).limit(1).get();
+        if (!snapshot.empty) {
+            return true;
+        }
+    }
+    return false;
+}
+
+async function cleanupOwnedDuplicateWorkspaces(params: {
+    db: FirebaseFirestore.Firestore;
+    uid: string;
+    selectedWorkspaceId: string;
+}) {
+    const { db, uid, selectedWorkspaceId } = params;
+    const workspacesRef = db.collection("workspaces");
+    const ownedSnapshot = await workspacesRef.where("ownerId", "==", uid).limit(100).get();
+
+    let deletedCount = 0;
+    for (const docSnap of ownedSnapshot.docs) {
+        const workspace = toWorkspaceRecord(docSnap.data() as Partial<WorkspaceRecord>, uid);
+
+        if (!isSafeDuplicateCandidateForDeletion(docSnap.id, selectedWorkspaceId, workspace, uid)) {
+            continue;
+        }
+
+        const hasData = await workspaceHasBusinessData(docSnap.ref);
+        if (hasData) continue;
+
+        await db.recursiveDelete(docSnap.ref);
+        deletedCount += 1;
+    }
+
+    return deletedCount;
+}
+
 export async function POST(request: NextRequest) {
     try {
         const decoded = await requireUserFromRequest(request);
@@ -127,8 +199,16 @@ export async function POST(request: NextRequest) {
                 },
                 pendingInvites: [],
             };
-            const docRef = await workspacesRef.add(workspace);
-            selected = { id: docRef.id, data: workspace };
+
+            const deterministicWorkspaceId = `default_${uid}`;
+            const defaultWorkspaceRef = workspacesRef.doc(deterministicWorkspaceId);
+            await defaultWorkspaceRef.set(workspace, { merge: true });
+            const ensuredWorkspaceSnap = await defaultWorkspaceRef.get();
+
+            selected = {
+                id: ensuredWorkspaceSnap.id,
+                data: toWorkspaceRecord(ensuredWorkspaceSnap.data() as Partial<WorkspaceRecord>, uid),
+            };
             created = true;
         }
 
@@ -167,10 +247,22 @@ export async function POST(request: NextRequest) {
             pendingInvites: nextPendingInvites,
         };
 
+        let deletedDuplicates = 0;
+        try {
+            deletedDuplicates = await cleanupOwnedDuplicateWorkspaces({
+                db,
+                uid,
+                selectedWorkspaceId: selected.id,
+            });
+        } catch (cleanupError) {
+            console.warn("workspace duplicate cleanup warning:", cleanupError);
+        }
+
         return NextResponse.json({
             workspace,
             recovered: true,
             created,
+            deletedDuplicates,
         });
     } catch (error) {
         console.error("workspace recover error:", error);

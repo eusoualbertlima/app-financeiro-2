@@ -111,6 +111,7 @@ export function useWorkspace() {
 
         const createDefaultWorkspace = async () => {
             const createdAt = Date.now();
+            const workspaceId = `default_${user.uid}`;
             const newWorkspace = {
                 name: 'Minhas Finanças',
                 members: [user.uid],
@@ -122,10 +123,8 @@ export function useWorkspace() {
                     updatedAt: Date.now(),
                 },
             };
-            const docRef = await addDoc(collection(db, 'workspaces'), newWorkspace);
-            if (isActive) {
-                setWorkspace({ id: docRef.id, ...newWorkspace });
-            }
+            await setDoc(doc(db, 'workspaces', workspaceId), newWorkspace, { merge: true });
+            setWorkspaceFromData(workspaceId, newWorkspace);
         };
 
         const q = query(
@@ -173,6 +172,13 @@ export function useWorkspace() {
                     // Se não tem workspace nem convite, cria um padrão
                     await createDefaultWorkspace();
                     return;
+                }
+
+                if (snapshot.docs.length > 1) {
+                    const recoveredWorkspace = await recoverWorkspaceViaApi(false);
+                    if (recoveredWorkspace) {
+                        return;
+                    }
                 }
 
                 const preferredWorkspaceDoc = pickPreferredWorkspaceDoc(
