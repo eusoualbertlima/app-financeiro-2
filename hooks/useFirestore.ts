@@ -20,6 +20,26 @@ import type { Workspace } from '@/types';
 import { getDefaultTrialEndsAt, normalizeWorkspaceBilling } from '@/lib/billing';
 import { recordWorkspaceAuditEvent } from '@/lib/audit';
 
+function pickPreferredWorkspaceDoc(
+    docs: Array<{ id: string; data: () => Record<string, unknown> }>
+) {
+    if (docs.length <= 1) return docs[0] || null;
+
+    const sorted = [...docs].sort((a, b) => {
+        const aData = a.data();
+        const bData = b.data();
+        const aMembers = Array.isArray(aData.members) ? aData.members.length : 0;
+        const bMembers = Array.isArray(bData.members) ? bData.members.length : 0;
+        if (aMembers !== bMembers) return bMembers - aMembers;
+
+        const aCreatedAt = typeof aData.createdAt === 'number' ? aData.createdAt : Number.MAX_SAFE_INTEGER;
+        const bCreatedAt = typeof bData.createdAt === 'number' ? bData.createdAt : Number.MAX_SAFE_INTEGER;
+        return aCreatedAt - bCreatedAt;
+    });
+
+    return sorted[0];
+}
+
 // Hook para gerenciar Workspaces
 export function useWorkspace() {
     const { user } = useAuth();
@@ -99,8 +119,20 @@ export function useWorkspace() {
                     return;
                 }
 
-                const workspaceId = snapshot.docs[0].id;
-                const docData = snapshot.docs[0].data() as Omit<Workspace, 'id'>;
+                const preferredWorkspaceDoc = pickPreferredWorkspaceDoc(
+                    snapshot.docs.map((docSnap) => ({
+                        id: docSnap.id,
+                        data: () => docSnap.data() as Record<string, unknown>,
+                    }))
+                );
+
+                if (!preferredWorkspaceDoc) {
+                    await createDefaultWorkspace();
+                    return;
+                }
+
+                const workspaceId = preferredWorkspaceDoc.id;
+                const docData = preferredWorkspaceDoc.data() as Omit<Workspace, 'id'>;
                 const normalizedBilling = normalizeWorkspaceBilling({ id: workspaceId, ...docData } as Workspace);
                 const hydratedWorkspace: Workspace = {
                     id: workspaceId,
@@ -141,12 +173,8 @@ export function useWorkspace() {
                 }
             } catch (error) {
                 console.error('Erro ao carregar workspace:', error);
-                try {
-                    if (isActive) {
-                        await createDefaultWorkspace();
-                    }
-                } catch (fallbackError) {
-                    console.error('Erro ao criar workspace no fallback:', fallbackError);
+                if (isActive) {
+                    setWorkspace(null);
                 }
             } finally {
                 if (isActive) {
