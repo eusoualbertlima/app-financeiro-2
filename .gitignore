@@ -11,6 +11,10 @@ dist/
 
 # Testing
 coverage/
+playwright-report/
+test-results/
+e2e/.auth/*.json
+!e2e/.auth/.gitkeep
 
 # Environment
 .env

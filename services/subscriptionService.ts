@@ -4,6 +4,26 @@ import { UserProfile, Workspace } from "@/types";
 import { User } from "firebase/auth";
 import { normalizeWorkspaceBilling, toUserSubscriptionStatus } from "@/lib/billing";
 
+function pickPreferredWorkspaceDoc(
+    docs: Array<{ id: string; data: () => Record<string, unknown> }>
+) {
+    if (docs.length <= 1) return docs[0] || null;
+
+    const sorted = [...docs].sort((a, b) => {
+        const aData = a.data();
+        const bData = b.data();
+        const aMembers = Array.isArray(aData.members) ? aData.members.length : 0;
+        const bMembers = Array.isArray(bData.members) ? bData.members.length : 0;
+        if (aMembers !== bMembers) return bMembers - aMembers;
+
+        const aCreatedAt = typeof aData.createdAt === "number" ? aData.createdAt : Number.MAX_SAFE_INTEGER;
+        const bCreatedAt = typeof bData.createdAt === "number" ? bData.createdAt : Number.MAX_SAFE_INTEGER;
+        return aCreatedAt - bCreatedAt;
+    });
+
+    return sorted[0];
+}
+
 export const SubscriptionService = {
     /**
      * Verifica o status da assinatura do usuário.
@@ -23,9 +43,15 @@ export const SubscriptionService = {
             where("members", "array-contains", user.uid)
         );
         const workspaceSnap = await getDocs(workspaceQuery);
+        const preferredWorkspaceDoc = pickPreferredWorkspaceDoc(
+            workspaceSnap.docs.map((docSnap) => ({
+                id: docSnap.id,
+                data: () => docSnap.data() as Record<string, unknown>,
+            }))
+        );
         const workspaceDoc = workspaceSnap.empty
             ? null
-            : ({ id: workspaceSnap.docs[0].id, ...workspaceSnap.docs[0].data() } as Workspace);
+            : ({ id: preferredWorkspaceDoc!.id, ...preferredWorkspaceDoc!.data() } as Workspace);
 
         const normalizedBilling = normalizeWorkspaceBilling(workspaceDoc);
         const profile: UserProfile = {

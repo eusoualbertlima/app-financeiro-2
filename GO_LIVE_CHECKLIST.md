@@ -19,7 +19,8 @@
 - [x] Página pública de suporte/contato (`/suporte`)
 
 ## 3) Segurança e operação
-- [ ] Revisar regras de segurança do Firestore por coleção (guia em `OPERACOES_PRODUCAO.md`)
+- [x] Revisar regras de segurança do Firestore por coleção (regras versionadas em `firestore.rules` + guia em `OPERACOES_PRODUCAO.md`)
+- [x] Deploy das regras Firestore no projeto de produção (`npm run deploy:firestore:rules`)
 - [ ] Ativar alertas de falha de deploy/webhook (Vercel + Stripe) (guia em `OPERACOES_PRODUCAO.md`)
 - [ ] Revisar gestão de segredos no Vercel (produção vs teste) (matriz em `OPERACOES_PRODUCAO.md`)
 
@@ -29,7 +30,7 @@
 - [x] Exportação CSV para lançamentos/contas/notas
 
 ## 5) Definição de pronto para escala
-- [ ] Testes E2E dos fluxos críticos:
+- [ ] Testes E2E dos fluxos críticos (suite Playwright criada em `e2e/`; falta executar fluxo autenticado com `E2E_STORAGE_STATE`):
   - login
   - lançamento pago/pendente
   - contas fixas (pagar/desfazer)

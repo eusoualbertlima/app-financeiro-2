@@ -56,6 +56,21 @@
 
 ## 3) Revisão de segurança Firestore por coleção
 
+Arquivo de regras versionado no projeto:
+- `firestore.rules`
+
+Deploy recomendado (Firebase CLI autenticado no projeto correto):
+```bash
+npm run deploy:firestore:rules
+```
+
+Antes de deploy, valide no Console se o projeto ativo é `app-financeiro-2-bd953`.
+Se não estiver autenticado no CLI:
+```bash
+npm run firebase:login
+npm run firebase:projects
+```
+
 ## Coleções raiz
 - `workspaces`
   - leitura/escrita apenas para usuários membros do workspace.

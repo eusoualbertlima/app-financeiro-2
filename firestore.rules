@@ -1,0 +1,106 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function workspaceDoc(workspaceId) {
+      return get(/databases/$(database)/documents/workspaces/$(workspaceId));
+    }
+
+    function workspaceData(workspaceId) {
+      return workspaceDoc(workspaceId).data;
+    }
+
+    function isWorkspaceMember(workspaceId) {
+      return signedIn() && workspaceData(workspaceId).members.hasAny([request.auth.uid]);
+    }
+
+    function isWorkspaceOwner(workspaceId) {
+      return signedIn() && workspaceData(workspaceId).ownerId == request.auth.uid;
+    }
+
+    function isInvitedByEmail(workspaceId) {
+      return signedIn()
+        && request.auth.token.email is string
+        && (
+          workspaceData(workspaceId).pendingInvites.hasAny([request.auth.token.email])
+          || workspaceData(workspaceId).pendingInvites.hasAny([request.auth.token.email.lower()])
+        );
+    }
+
+    // Allows invited users to accept access by adding their uid and removing their invite email.
+    function isInviteAcceptanceUpdate(workspaceId) {
+      return isInvitedByEmail(workspaceId)
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.name == resource.data.name
+        && request.resource.data.billing == resource.data.billing
+        && request.resource.data.legal == resource.data.legal
+        && request.resource.data.members.hasAll(resource.data.members)
+        && request.resource.data.members.hasAny([request.auth.uid])
+        && request.resource.data.pendingInvites.size() <= resource.data.pendingInvites.size();
+    }
+
+    match /users/{uid} {
+      allow read, create, update: if signedIn() && request.auth.uid == uid;
+      allow delete: if false;
+    }
+
+    match /workspaces/{workspaceId} {
+      allow read: if isWorkspaceMember(workspaceId);
+
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.members is list
+        && request.resource.data.members.hasAny([request.auth.uid]);
+
+      // Owner has full control; members can only read.
+      // Exception: invited user can accept invite and join workspace.
+      allow update: if isWorkspaceOwner(workspaceId) || isInviteAcceptanceUpdate(workspaceId);
+
+      allow delete: if isWorkspaceOwner(workspaceId);
+
+      match /accounts/{docId} {
+        allow read, create, update, delete: if isWorkspaceMember(workspaceId);
+      }
+
+      match /credit_cards/{docId} {
+        allow read, create, update, delete: if isWorkspaceMember(workspaceId);
+      }
+
+      match /transactions/{docId} {
+        allow read, create, update, delete: if isWorkspaceMember(workspaceId);
+      }
+
+      match /financial_notes/{docId} {
+        allow read, create, update, delete: if isWorkspaceMember(workspaceId);
+      }
+
+      match /recurring_bills/{docId} {
+        allow read, create, update, delete: if isWorkspaceMember(workspaceId);
+      }
+
+      match /bill_payments/{docId} {
+        allow read, create, update, delete: if isWorkspaceMember(workspaceId);
+      }
+
+      match /card_statements/{docId} {
+        allow read, create, update, delete: if isWorkspaceMember(workspaceId);
+      }
+
+      match /ops_alerts/{docId} {
+        allow read: if isWorkspaceOwner(workspaceId);
+        allow create: if isWorkspaceOwner(workspaceId);
+        allow update, delete: if false;
+      }
+
+      match /audit_logs/{docId} {
+        allow read: if isWorkspaceOwner(workspaceId);
+        allow create: if isWorkspaceMember(workspaceId);
+        allow update, delete: if false;
+      }
+    }
+  }
+}
