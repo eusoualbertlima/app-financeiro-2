@@ -47,26 +47,32 @@ export function useWorkspace() {
             async (snapshot) => {
                 try {
                     if (snapshot.empty) {
-                        // Verificar se existe convite pendente por email
+                        // Verificar se existe convite pendente por email.
+                        // Se falhar por permissão/regras, seguimos com a criação de workspace padrão.
                         if (user.email) {
-                            const inviteQuery = query(
-                                collection(db, 'workspaces'),
-                                where('pendingInvites', 'array-contains', user.email.toLowerCase())
-                            );
-                            const inviteSnapshot = await getDocs(inviteQuery);
+                            const normalizedEmail = user.email.toLowerCase();
+                            try {
+                                const inviteQuery = query(
+                                    collection(db, 'workspaces'),
+                                    where('pendingInvites', 'array-contains', normalizedEmail)
+                                );
+                                const inviteSnapshot = await getDocs(inviteQuery);
 
-                            if (!inviteSnapshot.empty) {
-                                // Aceitar convite: adicionar como membro e remover do pendingInvites
-                                const invitedDoc = inviteSnapshot.docs[0];
-                                await updateDoc(doc(db, 'workspaces', invitedDoc.id), {
-                                    members: arrayUnion(user.uid),
-                                    pendingInvites: arrayRemove(user.email.toLowerCase())
-                                });
-                                const docData = invitedDoc.data() as Omit<Workspace, 'id'>;
-                                if (isActive) {
-                                    setWorkspace({ id: invitedDoc.id, ...docData });
+                                if (!inviteSnapshot.empty) {
+                                    // Aceitar convite: adicionar como membro e remover do pendingInvites
+                                    const invitedDoc = inviteSnapshot.docs[0];
+                                    await updateDoc(doc(db, 'workspaces', invitedDoc.id), {
+                                        members: arrayUnion(user.uid),
+                                        pendingInvites: arrayRemove(normalizedEmail)
+                                    });
+                                    const docData = invitedDoc.data() as Omit<Workspace, 'id'>;
+                                    if (isActive) {
+                                        setWorkspace({ id: invitedDoc.id, ...docData });
+                                    }
+                                    return;
                                 }
-                                return;
+                            } catch (inviteError) {
+                                console.warn('Não foi possível verificar convites pendentes, criando workspace padrão.', inviteError);
                             }
                         }
 
