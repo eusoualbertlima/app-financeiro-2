@@ -19,6 +19,7 @@ import { useWorkspace } from '@/hooks/useFirestore';
 import { useState, useEffect } from 'react';
 import type { Transaction } from '@/types';
 import { recordWorkspaceAuditEvent } from '@/lib/audit';
+import { normalizeLegacyDateOnlyTimestamp } from '@/lib/dateInput';
 
 // Remove campos undefined de um objeto (Firebase não aceita undefined)
 function cleanUndefined<T extends Record<string, any>>(obj: T): Partial<T> {
@@ -43,10 +44,17 @@ export function useTransactions(month?: number, year?: number) {
         const q = collection(db, `workspaces/${workspace.id}/transactions`);
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            let items = snapshot.docs.map(docSnap => ({
-                id: docSnap.id,
-                ...docSnap.data()
-            })) as Transaction[];
+            let items = snapshot.docs.map(docSnap => {
+                const transaction = {
+                    id: docSnap.id,
+                    ...docSnap.data()
+                } as Transaction;
+
+                return {
+                    ...transaction,
+                    date: normalizeLegacyDateOnlyTimestamp(transaction.date),
+                } as Transaction;
+            });
 
             // Filtrar por mês/ano se especificado
             if (month !== undefined && year !== undefined) {
@@ -438,10 +446,17 @@ export function useCardTransactions(cardId: string, month?: number, year?: numbe
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            let items = snapshot.docs.map(docSnap => ({
-                id: docSnap.id,
-                ...docSnap.data()
-            })) as Transaction[];
+            let items = snapshot.docs.map(docSnap => {
+                const transaction = {
+                    id: docSnap.id,
+                    ...docSnap.data()
+                } as Transaction;
+
+                return {
+                    ...transaction,
+                    date: normalizeLegacyDateOnlyTimestamp(transaction.date),
+                } as Transaction;
+            });
 
             // Filtrar por mês/ano se especificado
             if (month !== undefined && year !== undefined) {

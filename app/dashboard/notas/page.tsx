@@ -19,6 +19,12 @@ import {
 } from "lucide-react";
 import type { FinancialNote } from "@/types";
 import { downloadCsv } from "@/lib/csv";
+import {
+    normalizeLegacyDateOnlyTimestamp,
+    nowDateInputValue,
+    parseDateInputToTimestamp,
+    timestampToDateInputValue,
+} from "@/lib/dateInput";
 
 type NoteType = FinancialNote["type"];
 type NoteStatus = FinancialNote["status"];
@@ -61,7 +67,9 @@ export default function NotasPage() {
                 status: note.status || "open",
                 personName: note.personName || "",
                 amount: note.amount || 0,
-                dueDate: note.dueDate ? new Date(note.dueDate).toISOString().split("T")[0] : "",
+                dueDate: note.dueDate
+                    ? timestampToDateInputValue(normalizeLegacyDateOnlyTimestamp(note.dueDate))
+                    : "",
             });
         } else {
             setEditingId(null);
@@ -118,6 +126,13 @@ export default function NotasPage() {
         }
 
         const now = Date.now();
+        const parsedDueDate = formData.dueDate ? parseDateInputToTimestamp(formData.dueDate) : null;
+
+        if (formData.dueDate && (parsedDueDate === null || Number.isNaN(parsedDueDate))) {
+            alert("Data de prazo inválida.");
+            return;
+        }
+
         const autoTitle =
             formData.type === "to_receive"
                 ? `Cobrar de ${personName || "alguém"}`
@@ -132,7 +147,7 @@ export default function NotasPage() {
             status: formData.status,
             personName: personName || null,
             amount: formData.amount > 0 ? Number(formData.amount) : null,
-            dueDate: formData.dueDate ? new Date(formData.dueDate).getTime() : null,
+            dueDate: parsedDueDate,
             updatedAt: now,
         };
 
@@ -176,14 +191,16 @@ export default function NotasPage() {
             status: note.status,
             pessoa: note.personName || "",
             valor: note.amount ?? "",
-            prazo: note.dueDate ? new Date(note.dueDate).toISOString() : "",
+            prazo: note.dueDate
+                ? timestampToDateInputValue(normalizeLegacyDateOnlyTimestamp(note.dueDate))
+                : "",
             descricao: note.description || "",
             criado_em: note.createdAt ? new Date(note.createdAt).toISOString() : "",
             atualizado_em: note.updatedAt ? new Date(note.updatedAt).toISOString() : "",
         }));
 
         downloadCsv({
-            filename: `notas-financeiras-${new Date().toISOString().slice(0, 10)}.csv`,
+            filename: `notas-financeiras-${nowDateInputValue()}.csv`,
             rows,
             columns: [
                 { header: "ID", key: "id" },

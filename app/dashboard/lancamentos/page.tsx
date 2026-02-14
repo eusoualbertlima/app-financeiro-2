@@ -12,6 +12,12 @@ import {
 import { Header } from "@/components/Navigation";
 import type { Transaction, Account, CreditCard as CardType, Category } from "@/types";
 import { downloadCsv } from "@/lib/csv";
+import {
+    normalizeLegacyDateOnlyTimestamp,
+    nowDateInputValue,
+    parseDateInputToTimestamp,
+    timestampToDateInputValue,
+} from "@/lib/dateInput";
 
 const defaultCategories = [
     { id: 'alimentacao', name: 'Alimentação', icon: '🍔', color: '#f59e0b' },
@@ -45,7 +51,7 @@ export default function LancamentosPage() {
         description: '',
         amount: 0,
         type: 'expense' as 'expense' | 'income',
-        date: new Date().toISOString().split('T')[0],
+        date: nowDateInputValue(),
         status: 'pending' as 'paid' | 'pending',
         accountId: '',
         cardId: '',
@@ -59,7 +65,7 @@ export default function LancamentosPage() {
                 description: transaction.description,
                 amount: transaction.amount,
                 type: transaction.type,
-                date: new Date(transaction.date).toISOString().split('T')[0],
+                date: timestampToDateInputValue(normalizeLegacyDateOnlyTimestamp(transaction.date)),
                 status: transaction.status,
                 accountId: transaction.accountId || transaction.paidAccountId || '',
                 cardId: transaction.cardId || '',
@@ -71,7 +77,7 @@ export default function LancamentosPage() {
                 description: '',
                 amount: 0,
                 type: 'expense',
-                date: new Date().toISOString().split('T')[0],
+                date: nowDateInputValue(),
                 status: 'pending',
                 accountId: '',
                 cardId: '',
@@ -91,7 +97,7 @@ export default function LancamentosPage() {
         new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
     const formatDate = (timestamp: number) =>
-        new Date(timestamp).toLocaleDateString('pt-BR');
+        new Date(normalizeLegacyDateOnlyTimestamp(timestamp)).toLocaleDateString('pt-BR');
 
     const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
@@ -118,6 +124,7 @@ export default function LancamentosPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.description || !formData.amount) return;
+        const parsedDate = parseDateInputToTimestamp(formData.date);
 
         if (Number(formData.amount) > MAX_AMOUNT) {
             alert('O valor máximo permitido é R$ 999.999.999,99');
@@ -129,12 +136,17 @@ export default function LancamentosPage() {
             return;
         }
 
+        if (Number.isNaN(parsedDate)) {
+            alert('Data inválida. Verifique o lançamento.');
+            return;
+        }
+
         if (editingId) {
             await update(editingId, {
                 description: formData.description,
                 amount: Number(formData.amount),
                 type: formData.type,
-                date: new Date(formData.date).getTime(),
+                date: parsedDate,
                 status: formData.status,
                 accountId: formData.accountId || undefined,
                 cardId: formData.cardId || undefined,
@@ -145,7 +157,7 @@ export default function LancamentosPage() {
                 description: formData.description,
                 amount: Number(formData.amount),
                 type: formData.type,
-                date: new Date(formData.date).getTime(),
+                date: parsedDate,
                 status: formData.status,
                 accountId: formData.accountId || undefined,
                 cardId: formData.cardId || undefined,
@@ -186,7 +198,7 @@ export default function LancamentosPage() {
 
             return {
                 id: transaction.id,
-                data: new Date(transaction.date).toISOString(),
+                data: timestampToDateInputValue(normalizeLegacyDateOnlyTimestamp(transaction.date)),
                 descricao: transaction.description,
                 categoria: category.name,
                 tipo: transaction.type === 'income' ? 'receita' : 'despesa',

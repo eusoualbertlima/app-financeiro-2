@@ -9,6 +9,7 @@ import Link from "next/link";
 import { CurrencyInput } from "@/components/CurrencyInput";
 import { Header } from "@/components/Navigation";
 import { downloadCsv } from "@/lib/csv";
+import { nowDateInputValue, parseDateInputToTimestamp } from "@/lib/dateInput";
 
 export default function ContasPage() {
     const { data: contas, loading, add, remove, update } = useCollection<Account>("accounts");
@@ -26,7 +27,7 @@ export default function ContasPage() {
         fromAccountId: "",
         toAccountId: "",
         amount: 0,
-        date: new Date().toISOString().split('T')[0],
+        date: nowDateInputValue(),
         description: "",
     });
 
@@ -46,7 +47,7 @@ export default function ContasPage() {
         }));
 
         downloadCsv({
-            filename: `contas-${new Date().toISOString().slice(0, 10)}.csv`,
+            filename: `contas-${nowDateInputValue()}.csv`,
             rows,
             columns: [
                 { header: 'Nome', key: 'nome' },
@@ -78,7 +79,7 @@ export default function ContasPage() {
             fromAccountId: fromDefault,
             toAccountId: toDefault,
             amount: 0,
-            date: new Date().toISOString().split('T')[0],
+            date: nowDateInputValue(),
             description: "",
         });
         setIsTransferModalOpen(true);
@@ -144,12 +145,18 @@ export default function ContasPage() {
         const fromAccount = contas.find(c => c.id === transferData.fromAccountId);
         const toAccount = contas.find(c => c.id === transferData.toAccountId);
         const defaultDescription = `Transferência: ${fromAccount?.name || 'Conta'} → ${toAccount?.name || 'Conta'}`;
+        const parsedDate = parseDateInputToTimestamp(transferData.date);
+
+        if (Number.isNaN(parsedDate)) {
+            alert('Data inválida para a transferência.');
+            return;
+        }
 
         await transfer({
             fromAccountId: transferData.fromAccountId,
             toAccountId: transferData.toAccountId,
             amount: Number(transferData.amount),
-            date: new Date(transferData.date).getTime(),
+            date: parsedDate,
             description: transferData.description.trim() || defaultDescription,
         });
 
