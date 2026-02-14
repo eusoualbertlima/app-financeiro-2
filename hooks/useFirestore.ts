@@ -60,115 +60,105 @@ export function useWorkspace() {
             where('members', 'array-contains', user.uid)
         );
 
-        const unsubscribe = onSnapshot(
-            q,
-            async (snapshot) => {
-                try {
-                    if (snapshot.empty) {
-                        // Verificar se existe convite pendente por email.
-                        // Se falhar por permissão/regras, seguimos com a criação de workspace padrão.
-                        if (user.email) {
-                            const normalizedEmail = user.email.toLowerCase();
-                            try {
-                                const inviteQuery = query(
-                                    collection(db, 'workspaces'),
-                                    where('pendingInvites', 'array-contains', normalizedEmail)
-                                );
-                                const inviteSnapshot = await getDocs(inviteQuery);
+        const loadWorkspace = async () => {
+            try {
+                const snapshot = await getDocs(q);
 
-                                if (!inviteSnapshot.empty) {
-                                    // Aceitar convite: adicionar como membro e remover do pendingInvites
-                                    const invitedDoc = inviteSnapshot.docs[0];
-                                    await updateDoc(doc(db, 'workspaces', invitedDoc.id), {
-                                        members: arrayUnion(user.uid),
-                                        pendingInvites: arrayRemove(normalizedEmail)
-                                    });
-                                    const docData = invitedDoc.data() as Omit<Workspace, 'id'>;
-                                    if (isActive) {
-                                        setWorkspace({ id: invitedDoc.id, ...docData });
-                                    }
-                                    return;
+                if (snapshot.empty) {
+                    // Verificar se existe convite pendente por email.
+                    // Se falhar por permissão/regras, seguimos com a criação de workspace padrão.
+                    if (user.email) {
+                        const normalizedEmail = user.email.toLowerCase();
+                        try {
+                            const inviteQuery = query(
+                                collection(db, 'workspaces'),
+                                where('pendingInvites', 'array-contains', normalizedEmail)
+                            );
+                            const inviteSnapshot = await getDocs(inviteQuery);
+
+                            if (!inviteSnapshot.empty) {
+                                // Aceitar convite: adicionar como membro e remover do pendingInvites
+                                const invitedDoc = inviteSnapshot.docs[0];
+                                await updateDoc(doc(db, 'workspaces', invitedDoc.id), {
+                                    members: arrayUnion(user.uid),
+                                    pendingInvites: arrayRemove(normalizedEmail)
+                                });
+                                const docData = invitedDoc.data() as Omit<Workspace, 'id'>;
+                                if (isActive) {
+                                    setWorkspace({ id: invitedDoc.id, ...docData });
                                 }
-                            } catch (inviteError) {
-                                console.warn('Não foi possível verificar convites pendentes, criando workspace padrão.', inviteError);
+                                return;
                             }
-                        }
-
-                        // Se não tem workspace nem convite, cria um padrão
-                        await createDefaultWorkspace();
-                    } else {
-                        const workspaceId = snapshot.docs[0].id;
-                        const docData = snapshot.docs[0].data() as Omit<Workspace, 'id'>;
-                        const normalizedBilling = normalizeWorkspaceBilling({ id: workspaceId, ...docData } as Workspace);
-                        const hydratedWorkspace: Workspace = {
-                            id: workspaceId,
-                            ...docData,
-                            billing: {
-                                ...docData.billing,
-                                ...normalizedBilling,
-                            },
-                        };
-
-                        // Nunca bloqueia a UI por conta de patch de billing.
-                        if (isActive) {
-                            setWorkspace(hydratedWorkspace);
-                        }
-
-                        const shouldPatchBilling =
-                            !docData.billing
-                            || docData.billing.status !== normalizedBilling.status
-                            || docData.billing.trialEndsAt !== normalizedBilling.trialEndsAt;
-
-                        const isOwner = docData.ownerId === user.uid;
-
-                        if (shouldPatchBilling && isOwner) {
-                            try {
-                                await setDoc(
-                                    doc(db, 'workspaces', workspaceId),
-                                    {
-                                        billing: {
-                                            ...docData.billing,
-                                            ...normalizedBilling,
-                                            updatedAt: Date.now(),
-                                        }
-                                    },
-                                    { merge: true }
-                                );
-                            } catch (patchError) {
-                                console.warn('Falha ao atualizar billing do workspace:', patchError);
-                            }
+                        } catch (inviteError) {
+                            console.warn('Não foi possível verificar convites pendentes, criando workspace padrão.', inviteError);
                         }
                     }
-                } catch (error) {
-                    console.error('Erro ao carregar workspace:', error);
-                } finally {
-                    if (isActive) {
-                        setLoading(false);
-                    }
-                }
-            },
-            async (error) => {
-                console.error('Erro no listener de workspace:', error);
-                if (!isActive) {
+
+                    // Se não tem workspace nem convite, cria um padrão
+                    await createDefaultWorkspace();
                     return;
                 }
 
+                const workspaceId = snapshot.docs[0].id;
+                const docData = snapshot.docs[0].data() as Omit<Workspace, 'id'>;
+                const normalizedBilling = normalizeWorkspaceBilling({ id: workspaceId, ...docData } as Workspace);
+                const hydratedWorkspace: Workspace = {
+                    id: workspaceId,
+                    ...docData,
+                    billing: {
+                        ...docData.billing,
+                        ...normalizedBilling,
+                    },
+                };
+
+                if (isActive) {
+                    setWorkspace(hydratedWorkspace);
+                }
+
+                const shouldPatchBilling =
+                    !docData.billing
+                    || docData.billing.status !== normalizedBilling.status
+                    || docData.billing.trialEndsAt !== normalizedBilling.trialEndsAt;
+
+                const isOwner = docData.ownerId === user.uid;
+
+                if (shouldPatchBilling && isOwner) {
+                    try {
+                        await setDoc(
+                            doc(db, 'workspaces', workspaceId),
+                            {
+                                billing: {
+                                    ...docData.billing,
+                                    ...normalizedBilling,
+                                    updatedAt: Date.now(),
+                                }
+                            },
+                            { merge: true }
+                        );
+                    } catch (patchError) {
+                        console.warn('Falha ao atualizar billing do workspace:', patchError);
+                    }
+                }
+            } catch (error) {
+                console.error('Erro ao carregar workspace:', error);
                 try {
-                    // Fallback para evitar tela presa quando há falha transitória de leitura.
-                    if (!workspace) {
+                    if (isActive) {
                         await createDefaultWorkspace();
                     }
                 } catch (fallbackError) {
                     console.error('Erro ao criar workspace no fallback:', fallbackError);
-                } finally {
+                }
+            } finally {
+                if (isActive) {
                     setLoading(false);
                 }
             }
-        );
+        };
+
+        void loadWorkspace();
 
         return () => {
             isActive = false;
-            unsubscribe();
         };
     }, [user]);
 
