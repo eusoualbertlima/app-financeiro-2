@@ -56,6 +56,59 @@ export function useWorkspace() {
 
         setLoading(true);
         let isActive = true;
+
+        const hydrateWorkspace = (workspaceId: string, docData: Omit<Workspace, 'id'>) => {
+            const normalizedBilling = normalizeWorkspaceBilling({ id: workspaceId, ...docData } as Workspace);
+            return {
+                id: workspaceId,
+                ...docData,
+                billing: {
+                    ...docData.billing,
+                    ...normalizedBilling,
+                },
+            } as Workspace;
+        };
+
+        const setWorkspaceFromData = (workspaceId: string, docData: Omit<Workspace, 'id'>) => {
+            if (!isActive) return null;
+            const hydrated = hydrateWorkspace(workspaceId, docData);
+            setWorkspace(hydrated);
+            return hydrated;
+        };
+
+        const recoverWorkspaceViaApi = async (createIfMissing: boolean) => {
+            try {
+                const token = await user.getIdToken();
+                const response = await fetch('/api/workspace/recover', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({ createIfMissing }),
+                });
+
+                if (!response.ok) {
+                    return null;
+                }
+
+                const payload = await response.json() as { workspace?: Workspace | null };
+                const recoveredWorkspace = payload?.workspace || null;
+                if (!recoveredWorkspace) {
+                    return null;
+                }
+
+                const { id: recoveredWorkspaceId, ...recoveredWorkspaceData } = recoveredWorkspace;
+                return setWorkspaceFromData(
+                    recoveredWorkspaceId,
+                    recoveredWorkspaceData as Omit<Workspace, 'id'>
+                );
+            } catch (recoverError) {
+                console.error('Falha ao recuperar workspace via API:', recoverError);
+                return null;
+            }
+        };
+
         const createDefaultWorkspace = async () => {
             const createdAt = Date.now();
             const newWorkspace = {
@@ -104,14 +157,17 @@ export function useWorkspace() {
                                     pendingInvites: arrayRemove(normalizedEmail)
                                 });
                                 const docData = invitedDoc.data() as Omit<Workspace, 'id'>;
-                                if (isActive) {
-                                    setWorkspace({ id: invitedDoc.id, ...docData });
-                                }
+                                setWorkspaceFromData(invitedDoc.id, docData);
                                 return;
                             }
                         } catch (inviteError) {
                             console.warn('Não foi possível verificar convites pendentes, criando workspace padrão.', inviteError);
                         }
+                    }
+
+                    const recoveredWorkspace = await recoverWorkspaceViaApi(true);
+                    if (recoveredWorkspace) {
+                        return;
                     }
 
                     // Se não tem workspace nem convite, cria um padrão
@@ -133,35 +189,23 @@ export function useWorkspace() {
 
                 const workspaceId = preferredWorkspaceDoc.id;
                 const docData = preferredWorkspaceDoc.data() as Omit<Workspace, 'id'>;
-                const normalizedBilling = normalizeWorkspaceBilling({ id: workspaceId, ...docData } as Workspace);
-                const hydratedWorkspace: Workspace = {
-                    id: workspaceId,
-                    ...docData,
-                    billing: {
-                        ...docData.billing,
-                        ...normalizedBilling,
-                    },
-                };
-
-                if (isActive) {
-                    setWorkspace(hydratedWorkspace);
-                }
+                const hydratedWorkspace = setWorkspaceFromData(workspaceId, docData);
 
                 const shouldPatchBilling =
                     !docData.billing
-                    || docData.billing.status !== normalizedBilling.status
-                    || docData.billing.trialEndsAt !== normalizedBilling.trialEndsAt;
+                    || docData.billing.status !== hydratedWorkspace?.billing?.status
+                    || docData.billing.trialEndsAt !== hydratedWorkspace?.billing?.trialEndsAt;
 
                 const isOwner = docData.ownerId === user.uid;
 
-                if (shouldPatchBilling && isOwner) {
+                if (shouldPatchBilling && isOwner && hydratedWorkspace?.billing) {
                     try {
                         await setDoc(
                             doc(db, 'workspaces', workspaceId),
                             {
                                 billing: {
                                     ...docData.billing,
-                                    ...normalizedBilling,
+                                    ...hydratedWorkspace.billing,
                                     updatedAt: Date.now(),
                                 }
                             },
@@ -173,7 +217,8 @@ export function useWorkspace() {
                 }
             } catch (error) {
                 console.error('Erro ao carregar workspace:', error);
-                if (isActive) {
+                const recoveredWorkspace = await recoverWorkspaceViaApi(true);
+                if (!recoveredWorkspace && isActive) {
                     setWorkspace(null);
                 }
             } finally {
