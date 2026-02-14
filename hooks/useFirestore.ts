@@ -36,6 +36,24 @@ export function useWorkspace() {
 
         setLoading(true);
         let isActive = true;
+        const createDefaultWorkspace = async () => {
+            const createdAt = Date.now();
+            const newWorkspace = {
+                name: 'Minhas Finanças',
+                members: [user.uid],
+                ownerId: user.uid,
+                createdAt,
+                billing: {
+                    status: 'trialing' as const,
+                    trialEndsAt: getDefaultTrialEndsAt(createdAt),
+                    updatedAt: Date.now(),
+                },
+            };
+            const docRef = await addDoc(collection(db, 'workspaces'), newWorkspace);
+            if (isActive) {
+                setWorkspace({ id: docRef.id, ...newWorkspace });
+            }
+        };
 
         const q = query(
             collection(db, 'workspaces'),
@@ -77,21 +95,7 @@ export function useWorkspace() {
                         }
 
                         // Se não tem workspace nem convite, cria um padrão
-                        const newWorkspace = {
-                            name: 'Minhas Finanças',
-                            members: [user.uid],
-                            ownerId: user.uid,
-                            createdAt: Date.now(),
-                            billing: {
-                                status: 'trialing' as const,
-                                trialEndsAt: getDefaultTrialEndsAt(Date.now()),
-                                updatedAt: Date.now(),
-                            },
-                        };
-                        const docRef = await addDoc(collection(db, 'workspaces'), newWorkspace);
-                        if (isActive) {
-                            setWorkspace({ id: docRef.id, ...newWorkspace });
-                        }
+                        await createDefaultWorkspace();
                     } else {
                         const workspaceId = snapshot.docs[0].id;
                         const docData = snapshot.docs[0].data() as Omit<Workspace, 'id'>;
@@ -143,9 +147,20 @@ export function useWorkspace() {
                     }
                 }
             },
-            (error) => {
+            async (error) => {
                 console.error('Erro no listener de workspace:', error);
-                if (isActive) {
+                if (!isActive) {
+                    return;
+                }
+
+                try {
+                    // Fallback para evitar tela presa quando há falha transitória de leitura.
+                    if (!workspace) {
+                        await createDefaultWorkspace();
+                    }
+                } catch (fallbackError) {
+                    console.error('Erro ao criar workspace no fallback:', fallbackError);
+                } finally {
                     setLoading(false);
                 }
             }
