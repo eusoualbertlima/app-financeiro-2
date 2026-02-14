@@ -96,35 +96,43 @@ export function useWorkspace() {
                         const workspaceId = snapshot.docs[0].id;
                         const docData = snapshot.docs[0].data() as Omit<Workspace, 'id'>;
                         const normalizedBilling = normalizeWorkspaceBilling({ id: workspaceId, ...docData } as Workspace);
+                        const hydratedWorkspace: Workspace = {
+                            id: workspaceId,
+                            ...docData,
+                            billing: {
+                                ...docData.billing,
+                                ...normalizedBilling,
+                            },
+                        };
+
+                        // Nunca bloqueia a UI por conta de patch de billing.
+                        if (isActive) {
+                            setWorkspace(hydratedWorkspace);
+                        }
 
                         const shouldPatchBilling =
                             !docData.billing
                             || docData.billing.status !== normalizedBilling.status
                             || docData.billing.trialEndsAt !== normalizedBilling.trialEndsAt;
 
-                        if (shouldPatchBilling) {
-                            await setDoc(
-                                doc(db, 'workspaces', workspaceId),
-                                {
-                                    billing: {
-                                        ...docData.billing,
-                                        ...normalizedBilling,
-                                        updatedAt: Date.now(),
-                                    }
-                                },
-                                { merge: true }
-                            );
-                        }
+                        const isOwner = docData.ownerId === user.uid;
 
-                        if (isActive) {
-                            setWorkspace({
-                                id: workspaceId,
-                                ...docData,
-                                billing: {
-                                    ...docData.billing,
-                                    ...normalizedBilling,
-                                },
-                            });
+                        if (shouldPatchBilling && isOwner) {
+                            try {
+                                await setDoc(
+                                    doc(db, 'workspaces', workspaceId),
+                                    {
+                                        billing: {
+                                            ...docData.billing,
+                                            ...normalizedBilling,
+                                            updatedAt: Date.now(),
+                                        }
+                                    },
+                                    { merge: true }
+                                );
+                            } catch (patchError) {
+                                console.warn('Falha ao atualizar billing do workspace:', patchError);
+                            }
                         }
                     }
                 } catch (error) {
