@@ -19,9 +19,9 @@ export function normalizeWorkspaceBilling(workspace: Workspace | null | undefine
     const createdAt = workspace?.createdAt || Date.now();
     const billing = workspace?.billing;
     const trialEndsAt = billing?.trialEndsAt || getDefaultTrialEndsAt(createdAt);
+    const now = Date.now();
 
     if (!billing) {
-        const now = Date.now();
         return {
             status: now <= trialEndsAt ? 'trialing' : 'inactive',
             trialEndsAt,
@@ -29,17 +29,27 @@ export function normalizeWorkspaceBilling(workspace: Workspace | null | undefine
         };
     }
 
-    if (billing.status === 'trialing' && billing.trialEndsAt && Date.now() > billing.trialEndsAt) {
-        return {
-            ...billing,
-            status: 'inactive',
-            updatedAt: Date.now(),
-        };
+    let status: WorkspaceBillingStatus | undefined = billing.status;
+    if (!status) {
+        const currentPeriodEnd = typeof billing.currentPeriodEnd === "number" ? billing.currentPeriodEnd : undefined;
+        if (currentPeriodEnd) {
+            status = now <= currentPeriodEnd ? "active" : "inactive";
+        } else if (billing.stripeSubscriptionId || billing.stripeCustomerId) {
+            status = "active";
+        } else {
+            status = now <= trialEndsAt ? "trialing" : "inactive";
+        }
+    }
+
+    if (status === 'trialing' && now > trialEndsAt) {
+        status = 'inactive';
     }
 
     return {
         ...billing,
+        status,
         trialEndsAt,
+        updatedAt: billing.updatedAt || now,
     };
 }
 
@@ -67,4 +77,3 @@ export function toUserSubscriptionStatus(status: WorkspaceBillingStatus): 'activ
     if (status === 'canceled') return 'canceled';
     return 'inactive';
 }
-
