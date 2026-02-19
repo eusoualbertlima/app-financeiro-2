@@ -145,7 +145,8 @@ export async function POST(request: NextRequest) {
         }, { merge: true });
 
         return NextResponse.json({ url: session.url });
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : "Unable to create checkout session.";
         console.error("create-checkout-session error:", error);
         await sendOpsAlert({
             source: "api/billing/create-checkout-session",
@@ -158,7 +159,7 @@ export async function POST(request: NextRequest) {
             },
         });
         return NextResponse.json(
-            { error: error?.message || "Unable to create checkout session." },
+            { error: errorMessage },
             { status: 500 }
         );
     }

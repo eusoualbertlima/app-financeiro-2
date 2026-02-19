@@ -326,7 +326,7 @@ export default function LancamentosPage() {
                 {/* Tipo */}
                 <select
                     value={typeFilter}
-                    onChange={e => setTypeFilter(e.target.value as any)}
+                    onChange={e => setTypeFilter(e.target.value as 'all' | 'income' | 'expense')}
                     className="input py-2 pr-8 text-sm w-32"
                 >
                     <option value="all">Todos os Tipos</option>
@@ -338,7 +338,11 @@ export default function LancamentosPage() {
                 <div className="flex gap-2">
                     <select
                         value={sourceFilter}
-                        onChange={e => { setSourceFilter(e.target.value as any); setSpecificAccountId(''); setSpecificCardId(''); }}
+                        onChange={e => {
+                            setSourceFilter(e.target.value as 'all' | 'account' | 'card');
+                            setSpecificAccountId('');
+                            setSpecificCardId('');
+                        }}
                         className="input py-2 pr-8 text-sm w-32"
                     >
                         <option value="all">Todas Fontes</option>
@@ -384,7 +388,7 @@ export default function LancamentosPage() {
                 {/* Status */}
                 <select
                     value={statusFilter}
-                    onChange={e => setStatusFilter(e.target.value as any)}
+                    onChange={e => setStatusFilter(e.target.value as 'all' | 'paid' | 'pending')}
                     className="input py-2 pr-8 text-sm w-32"
                 >
                     <option value="all">Todos Status</option>

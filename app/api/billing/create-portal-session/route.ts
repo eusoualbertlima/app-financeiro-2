@@ -57,7 +57,8 @@ export async function POST(request: NextRequest) {
         });
 
         return NextResponse.json({ url: session.url });
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : "Unable to create portal session.";
         console.error("create-portal-session error:", error);
         await sendOpsAlert({
             source: "api/billing/create-portal-session",
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
             },
         });
         return NextResponse.json(
-            { error: error?.message || "Unable to create portal session." },
+            { error: errorMessage },
             { status: 500 }
         );
     }

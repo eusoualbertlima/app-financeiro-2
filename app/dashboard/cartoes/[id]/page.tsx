@@ -12,7 +12,7 @@ import {
     CreditCard, ChevronLeft, ChevronRight, ArrowLeft,
     Check, Clock, Edit3, TrendingDown, AlertCircle
 } from "lucide-react";
-import type { CreditCard as CardType, Account } from "@/types";
+import type { CreditCard as CardType, Account, CardStatementAdjustment } from "@/types";
 
 const defaultCategories = [
     { id: 'alimentacao', name: 'Alimentação', icon: '🍔', color: '#f59e0b' },
@@ -76,7 +76,7 @@ export default function CartaoDetalhePage() {
 
     // Update statement total when transactions change
     useEffect(() => {
-        const manualDelta = Number((statement as any)?.manualDelta || 0);
+        const manualDelta = Number(statement?.manualDelta || 0);
         const expectedTotal = Math.max(0, total + manualDelta);
         if (
             statement
@@ -136,8 +136,8 @@ export default function CartaoDetalhePage() {
         : (selectedMonthOutstanding ?? effectiveInvoiceTotal);
     const available = cartao.limit - totalOutstanding;
     const usedPct = cartao.limit > 0 ? Math.min((Math.max(totalOutstanding, 0) / cartao.limit) * 100, 100) : 0;
-    const statementAdjustments = Array.isArray((statement as any)?.adjustments)
-        ? ([...(statement as any).adjustments] as Array<any>).sort((a, b) => (b?.at || 0) - (a?.at || 0))
+    const statementAdjustments = Array.isArray(statement?.adjustments)
+        ? ([...statement.adjustments] as CardStatementAdjustment[]).sort((a, b) => (b?.at || 0) - (a?.at || 0))
         : [];
 
     const handlePayFatura = async () => {

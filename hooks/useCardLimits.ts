@@ -114,13 +114,13 @@ function buildCardSummary(
     cardStatements: CardStatement[],
     options?: UseCardsLimitSummaryOptions
 ): CardLimitSummary {
-    const cardLimit = toPositiveAmount(toAmount((card as any).limit));
+    const cardLimit = toPositiveAmount(toAmount(card.limit));
 
     const statementsById = new Map<string, CardStatement>();
     const statementsByExternalId = new Map<string, CardStatement>();
     cardStatements.forEach((statement) => {
         statementsById.set(statement.id, statement);
-        getStatementIdentifiers(statement as any).forEach((key) => {
+        getStatementIdentifiers(statement).forEach((key) => {
             statementsByExternalId.set(key, statement);
         });
     });
@@ -136,12 +136,12 @@ function buildCardSummary(
     const txTotalsByStatementKey = new Map<string, number>();
 
     cardTransactions.forEach((transaction) => {
-        if (isTransactionExcludedFromTotals(transaction as any)) return;
+        if (isTransactionExcludedFromTotals(transaction)) return;
 
-        const amount = toPositiveAmount(toAmount((transaction as any).amount));
+        const amount = toPositiveAmount(toAmount(transaction.amount));
         if (amount <= 0) return;
 
-        const linkedStatementId = getTransactionInvoiceId(transaction as any);
+        const linkedStatementId = getTransactionInvoiceId(transaction);
         const linkedStatement = linkedStatementId ? statementsByExternalId.get(linkedStatementId) : null;
         if (linkedStatement) {
             txTotalsByLinkedStatementId.set(
@@ -151,7 +151,7 @@ function buildCardSummary(
             return;
         }
 
-        const reference = resolveTransactionStatementReference(transaction as any, card.closingDay);
+        const reference = resolveTransactionStatementReference(transaction, card.closingDay);
         if (!reference) return;
 
         const key = statementMonthYearKey(reference.month, reference.year);
@@ -257,29 +257,29 @@ function buildCardSummary(
 
 export function useCardsLimitSummary(cards: CreditCard[], options?: UseCardsLimitSummaryOptions) {
     const { workspace } = useWorkspace();
+    const workspaceId = workspace?.id;
     const [cardTransactions, setCardTransactions] = useState<Transaction[]>([]);
     const [cardStatements, setCardStatements] = useState<CardStatement[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [readyWorkspaceId, setReadyWorkspaceId] = useState<string | null>(null);
     const selectedMonth = options?.month;
     const selectedYear = options?.year;
 
     useEffect(() => {
-        if (!workspace?.id) {
+        if (!workspaceId) {
             return;
         }
 
-        setLoading(true);
         let hasTransactionsSnapshot = false;
         let hasStatementsSnapshot = false;
 
         const finishIfReady = () => {
             if (hasTransactionsSnapshot && hasStatementsSnapshot) {
-                setLoading(false);
+                setReadyWorkspaceId(workspaceId);
             }
         };
 
         const transactionsUnsubscribe = onSnapshot(
-            collection(db, `workspaces/${workspace.id}/transactions`),
+            collection(db, `workspaces/${workspaceId}/transactions`),
             (snapshot) => {
                 const items = snapshot.docs
                     .map((docSnap) => {
@@ -290,7 +290,7 @@ export function useCardsLimitSummary(cards: CreditCard[], options?: UseCardsLimi
 
                         return {
                             ...transaction,
-                            amount: toAmount((transaction as any).amount),
+                            amount: toAmount(transaction.amount),
                             date: normalizeLegacyDateOnlyTimestamp(transaction.date),
                         } as Transaction;
                     })
@@ -307,7 +307,7 @@ export function useCardsLimitSummary(cards: CreditCard[], options?: UseCardsLimi
         );
 
         const statementsUnsubscribe = onSnapshot(
-            collection(db, `workspaces/${workspace.id}/card_statements`),
+            collection(db, `workspaces/${workspaceId}/card_statements`),
             (snapshot) => {
                 const items = snapshot.docs.map((docSnap) => ({
                     id: docSnap.id,
@@ -328,12 +328,13 @@ export function useCardsLimitSummary(cards: CreditCard[], options?: UseCardsLimi
             transactionsUnsubscribe();
             statementsUnsubscribe();
         };
-    }, [workspace?.id]);
+    }, [workspaceId]);
 
     const summaryByCard = useMemo(() => {
         const summaries: Record<string, CardLimitSummary> = {};
-        const transactionsSource = workspace?.id ? cardTransactions : [];
-        const statementsSource = workspace?.id ? cardStatements : [];
+        const isWorkspaceReady = Boolean(workspaceId && readyWorkspaceId === workspaceId);
+        const transactionsSource = isWorkspaceReady ? cardTransactions : [];
+        const statementsSource = isWorkspaceReady ? cardStatements : [];
 
         cards.forEach((card) => {
             const transactionsForCard = transactionsSource.filter((transaction) => transaction.cardId === card.id);
@@ -347,11 +348,11 @@ export function useCardsLimitSummary(cards: CreditCard[], options?: UseCardsLimi
         });
 
         return summaries;
-    }, [cards, cardTransactions, cardStatements, selectedMonth, selectedYear, workspace?.id]);
+    }, [cards, cardTransactions, cardStatements, selectedMonth, selectedYear, workspaceId, readyWorkspaceId]);
 
     const totals = useMemo(() => {
         const totalLimit = cards.reduce(
-            (acc, card) => acc + toPositiveAmount(toAmount((card as any).limit)),
+            (acc, card) => acc + toPositiveAmount(toAmount(card.limit)),
             0
         );
         const totalOutstanding = cards.reduce(
@@ -367,5 +368,9 @@ export function useCardsLimitSummary(cards: CreditCard[], options?: UseCardsLimi
         };
     }, [cards, summaryByCard]);
 
-    return { summaryByCard, totals, loading: workspace?.id ? loading : false };
+    return {
+        summaryByCard,
+        totals,
+        loading: workspaceId ? readyWorkspaceId !== workspaceId : false,
+    };
 }

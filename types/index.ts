@@ -171,7 +171,7 @@ export interface OpsAlert {
     source: string;
     message: string;
     workspaceId?: string;
-    context?: Record<string, any>;
+    context?: Record<string, unknown>;
     timestamp?: string;
     createdAt: number;
     delivery?: {
@@ -187,7 +187,7 @@ export interface AuditLog {
     entityId?: string | null;
     actorUid?: string | null;
     summary?: string;
-    payload?: Record<string, any>;
+    payload?: Record<string, unknown>;
     createdAt: number;
 }
 

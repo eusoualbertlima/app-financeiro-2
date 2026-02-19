@@ -104,7 +104,7 @@ export default function CartoesPage() {
             limit: Number(formData.limit),
             closingDay: Number(formData.closingDay),
             dueDay: Number(formData.dueDay),
-            brand: formData.brand as any,
+            brand: formData.brand as CreditCard["brand"],
             color: formData.color || "#1a1a2e"
         };
 
@@ -263,7 +263,7 @@ export default function CartoesPage() {
                                     <label className="block text-sm font-medium text-slate-700 mb-2">Bandeira</label>
                                     <select
                                         value={formData.brand}
-                                        onChange={e => setFormData({ ...formData, brand: e.target.value as any })}
+                                        onChange={e => setFormData({ ...formData, brand: e.target.value as CreditCard["brand"] })}
                                         className="input"
                                     >
                                         <option value="mastercard">🔴🟡 Mastercard</option>

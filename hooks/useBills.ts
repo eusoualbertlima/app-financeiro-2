@@ -33,8 +33,8 @@ function shouldReplacePayment(existing: BillPayment, candidate: BillPayment) {
         return candidatePriority > existingPriority;
     }
 
-    const existingHasTransaction = Boolean((existing as any).transactionId);
-    const candidateHasTransaction = Boolean((candidate as any).transactionId);
+    const existingHasTransaction = Boolean((existing as BillPayment & { transactionId?: string }).transactionId);
+    const candidateHasTransaction = Boolean((candidate as BillPayment & { transactionId?: string }).transactionId);
     if (existingHasTransaction !== candidateHasTransaction) {
         return candidateHasTransaction;
     }
@@ -49,7 +49,7 @@ function shouldReplacePayment(existing: BillPayment, candidate: BillPayment) {
 }
 
 function canAutoDeleteDuplicate(payment: BillPayment) {
-    const unsafePayment = payment as any;
+    const unsafePayment = payment as BillPayment & { transactionId?: string };
     return (payment.status === 'pending' || payment.status === 'overdue')
         && !payment.paidAt
         && !payment.paidAmount
@@ -100,7 +100,7 @@ export function useRecurringBills() {
             entityId: docRef.id,
             summary: 'Despesa fixa criada.',
             payload: {
-                bill: payload as any,
+                bill: payload as Record<string, unknown>,
             },
         });
     };
@@ -116,7 +116,7 @@ export function useRecurringBills() {
             entityId: id,
             summary: 'Despesa fixa atualizada.',
             payload: {
-                changes: bill as any,
+                changes: bill as Record<string, unknown>,
             },
         });
     };
@@ -298,7 +298,7 @@ export function useBillPayments(month: number, year: number) {
 
             const amount = paidAmount ?? paymentData.amount ?? 0;
             const paidAt = Date.now();
-            const updateData: any = {
+            const updateData: Record<string, unknown> = {
                 status: 'paid',
                 paidAt,
                 paidAmount: amount,
@@ -313,7 +313,7 @@ export function useBillPayments(month: number, year: number) {
             }
 
             const transactionRef = doc(transactionsCol);
-            const transactionData: any = {
+            const transactionData: Record<string, unknown> = {
                 description: paymentData.billName || 'Conta Fixa',
                 amount,
                 type: 'expense',

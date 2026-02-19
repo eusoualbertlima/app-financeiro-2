@@ -22,15 +22,16 @@ export function useCardStatements(cardId: string, month?: number, year?: number)
     const { workspace } = useWorkspace();
     const { user } = useAuth();
     const [statement, setStatement] = useState<CardStatement | null>(null);
-    const [loading, setLoading] = useState(true);
     const hasSelection = Boolean(workspace?.id && cardId && month !== undefined && year !== undefined);
+    const selectionKey = hasSelection
+        ? `${workspace?.id}:${cardId}:${month}:${year}`
+        : null;
+    const [loadedSelectionKey, setLoadedSelectionKey] = useState<string | null>(null);
 
     useEffect(() => {
-        if (!workspace?.id || !cardId || month === undefined || year === undefined) {
+        if (!workspace?.id || !cardId || month === undefined || year === undefined || !selectionKey) {
             return;
         }
-
-        setLoading(true);
 
         const q = query(
             collection(db, `workspaces/${workspace.id}/card_statements`),
@@ -39,18 +40,25 @@ export function useCardStatements(cardId: string, month?: number, year?: number)
             where('year', '==', year)
         );
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            if (!snapshot.empty) {
-                const docData = snapshot.docs[0].data();
-                setStatement({ id: snapshot.docs[0].id, ...docData } as CardStatement);
-            } else {
+        const unsubscribe = onSnapshot(
+            q,
+            (snapshot) => {
+                if (!snapshot.empty) {
+                    const docData = snapshot.docs[0].data();
+                    setStatement({ id: snapshot.docs[0].id, ...docData } as CardStatement);
+                } else {
+                    setStatement(null);
+                }
+                setLoadedSelectionKey(selectionKey);
+            },
+            () => {
                 setStatement(null);
+                setLoadedSelectionKey(selectionKey);
             }
-            setLoading(false);
-        });
+        );
 
         return () => unsubscribe();
-    }, [workspace?.id, cardId, month, year]);
+    }, [workspace?.id, cardId, month, year, selectionKey]);
 
     const statementForSelection = hasSelection
         && statement
@@ -214,7 +222,7 @@ export function useCardStatements(cardId: string, month?: number, year?: number)
 
         if (!targetStatementId) return;
 
-        const previousManualDelta = Number((snapshotData as any)?.manualDelta || 0);
+        const previousManualDelta = Number(snapshotData?.manualDelta || 0);
         let targetAmount = normalizedNewAmount;
         const payload: Record<string, unknown> = {};
         let computedManualDelta = previousManualDelta;
@@ -343,7 +351,7 @@ export function useCardStatements(cardId: string, month?: number, year?: number)
 
     return {
         statement: statementForSelection,
-        loading: hasSelection ? loading : false,
+        loading: selectionKey ? loadedSelectionKey !== selectionKey : false,
         generateStatement,
         updateAmount,
         payStatement,

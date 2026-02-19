@@ -9,7 +9,7 @@ import {
     ChevronLeft, ChevronRight, Edit3, Trash2, Undo2, SkipForward
 } from "lucide-react";
 import { Header } from "@/components/Navigation";
-import type { Account, BillPayment } from "@/types";
+import type { Account, BillPayment, RecurringBill } from "@/types";
 
 export default function ContasFixasPage() {
     const now = new Date();
@@ -56,7 +56,7 @@ export default function ContasFixasPage() {
         }
     }, [bills, month, year, billsLoading, paymentsLoading, generatePayments]);
 
-    const openModal = (bill?: any) => {
+    const openModal = (bill?: RecurringBill) => {
         if (bill) {
             setEditingId(bill.id);
             setFormData({ name: bill.name, amount: bill.amount, dueDay: bill.dueDay });
@@ -69,7 +69,7 @@ export default function ContasFixasPage() {
 
     const MAX_AMOUNT = 999999999.99;
 
-    const handleDelete = (bill: any) => {
+    const handleDelete = (bill: RecurringBill) => {
         if (confirm(`Tem certeza que deseja excluir a conta fixa "${bill.name}"? Esta ação não pode ser desfeita.`)) {
             remove(bill.id);
         }

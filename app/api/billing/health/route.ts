@@ -24,8 +24,10 @@ export async function GET() {
         // Touch Firestore Admin to validate credentials wiring.
         getAdminDb();
         firebaseAdminReady = true;
-    } catch (error: any) {
-        firebaseAdminError = error?.message || "Failed to initialize Firebase Admin.";
+    } catch (error: unknown) {
+        firebaseAdminError = error instanceof Error
+            ? error.message
+            : "Failed to initialize Firebase Admin.";
     }
 
     return NextResponse.json({
@@ -35,4 +37,3 @@ export async function GET() {
         firebaseAdminError,
     });
 }
-

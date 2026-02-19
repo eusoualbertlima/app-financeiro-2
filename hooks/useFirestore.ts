@@ -332,8 +332,8 @@ export function useCollection<T>(collectionName: string) {
             entityId: id,
             summary: `Atualizado item em ${collectionName}.`,
             payload: {
-                before: beforeData as any,
-                changes: payload as any,
+                before: beforeData as Record<string, unknown> | null,
+                changes: payload,
             },
         });
     };
@@ -353,7 +353,7 @@ export function useCollection<T>(collectionName: string) {
             entityId: id,
             summary: `Removido item de ${collectionName}.`,
             payload: {
-                before: beforeData as any,
+                before: beforeData as Record<string, unknown> | null,
             },
         });
     };

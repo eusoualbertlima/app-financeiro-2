@@ -387,8 +387,8 @@ export default function ConfiguracoesPage() {
                                         </div>
                                         {workspace && (
                                             <p className="text-xs text-slate-400 mt-2">
-                                                {(workspace as any).pendingInvites?.length > 0
-                                                    ? `📧 ${(workspace as any).pendingInvites.length} convite(s) pendente(s)`
+                                                {(workspace.pendingInvites?.length || 0) > 0
+                                                    ? `📧 ${workspace.pendingInvites?.length || 0} convite(s) pendente(s)`
                                                     : `👤 ${workspace.members?.length || 1} membro(s)`
                                                 }
                                             </p>

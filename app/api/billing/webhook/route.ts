@@ -9,7 +9,7 @@ import type { Workspace, WorkspaceBillingStatus } from "@/types";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-function cleanUndefined<T extends Record<string, any>>(obj: T) {
+function cleanUndefined<T extends Record<string, unknown>>(obj: T) {
     return Object.fromEntries(
         Object.entries(obj).filter(([, value]) => value !== undefined)
     ) as Partial<T>;
@@ -206,7 +206,8 @@ export async function POST(request: NextRequest) {
         }
 
         return NextResponse.json({ received: true });
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : "Webhook handler failed.";
         console.error("Stripe webhook error:", error);
         await sendOpsAlert({
             source: "api/billing/webhook",
@@ -220,7 +221,7 @@ export async function POST(request: NextRequest) {
             },
         });
         return NextResponse.json(
-            { error: error?.message || "Webhook handler failed." },
+            { error: errorMessage },
             { status: 400 }
         );
     }

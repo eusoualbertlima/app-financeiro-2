@@ -7,14 +7,12 @@ import type { OpsAlert } from "@/types";
 export function useOpsAlerts(maxItems = 100) {
     const { workspace } = useWorkspace();
     const [alerts, setAlerts] = useState<OpsAlert[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loadedWorkspaceId, setLoadedWorkspaceId] = useState<string | null>(null);
 
     useEffect(() => {
         if (!workspace?.id) {
             return;
         }
-
-        setLoading(true);
 
         const q = query(
             collection(db, `workspaces/${workspace.id}/ops_alerts`),
@@ -31,19 +29,21 @@ export function useOpsAlerts(maxItems = 100) {
                 })) as OpsAlert[];
 
                 setAlerts(items);
-                setLoading(false);
+                setLoadedWorkspaceId(workspace.id);
             },
             () => {
                 setAlerts([]);
-                setLoading(false);
+                setLoadedWorkspaceId(workspace.id);
             }
         );
 
         return () => unsubscribe();
     }, [workspace?.id, maxItems]);
 
+    const hasLoadedCurrentWorkspace = Boolean(workspace?.id && loadedWorkspaceId === workspace.id);
+
     return {
-        alerts: workspace?.id ? alerts : [],
-        loading: workspace?.id ? loading : false,
+        alerts: hasLoadedCurrentWorkspace ? alerts : [],
+        loading: workspace?.id ? !hasLoadedCurrentWorkspace : false,
     };
 }

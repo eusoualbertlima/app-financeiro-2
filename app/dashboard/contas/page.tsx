@@ -105,7 +105,7 @@ export default function ContasPage() {
         const data = {
             name: formData.name,
             balance: Number(formData.balance),
-            type: formData.type as any,
+            type: formData.type as Account["type"],
             color: formData.color || "#0ea5e9"
         };
 
@@ -296,7 +296,7 @@ export default function ContasPage() {
                                 <label className="block text-sm font-medium text-slate-700 mb-2">Tipo de Conta</label>
                                 <select
                                     value={formData.type}
-                                    onChange={e => setFormData({ ...formData, type: e.target.value as any })}
+                                    onChange={e => setFormData({ ...formData, type: e.target.value as Account["type"] })}
                                     className="input"
                                 >
                                     <option value="checking">💳 Conta Corrente / Pagamentos</option>

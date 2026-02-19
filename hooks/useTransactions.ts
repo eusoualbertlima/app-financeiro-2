@@ -27,7 +27,7 @@ import {
 } from '@/lib/cardInvoiceReference';
 
 // Remove campos undefined de um objeto (Firebase não aceita undefined)
-function cleanUndefined<T extends Record<string, any>>(obj: T): Partial<T> {
+function cleanUndefined<T extends Record<string, unknown>>(obj: T): Partial<T> {
     return Object.fromEntries(
         Object.entries(obj).filter(([, v]) => v !== undefined)
     ) as Partial<T>;
@@ -107,7 +107,7 @@ export function useTransactions(month?: number, year?: number) {
 
                 return {
                     ...transaction,
-                    amount: toTransactionAmount((transaction as any).amount),
+                    amount: toTransactionAmount(transaction.amount),
                     date: normalizeLegacyDateOnlyTimestamp(transaction.date),
                 } as Transaction;
             });
@@ -125,7 +125,7 @@ export function useTransactions(month?: number, year?: number) {
                 });
             }
 
-            items = items.filter((transaction) => !isTransactionExcludedFromTotals(transaction as any));
+            items = items.filter((transaction) => !isTransactionExcludedFromTotals(transaction));
 
             // Ordenar por data (mais recente primeiro)
             items.sort((a, b) => b.date - a.date);
@@ -152,22 +152,22 @@ export function useTransactions(month?: number, year?: number) {
             userId: user.uid,
             paidAt: item.paidAt || null,
             source: item.source || 'manual',
-        });
+        }) as Record<string, unknown>;
 
         // Adiciona accountId ou cardId apenas se existirem
         if (item.accountId) {
-            (cleanData as any).accountId = item.accountId;
+            cleanData.accountId = item.accountId;
         }
         if (item.cardId) {
-            (cleanData as any).cardId = item.cardId;
+            cleanData.cardId = item.cardId;
             const invoiceMeta = await resolveCardInvoiceMetadata(workspace.id, item.cardId, item.date);
             if (invoiceMeta) {
-                (cleanData as any).invoiceId = invoiceMeta.invoiceId;
-                (cleanData as any).invoice_id = invoiceMeta.invoiceId;
-                (cleanData as any).invoiceMonth = invoiceMeta.invoiceMonth;
-                (cleanData as any).invoiceYear = invoiceMeta.invoiceYear;
-                (cleanData as any).invoiceRef = invoiceMeta.invoiceRef;
-                (cleanData as any).invoice_ref = invoiceMeta.invoiceRef;
+                cleanData.invoiceId = invoiceMeta.invoiceId;
+                cleanData.invoice_id = invoiceMeta.invoiceId;
+                cleanData.invoiceMonth = invoiceMeta.invoiceMonth;
+                cleanData.invoiceYear = invoiceMeta.invoiceYear;
+                cleanData.invoiceRef = invoiceMeta.invoiceRef;
+                cleanData.invoice_ref = invoiceMeta.invoiceRef;
             }
         }
 
@@ -176,7 +176,7 @@ export function useTransactions(month?: number, year?: number) {
             const txRef = doc(transactionsCol);
             const batch = writeBatch(db);
 
-            batch.set(txRef, cleanData as any);
+            batch.set(txRef, cleanData);
             batch.update(
                 doc(db, `workspaces/${workspace.id}/accounts`, item.accountId),
                 { balance: increment(item.type === 'expense' ? -item.amount : item.amount) }
@@ -191,7 +191,7 @@ export function useTransactions(month?: number, year?: number) {
                 entityId: txRef.id,
                 summary: 'Lançamento criado e refletido no saldo da conta.',
                 payload: {
-                    transaction: cleanData as any,
+                    transaction: cleanData,
                     accountId: item.accountId,
                 },
             });
@@ -207,7 +207,7 @@ export function useTransactions(month?: number, year?: number) {
             entityId: docRef.id,
             summary: 'Lançamento criado.',
             payload: {
-                transaction: cleanData as any,
+                transaction: cleanData,
             },
         });
     };
@@ -287,7 +287,7 @@ export function useTransactions(month?: number, year?: number) {
             entityId: id,
             summary: 'Lançamento atualizado.',
             payload: {
-                changes: cleanData as any,
+                changes: cleanData as Record<string, unknown>,
             },
         });
     };
@@ -366,7 +366,7 @@ export function useTransactions(month?: number, year?: number) {
                 entityId: id,
                 summary: 'Lançamento removido.',
                 payload: {
-                    previous: data as any,
+                    previous: data as unknown as Record<string, unknown>,
                 },
             });
             return;
@@ -398,7 +398,7 @@ export function useTransactions(month?: number, year?: number) {
             }
 
             const paidAt = Date.now();
-            const updateData: any = {
+            const updateData: Record<string, unknown> = {
                 status: 'paid',
                 paidAt,
             };
@@ -531,76 +531,85 @@ export function useCardTransactions(
 ) {
     const { workspace } = useWorkspace();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loadedQueryKey, setLoadedQueryKey] = useState<string | null>(null);
+    const queryKey = workspace?.id && cardId
+        ? `${workspace.id}:${cardId}:${month ?? '*'}:${year ?? '*'}:${closingDay ?? '*'}:${statementId ?? '*'}`
+        : null;
 
     useEffect(() => {
-        if (!workspace?.id || !cardId) {
+        if (!workspace?.id || !cardId || !queryKey) {
             return;
         }
-
-        setLoading(true);
 
         const q = query(
             collection(db, `workspaces/${workspace.id}/transactions`),
             where('cardId', '==', cardId)
         );
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            let items = snapshot.docs.map(docSnap => {
-                const transaction = {
-                    id: docSnap.id,
-                    ...docSnap.data()
-                } as Transaction;
+        const unsubscribe = onSnapshot(
+            q,
+            (snapshot) => {
+                let items = snapshot.docs.map(docSnap => {
+                    const transaction = {
+                        id: docSnap.id,
+                        ...docSnap.data()
+                    } as Transaction;
 
-                return {
-                    ...transaction,
-                    amount: toTransactionAmount((transaction as any).amount),
-                    date: normalizeLegacyDateOnlyTimestamp(transaction.date),
-                } as Transaction;
-            });
-
-            // Filtrar por mês/ano se especificado
-            if (month !== undefined && year !== undefined) {
-                items = items.filter(t => {
-                    const txInvoiceId = getTransactionInvoiceId(t as any);
-                    if (statementId && txInvoiceId) {
-                        // Compatibilidade: se o id de referência não bater com o id do doc da fatura,
-                        // ainda tentamos resolver por competência (mês/ano + fechamento).
-                        if (txInvoiceId === statementId) return true;
-                    }
-
-                    const statementRef = resolveTransactionStatementReference(t as any, closingDay);
-                    if (statementRef) {
-                        return statementRef.month === month && statementRef.year === year;
-                    }
-
-                    if (closingDay !== undefined) {
-                        const fallbackRef = resolveStatementReferenceByClosingDay(t.date, closingDay);
-                        return fallbackRef.month === month && fallbackRef.year === year;
-                    }
-
-                    const date = new Date(t.date);
-                    return date.getMonth() + 1 === month && date.getFullYear() === year;
+                    return {
+                        ...transaction,
+                        amount: toTransactionAmount(transaction.amount),
+                        date: normalizeLegacyDateOnlyTimestamp(transaction.date),
+                    } as Transaction;
                 });
+
+                // Filtrar por mês/ano se especificado
+                if (month !== undefined && year !== undefined) {
+                    items = items.filter(t => {
+                        const txInvoiceId = getTransactionInvoiceId(t);
+                        if (statementId && txInvoiceId) {
+                            // Compatibilidade: se o id de referência não bater com o id do doc da fatura,
+                            // ainda tentamos resolver por competência (mês/ano + fechamento).
+                            if (txInvoiceId === statementId) return true;
+                        }
+
+                        const statementRef = resolveTransactionStatementReference(t, closingDay);
+                        if (statementRef) {
+                            return statementRef.month === month && statementRef.year === year;
+                        }
+
+                        if (closingDay !== undefined) {
+                            const fallbackRef = resolveStatementReferenceByClosingDay(t.date, closingDay);
+                            return fallbackRef.month === month && fallbackRef.year === year;
+                        }
+
+                        const date = new Date(t.date);
+                        return date.getMonth() + 1 === month && date.getFullYear() === year;
+                    });
+                }
+
+                // Remover ajustes técnicos que não devem entrar em gráficos/total da fatura
+                items = items.filter((transaction) => !isTransactionExcludedFromTotals(transaction));
+
+                items.sort((a, b) => b.date - a.date);
+                setTransactions(items);
+                setLoadedQueryKey(queryKey);
+            },
+            () => {
+                setTransactions([]);
+                setLoadedQueryKey(queryKey);
             }
-
-            // Remover ajustes técnicos que não devem entrar em gráficos/total da fatura
-            items = items.filter((transaction) => !isTransactionExcludedFromTotals(transaction as any));
-
-            items.sort((a, b) => b.date - a.date);
-            setTransactions(items);
-            setLoading(false);
-        });
+        );
 
         return () => unsubscribe();
-    }, [workspace?.id, cardId, month, year, closingDay, statementId]);
+    }, [workspace?.id, cardId, month, year, closingDay, statementId, queryKey]);
 
-    const effectiveTransactions = workspace?.id && cardId ? transactions : [];
-    const total = effectiveTransactions.reduce((acc, t) => acc + toTransactionAmount((t as any).amount), 0);
+    const hasLoadedQuery = Boolean(queryKey && loadedQueryKey === queryKey);
+    const effectiveTransactions = hasLoadedQuery ? transactions : [];
+    const total = effectiveTransactions.reduce((acc, t) => acc + toTransactionAmount(t.amount), 0);
 
     return {
         transactions: effectiveTransactions,
-        loading: workspace?.id && cardId ? loading : false,
+        loading: queryKey ? !hasLoadedQuery : false,
         total,
     };
 }
