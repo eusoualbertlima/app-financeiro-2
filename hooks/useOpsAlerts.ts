@@ -11,10 +11,10 @@ export function useOpsAlerts(maxItems = 100) {
 
     useEffect(() => {
         if (!workspace?.id) {
-            setAlerts([]);
-            setLoading(false);
             return;
         }
+
+        setLoading(true);
 
         const q = query(
             collection(db, `workspaces/${workspace.id}/ops_alerts`),
@@ -42,5 +42,8 @@ export function useOpsAlerts(maxItems = 100) {
         return () => unsubscribe();
     }, [workspace?.id, maxItems]);
 
-    return { alerts, loading };
+    return {
+        alerts: workspace?.id ? alerts : [],
+        loading: workspace?.id ? loading : false,
+    };
 }

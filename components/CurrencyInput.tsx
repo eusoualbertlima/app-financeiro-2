@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useMemo, useState } from "react";
 
 interface CurrencyInputProps {
     value: number;
@@ -19,8 +19,8 @@ export function CurrencyInput({
     required = false,
     max = 999999999.99,
 }: CurrencyInputProps) {
-    const [displayValue, setDisplayValue] = useState("");
-    const inputRef = useRef<HTMLInputElement>(null);
+    const [rawValue, setRawValue] = useState("");
+    const [isEditing, setIsEditing] = useState(false);
 
     // Format number to BRL display
     const formatToBRL = (num: number): string => {
@@ -31,12 +31,13 @@ export function CurrencyInput({
         }).format(num);
     };
 
-    // Initialize display value from prop
-    useEffect(() => {
-        if (value > 0 && displayValue === "") {
-            setDisplayValue(formatToBRL(value));
-        }
-    }, [value]);
+    const parseRawToNumber = (raw: string) =>
+        parseFloat(raw.replace(/\./g, "").replace(",", ".")) || 0;
+
+    const displayValue = useMemo(() => {
+        if (isEditing) return rawValue;
+        return value > 0 ? formatToBRL(value) : "";
+    }, [isEditing, rawValue, value]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         let raw = e.target.value;
@@ -58,10 +59,10 @@ export function CurrencyInput({
             raw = parts[0] + "," + parts[1].slice(0, 2);
         }
 
-        setDisplayValue(raw);
+        setRawValue(raw);
 
         // Parse to number
-        const numericValue = parseFloat(raw.replace(/\./g, "").replace(",", ".")) || 0;
+        const numericValue = parseRawToNumber(raw);
 
         if (numericValue <= max) {
             onChange(numericValue);
@@ -69,19 +70,20 @@ export function CurrencyInput({
     };
 
     const handleBlur = () => {
-        // On blur, format nicely
-        const numericValue = parseFloat(displayValue.replace(/\./g, "").replace(",", ".")) || 0;
-        if (numericValue > 0) {
-            setDisplayValue(formatToBRL(numericValue));
-        } else {
-            setDisplayValue("");
+        const numericValue = parseRawToNumber(rawValue);
+        if (!Number.isFinite(numericValue) || numericValue < 0) {
+            onChange(0);
         }
+        setIsEditing(false);
     };
 
     const handleFocus = () => {
         // On focus, show raw number for easy editing
+        setIsEditing(true);
         if (value > 0) {
-            setDisplayValue(value.toFixed(2).replace(".", ","));
+            setRawValue(value.toFixed(2).replace(".", ","));
+        } else {
+            setRawValue("");
         }
     };
 
@@ -91,7 +93,6 @@ export function CurrencyInput({
                 R$
             </span>
             <input
-                ref={inputRef}
                 type="text"
                 inputMode="decimal"
                 value={displayValue}

@@ -99,7 +99,7 @@ export default function NotasPage() {
     const toggleStatus = async (note: FinancialNote) => {
         await update(note.id, {
             status: note.status === "open" ? "resolved" : "open",
-            updatedAt: Date.now(),
+            updatedAt: new Date().getTime(),
         });
     };
 

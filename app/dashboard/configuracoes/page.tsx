@@ -9,6 +9,7 @@ import { Settings, User, Shield, Bell, Palette, LogOut, ChevronRight, UserPlus, 
 import { updateDoc, doc, arrayUnion } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function ConfiguracoesPage() {
     const { user, signOut } = useAuth();
@@ -104,7 +105,7 @@ export default function ConfiguracoesPage() {
             setInviteStatus("success");
             setInviteMessage(`✅ Email ${inviteEmail} autorizado! Nenhum email é enviado — basta a pessoa abrir o app e fazer login com a mesma conta Google. Ela verá automaticamente os seus dados.`);
             setInviteEmail("");
-        } catch (error) {
+        } catch {
             setInviteStatus("error");
             setInviteMessage("Erro ao enviar convite. Tente novamente.");
         }
@@ -210,9 +211,11 @@ export default function ConfiguracoesPage() {
             <div className="card p-6 mb-6">
                 <div className="flex items-center gap-4">
                     {user?.photoURL ? (
-                        <img
+                        <Image
                             src={user.photoURL}
-                            alt=""
+                            alt={user.displayName || "Usuário"}
+                            width={64}
+                            height={64}
                             className="w-16 h-16 rounded-full ring-2 ring-primary-400/50"
                         />
                     ) : (

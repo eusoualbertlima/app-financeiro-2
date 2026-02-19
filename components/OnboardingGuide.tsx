@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Circle, Sparkles, X } from "lucide-react";
 
@@ -32,11 +32,10 @@ export function OnboardingGuide({
     recurringBillsCount,
 }: OnboardingGuideProps) {
     const [dismissed, setDismissed] = useState(false);
-
-    useEffect(() => {
-        if (typeof window === "undefined") return;
+    const storageDismissed = useMemo(() => {
+        if (typeof window === "undefined") return false;
         const key = getStorageKey(workspaceId);
-        setDismissed(window.localStorage.getItem(key) === "1");
+        return window.localStorage.getItem(key) === "1";
     }, [workspaceId]);
 
     const steps = useMemo<Step[]>(
@@ -77,7 +76,7 @@ export function OnboardingGuide({
     const progress = steps.length > 0 ? Math.round((completedCount / steps.length) * 100) : 0;
     const allDone = completedCount === steps.length;
 
-    if (dismissed) return null;
+    if (dismissed || storageDismissed) return null;
 
     return (
         <section className="card p-5 mb-6">

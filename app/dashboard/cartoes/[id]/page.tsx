@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useCollection } from "@/hooks/useFirestore";
 import { useCardTransactions } from "@/hooks/useTransactions";
@@ -10,7 +10,7 @@ import { CurrencyInput } from "@/components/CurrencyInput";
 import { DonutChart } from "@/components/Charts";
 import {
     CreditCard, ChevronLeft, ChevronRight, ArrowLeft,
-    Check, Clock, X, Edit3, Wallet, TrendingDown, AlertCircle
+    Check, Clock, Edit3, TrendingDown, AlertCircle
 } from "lucide-react";
 import type { CreditCard as CardType, Account } from "@/types";
 
@@ -56,11 +56,21 @@ export default function CartaoDetalhePage() {
         cartao?.closingDay,
         statement?.id
     );
+    const generateStatementRef = useRef(generateStatement);
+    const updateAmountRef = useRef(updateAmount);
+
+    useEffect(() => {
+        generateStatementRef.current = generateStatement;
+    }, [generateStatement]);
+
+    useEffect(() => {
+        updateAmountRef.current = updateAmount;
+    }, [updateAmount]);
 
     // Auto-generate statement when we have data
     useEffect(() => {
         if (cartao && !stmtLoading && !statement && total > 0) {
-            generateStatement(cartao.name, cartao.closingDay, cartao.dueDay, total);
+            generateStatementRef.current(cartao.name, cartao.closingDay, cartao.dueDay, total);
         }
     }, [cartao, stmtLoading, statement, total]);
 
@@ -74,7 +84,7 @@ export default function CartaoDetalhePage() {
             && statement.status === 'open'
             && Math.abs(expectedTotal - statement.totalAmount) > 0.009
         ) {
-            updateAmount(total, { source: 'auto' });
+            updateAmountRef.current(total, { source: 'auto' });
         }
     }, [total, statement, transLoading]);
 

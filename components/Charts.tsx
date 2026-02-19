@@ -23,38 +23,47 @@ export function DonutChart({ segments, size = 200 }: { segments: DonutSegment[];
 
     const radius = 70;
     const circumference = 2 * Math.PI * radius;
-    let cumulativeOffset = 0;
 
     const formatCurrency = (v: number) =>
         new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+
+    const chartSegments = segments.reduce<{
+        offset: number;
+        items: Array<DonutSegment & { dashLength: number; gap: number; offset: number }>;
+    }>((acc, segment) => {
+        const pct = segment.value / total;
+        const dashLength = pct * circumference;
+        const gap = circumference - dashLength;
+
+        acc.items.push({
+            ...segment,
+            dashLength,
+            gap,
+            offset: acc.offset,
+        });
+        acc.offset += dashLength;
+        return acc;
+    }, { offset: 0, items: [] }).items;
 
     return (
         <div className="flex flex-col items-center gap-4">
             <div className="relative">
                 <svg width={size} height={size} viewBox="0 0 200 200" className="transform -rotate-90">
-                    {segments.map((seg, i) => {
-                        const pct = seg.value / total;
-                        const dashLength = pct * circumference;
-                        const gap = circumference - dashLength;
-                        const offset = cumulativeOffset;
-                        cumulativeOffset += dashLength;
-
-                        return (
-                            <circle
-                                key={i}
-                                cx="100"
-                                cy="100"
-                                r={radius}
-                                fill="none"
-                                stroke={seg.color}
-                                strokeWidth="24"
-                                strokeDasharray={`${dashLength} ${gap}`}
-                                strokeDashoffset={-offset}
-                                strokeLinecap="round"
-                                className="transition-all duration-500"
-                            />
-                        );
-                    })}
+                    {chartSegments.map((seg, i) => (
+                        <circle
+                            key={i}
+                            cx="100"
+                            cy="100"
+                            r={radius}
+                            fill="none"
+                            stroke={seg.color}
+                            strokeWidth="24"
+                            strokeDasharray={`${seg.dashLength} ${seg.gap}`}
+                            strokeDashoffset={-seg.offset}
+                            strokeLinecap="round"
+                            className="transition-all duration-500"
+                        />
+                    ))}
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <p className="text-2xl font-bold text-slate-900">{formatCurrency(total)}</p>
@@ -152,9 +161,6 @@ export function LineChart({ points, color = "#6366f1" }: { points: LinePoint[]; 
         .join(" ");
 
     const areaD = pathD + ` L ${getX(points.length - 1)} ${getY(minVal)} L ${getX(0)} ${getY(minVal)} Z`;
-
-    const formatCurrency = (v: number) =>
-        new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
     return (
         <div className="w-full">

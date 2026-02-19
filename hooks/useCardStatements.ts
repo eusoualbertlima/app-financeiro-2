@@ -23,16 +23,14 @@ export function useCardStatements(cardId: string, month?: number, year?: number)
     const { user } = useAuth();
     const [statement, setStatement] = useState<CardStatement | null>(null);
     const [loading, setLoading] = useState(true);
+    const hasSelection = Boolean(workspace?.id && cardId && month !== undefined && year !== undefined);
 
     useEffect(() => {
         if (!workspace?.id || !cardId || month === undefined || year === undefined) {
-            setStatement(null);
-            setLoading(false);
             return;
         }
 
         setLoading(true);
-        setStatement(null);
 
         const q = query(
             collection(db, `workspaces/${workspace.id}/card_statements`),
@@ -53,6 +51,14 @@ export function useCardStatements(cardId: string, month?: number, year?: number)
 
         return () => unsubscribe();
     }, [workspace?.id, cardId, month, year]);
+
+    const statementForSelection = hasSelection
+        && statement
+        && statement.cardId === cardId
+        && statement.month === month
+        && statement.year === year
+        ? statement
+        : null;
 
     // Gerar fatura automaticamente baseada em transações
     const generateStatement = async (
@@ -123,9 +129,9 @@ export function useCardStatements(cardId: string, month?: number, year?: number)
         const source = options?.source || 'manual';
         const normalizedNewAmount = Number.isFinite(newAmount) ? Math.max(0, newAmount) : 0;
 
-        let targetStatementId = statement?.id;
-        let previousAmount = statement?.totalAmount ?? 0;
-        let snapshotData = statement as CardStatement | null;
+        let targetStatementId = statementForSelection?.id;
+        let previousAmount = statementForSelection?.totalAmount ?? 0;
+        let snapshotData = statementForSelection as CardStatement | null;
 
         if (!targetStatementId) {
             const existingQuery = query(
@@ -265,11 +271,11 @@ export function useCardStatements(cardId: string, month?: number, year?: number)
 
     // Pagar fatura
     const payStatement = async (accountId: string) => {
-        if (!workspace?.id || !statement?.id) return;
+        if (!workspace?.id || !statementForSelection?.id) return;
 
         // Atualizar fatura como paga
         await updateDoc(
-            doc(db, `workspaces/${workspace.id}/card_statements`, statement.id),
+            doc(db, `workspaces/${workspace.id}/card_statements`, statementForSelection.id),
             {
                 status: 'paid',
                 paidAt: Date.now(),
@@ -281,7 +287,7 @@ export function useCardStatements(cardId: string, month?: number, year?: number)
         if (accountId) {
             await updateDoc(
                 doc(db, `workspaces/${workspace.id}/accounts`, accountId),
-                { balance: increment(-statement.totalAmount) }
+                { balance: increment(-statementForSelection.totalAmount) }
             );
         }
 
@@ -290,29 +296,29 @@ export function useCardStatements(cardId: string, month?: number, year?: number)
             actorUid: user?.uid,
             action: 'mark_paid',
             entity: 'card_statements',
-            entityId: statement.id,
+            entityId: statementForSelection.id,
             summary: 'Fatura marcada como paga.',
             payload: {
                 accountId,
-                amount: statement.totalAmount,
+                amount: statementForSelection.totalAmount,
             },
         });
     };
 
     // Reabrir fatura
     const reopenStatement = async () => {
-        if (!workspace?.id || !statement?.id) return;
+        if (!workspace?.id || !statementForSelection?.id) return;
 
         // Se estava paga, reverter saldo da conta
-        if (statement.status === 'paid' && statement.paidAccountId) {
+        if (statementForSelection.status === 'paid' && statementForSelection.paidAccountId) {
             await updateDoc(
-                doc(db, `workspaces/${workspace.id}/accounts`, statement.paidAccountId),
-                { balance: increment(statement.totalAmount) }
+                doc(db, `workspaces/${workspace.id}/accounts`, statementForSelection.paidAccountId),
+                { balance: increment(statementForSelection.totalAmount) }
             );
         }
 
         await updateDoc(
-            doc(db, `workspaces/${workspace.id}/card_statements`, statement.id),
+            doc(db, `workspaces/${workspace.id}/card_statements`, statementForSelection.id),
             {
                 status: 'open',
                 paidAt: null,
@@ -325,19 +331,19 @@ export function useCardStatements(cardId: string, month?: number, year?: number)
             actorUid: user?.uid,
             action: 'update',
             entity: 'card_statements',
-            entityId: statement.id,
+            entityId: statementForSelection.id,
             summary: 'Fatura reaberta.',
             payload: {
-                previousStatus: statement.status,
-                paidAccountId: statement.paidAccountId || null,
-                amount: statement.totalAmount,
+                previousStatus: statementForSelection.status,
+                paidAccountId: statementForSelection.paidAccountId || null,
+                amount: statementForSelection.totalAmount,
             },
         });
     };
 
     return {
-        statement,
-        loading,
+        statement: statementForSelection,
+        loading: hasSelection ? loading : false,
         generateStatement,
         updateAmount,
         payStatement,

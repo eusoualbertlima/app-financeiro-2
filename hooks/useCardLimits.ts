@@ -265,9 +265,6 @@ export function useCardsLimitSummary(cards: CreditCard[], options?: UseCardsLimi
 
     useEffect(() => {
         if (!workspace?.id) {
-            setCardTransactions([]);
-            setCardStatements([]);
-            setLoading(false);
             return;
         }
 
@@ -335,10 +332,12 @@ export function useCardsLimitSummary(cards: CreditCard[], options?: UseCardsLimi
 
     const summaryByCard = useMemo(() => {
         const summaries: Record<string, CardLimitSummary> = {};
+        const transactionsSource = workspace?.id ? cardTransactions : [];
+        const statementsSource = workspace?.id ? cardStatements : [];
 
         cards.forEach((card) => {
-            const transactionsForCard = cardTransactions.filter((transaction) => transaction.cardId === card.id);
-            const statementsForCard = cardStatements.filter((statement) => statement.cardId === card.id);
+            const transactionsForCard = transactionsSource.filter((transaction) => transaction.cardId === card.id);
+            const statementsForCard = statementsSource.filter((statement) => statement.cardId === card.id);
             summaries[card.id] = buildCardSummary(
                 card,
                 transactionsForCard,
@@ -348,7 +347,7 @@ export function useCardsLimitSummary(cards: CreditCard[], options?: UseCardsLimi
         });
 
         return summaries;
-    }, [cards, cardTransactions, cardStatements, selectedMonth, selectedYear]);
+    }, [cards, cardTransactions, cardStatements, selectedMonth, selectedYear, workspace?.id]);
 
     const totals = useMemo(() => {
         const totalLimit = cards.reduce(
@@ -368,5 +367,5 @@ export function useCardsLimitSummary(cards: CreditCard[], options?: UseCardsLimi
         };
     }, [cards, summaryByCard]);
 
-    return { summaryByCard, totals, loading };
+    return { summaryByCard, totals, loading: workspace?.id ? loading : false };
 }

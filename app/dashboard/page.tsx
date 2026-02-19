@@ -22,7 +22,7 @@ import {
 import Link from "next/link";
 import type { Account, CreditCard as CardType, RecurringBill } from "@/types";
 import { Header } from "@/components/Navigation";
-import { DonutChart, BarChart } from "@/components/Charts";
+import { DonutChart } from "@/components/Charts";
 import { OnboardingGuide } from "@/components/OnboardingGuide";
 
 export default function DashboardPage() {
@@ -37,8 +37,8 @@ export default function DashboardPage() {
     const currentMonth = now.getMonth() + 1;
     const currentYear = now.getFullYear();
 
-    const { transactions, totals, loading: transLoading } = useTransactions(currentMonth, currentYear);
-    const { payments, summary: billSummary, loading: billsLoading } = useBillPayments(currentMonth, currentYear);
+    const { transactions, totals } = useTransactions(currentMonth, currentYear);
+    const { payments, summary: billSummary } = useBillPayments(currentMonth, currentYear);
 
     const saldoTotal = contas.reduce((acc, conta) => acc + conta.balance, 0);
     const limiteTotal = cardTotals.totalLimit;
@@ -121,11 +121,6 @@ export default function DashboardPage() {
             .reduce((s, t) => s + t.amount, 0),
         color: cat.color,
     })).filter(c => c.value > 0);
-
-    // Data for bar chart (current month only, since we'd need historical data for 6 months)
-    const barData = [
-        { label: monthNames[currentMonth - 1], income: totals.income, expense: totals.expense },
-    ];
 
     const getStatusInfo = (status: string) => {
         switch (status) {

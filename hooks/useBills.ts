@@ -14,7 +14,7 @@ import {
 import { db } from '@/lib/firebase';
 import { useWorkspace } from '@/hooks/useFirestore';
 import { useAuth } from '@/contexts/AuthContext';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import type { RecurringBill, BillPayment } from '@/types';
 import { recordWorkspaceAuditEvent } from '@/lib/audit';
 
@@ -233,7 +233,7 @@ export function useBillPayments(month: number, year: number) {
     }, [workspace?.id, month, year, bills]);
 
     // Gerar pagamentos para o mês (cria se não existir)
-    const generatePayments = async () => {
+    const generatePayments = useCallback(async () => {
         if (!workspace?.id || !bills.length) return;
 
         const existingPaymentsQuery = query(
@@ -274,7 +274,7 @@ export function useBillPayments(month: number, year: number) {
 
             existingBillIds.add(bill.id);
         }
-    };
+    }, [workspace?.id, bills, month, year]);
 
     const markAsPaid = async (paymentId: string, paidAmount?: number, accountId?: string, note?: string) => {
         if (!workspace?.id) return;

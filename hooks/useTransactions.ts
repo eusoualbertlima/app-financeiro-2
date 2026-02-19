@@ -3,7 +3,6 @@ import {
     doc,
     addDoc,
     runTransaction,
-    updateDoc,
     deleteDoc,
     query,
     where,
@@ -30,7 +29,7 @@ import {
 // Remove campos undefined de um objeto (Firebase não aceita undefined)
 function cleanUndefined<T extends Record<string, any>>(obj: T): Partial<T> {
     return Object.fromEntries(
-        Object.entries(obj).filter(([_, v]) => v !== undefined)
+        Object.entries(obj).filter(([, v]) => v !== undefined)
     ) as Partial<T>;
 }
 
@@ -116,7 +115,6 @@ export function useTransactions(month?: number, year?: number) {
             // Filtrar por mês/ano se especificado
             if (month !== undefined && year !== undefined) {
                 const targetStart = new Date(year, month - 1, 1).getTime();
-                const targetEnd = new Date(year, month, 0, 23, 59, 59, 999).getTime();
 
                 items = items.filter(t => {
                     const date = new Date(t.date);
@@ -537,13 +535,10 @@ export function useCardTransactions(
 
     useEffect(() => {
         if (!workspace?.id || !cardId) {
-            setTransactions([]);
-            setLoading(false);
             return;
         }
 
         setLoading(true);
-        setTransactions([]);
 
         const q = query(
             collection(db, `workspaces/${workspace.id}/transactions`),
@@ -600,7 +595,12 @@ export function useCardTransactions(
         return () => unsubscribe();
     }, [workspace?.id, cardId, month, year, closingDay, statementId]);
 
-    const total = transactions.reduce((acc, t) => acc + toTransactionAmount((t as any).amount), 0);
+    const effectiveTransactions = workspace?.id && cardId ? transactions : [];
+    const total = effectiveTransactions.reduce((acc, t) => acc + toTransactionAmount((t as any).amount), 0);
 
-    return { transactions, loading, total };
+    return {
+        transactions: effectiveTransactions,
+        loading: workspace?.id && cardId ? loading : false,
+        total,
+    };
 }

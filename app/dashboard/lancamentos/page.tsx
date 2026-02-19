@@ -1,16 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useCollection } from "@/hooks/useFirestore";
 import { CurrencyInput } from "@/components/CurrencyInput";
 import {
     Receipt, Plus, X, TrendingUp, TrendingDown,
-    Calendar, CreditCard, Wallet, Check, Clock,
-    AlertTriangle, Filter, ChevronLeft, ChevronRight, Edit3, Trash2, ArrowRightLeft, Download
+    CreditCard, Wallet, Check, Clock,
+    Filter, ChevronLeft, ChevronRight, Edit3, Trash2, ArrowRightLeft, Download
 } from "lucide-react";
 import { Header } from "@/components/Navigation";
-import type { Transaction, Account, CreditCard as CardType, Category } from "@/types";
+import type { Transaction, Account, CreditCard as CardType } from "@/types";
 import { downloadCsv } from "@/lib/csv";
 import {
     normalizeLegacyDateOnlyTimestamp,

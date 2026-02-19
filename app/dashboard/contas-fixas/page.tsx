@@ -54,7 +54,7 @@ export default function ContasFixasPage() {
         if (!billsLoading && !paymentsLoading && bills.length > 0) {
             generatePayments();
         }
-    }, [bills, month, year, billsLoading, paymentsLoading]);
+    }, [bills, month, year, billsLoading, paymentsLoading, generatePayments]);
 
     const openModal = (bill?: any) => {
         if (bill) {
