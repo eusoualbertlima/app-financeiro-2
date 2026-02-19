@@ -21,6 +21,7 @@ function CheckoutContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [plan, setPlan] = useState<BillingPlan>("monthly");
+    const [planHydrated, setPlanHydrated] = useState(false);
     const [checkoutLoading, setCheckoutLoading] = useState(false);
     const [portalLoading, setPortalLoading] = useState(false);
     const [message, setMessage] = useState("");
@@ -58,15 +59,19 @@ function CheckoutContent() {
     }, [workspace]);
 
     useEffect(() => {
+        if (planHydrated) return;
         if (typeof window === "undefined") return;
 
         const queryPlan = normalizePlan(searchParams.get("plan"));
         const storedPlan = normalizePlan(window.localStorage.getItem("checkout:preferredPlan"));
-        const workspacePlan = normalizePlan(workspace?.billing?.plan);
+        const workspacePlan = workspace?.billing?.status === "active"
+            ? normalizePlan(workspace?.billing?.plan)
+            : null;
 
         const resolvedPlan = queryPlan || storedPlan || workspacePlan || "monthly";
         setPlan(resolvedPlan);
-    }, [searchParams, workspace?.billing?.plan]);
+        setPlanHydrated(true);
+    }, [planHydrated, searchParams, workspace?.billing?.plan, workspace?.billing?.status]);
 
     useEffect(() => {
         if (typeof window === "undefined") return;

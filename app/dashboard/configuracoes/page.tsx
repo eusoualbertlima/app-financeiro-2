@@ -13,6 +13,11 @@ import Image from "next/image";
 
 type BillingPlan = "monthly" | "yearly";
 
+function normalizePlan(value: string | null | undefined): BillingPlan | null {
+    if (value === "monthly" || value === "yearly") return value;
+    return null;
+}
+
 export default function ConfiguracoesPage() {
     const { user, signOut } = useAuth();
     const { workspace } = useWorkspace();
@@ -34,6 +39,7 @@ export default function ConfiguracoesPage() {
     const [billingMessage, setBillingMessage] = useState("");
     const [acceptedLegal, setAcceptedLegal] = useState(false);
     const [checkoutPlan, setCheckoutPlan] = useState<BillingPlan>("monthly");
+    const [planHydrated, setPlanHydrated] = useState(false);
 
     useEffect(() => {
         if (!workspace) return;
@@ -41,12 +47,30 @@ export default function ConfiguracoesPage() {
         if (alreadyAccepted) {
             setAcceptedLegal(true);
         }
-
-        const persistedPlan = workspace.billing?.plan;
-        if (persistedPlan === "monthly" || persistedPlan === "yearly") {
-            setCheckoutPlan(persistedPlan);
-        }
     }, [workspace]);
+
+    useEffect(() => {
+        if (!workspace || planHydrated) return;
+
+        const workspacePlan = normalizePlan(workspace.billing?.plan);
+        const shouldUseWorkspacePlan = workspace.billing?.status === "active" ? workspacePlan : null;
+        const storedPlan = typeof window !== "undefined"
+            ? normalizePlan(window.localStorage.getItem("checkout:preferredPlan"))
+            : null;
+
+        setCheckoutPlan(storedPlan || shouldUseWorkspacePlan || "monthly");
+        setPlanHydrated(true);
+    }, [workspace, planHydrated]);
+
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        window.localStorage.setItem("checkout:preferredPlan", checkoutPlan);
+    }, [checkoutPlan]);
+
+    const selectCheckoutPlan = (plan: BillingPlan) => {
+        setCheckoutPlan(plan);
+        setBillingMessage("");
+    };
 
     const sections = [
         {
@@ -277,7 +301,7 @@ export default function ConfiguracoesPage() {
                 <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
                     <button
                         type="button"
-                        onClick={() => setCheckoutPlan("monthly")}
+                        onClick={() => selectCheckoutPlan("monthly")}
                         className={`rounded-lg py-2 text-sm font-semibold transition-colors ${checkoutPlan === "monthly"
                             ? "bg-primary-600 text-white"
                             : "text-slate-600 hover:text-slate-900"
@@ -287,7 +311,7 @@ export default function ConfiguracoesPage() {
                     </button>
                     <button
                         type="button"
-                        onClick={() => setCheckoutPlan("yearly")}
+                        onClick={() => selectCheckoutPlan("yearly")}
                         className={`rounded-lg py-2 text-sm font-semibold transition-colors ${checkoutPlan === "yearly"
                             ? "bg-primary-600 text-white"
                             : "text-slate-600 hover:text-slate-900"
