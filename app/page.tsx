@@ -24,11 +24,28 @@ export default function Home() {
         );
     }
 
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-900">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-gray-900 text-white">
             {/* Hero Section */}
             <div className="max-w-6xl mx-auto px-4 py-20">
                 <div className="text-center">
+                    <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-full px-4 py-1.5 mb-8">
+                        <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                        </span>
+                        <span className="text-blue-200 text-sm font-medium">
+                            Oferta Beta: Acesso Vitalício por <span className="text-white font-bold">R$ 97,00</span>
+                        </span>
+                    </div>
                     <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent">
                         App Financeiro 2.0
                     </h1>
