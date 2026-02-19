@@ -1,5 +1,6 @@
 function clampDay(year: number, month: number, day: number) {
-    const safeDay = Number.isFinite(day) ? Math.trunc(day) : 1;
+    const numericDay = Number(day);
+    const safeDay = Number.isFinite(numericDay) ? Math.trunc(numericDay) : 1;
     const maxDay = new Date(year, month, 0).getDate();
     return Math.min(Math.max(safeDay, 1), maxDay);
 }
