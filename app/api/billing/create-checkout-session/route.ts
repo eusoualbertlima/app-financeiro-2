@@ -37,6 +37,29 @@ function normalizeConfiguredToken(value?: string) {
     return normalized || null;
 }
 
+async function findRecurringPriceForProduct(
+    stripe: ReturnType<typeof getStripe>,
+    productId: string,
+    plan: BillingPlan,
+    preferredCurrency?: string
+) {
+    const desiredInterval = expectedRecurringInterval(plan);
+    const prices = await stripe.prices.list({
+        product: productId,
+        active: true,
+        type: "recurring",
+        limit: 100,
+    });
+
+    const sameCurrency = preferredCurrency
+        ? prices.data.filter((price) => price.currency === preferredCurrency)
+        : prices.data;
+    const matched = sameCurrency.find((price) => price.recurring?.interval === desiredInterval)
+        || prices.data.find((price) => price.recurring?.interval === desiredInterval);
+
+    return matched || null;
+}
+
 async function resolveCheckoutPriceId(
     stripe: ReturnType<typeof getStripe>,
     plan: BillingPlan
@@ -51,37 +74,77 @@ async function resolveCheckoutPriceId(
     }
 
     if (configuredToken.startsWith("price_")) {
-        return {
-            priceId: configuredToken,
-            warning: null as string | null,
-            error: null as string | null,
-        };
+        try {
+            const configuredPrice = await stripe.prices.retrieve(configuredToken);
+            const desiredInterval = expectedRecurringInterval(plan);
+            const isCorrectRecurring = Boolean(
+                configuredPrice.active
+                && configuredPrice.recurring
+                && configuredPrice.recurring.interval === desiredInterval
+            );
+
+            if (isCorrectRecurring) {
+                return {
+                    priceId: configuredToken,
+                    warning: null as string | null,
+                    error: null as string | null,
+                };
+            }
+
+            const productId = typeof configuredPrice.product === "string"
+                ? configuredPrice.product
+                : configuredPrice.product?.id;
+            if (!productId) {
+                return {
+                    priceId: null,
+                    warning: null as string | null,
+                    error: `${getPriceEnvLabel(plan)} (${configuredToken}) não é recorrente para plano ${plan}. Configure um price_ recorrente (${desiredInterval}).`,
+                };
+            }
+
+            const fallbackPrice = await findRecurringPriceForProduct(
+                stripe,
+                productId,
+                plan,
+                configuredPrice.currency
+            );
+            if (!fallbackPrice) {
+                return {
+                    priceId: null,
+                    warning: null as string | null,
+                    error: `Price ${configuredToken} não é recorrente compatível com ${plan} e o produto ${productId} não possui preço recorrente ativo para "${desiredInterval}".`,
+                };
+            }
+
+            return {
+                priceId: fallbackPrice.id,
+                warning: `${getPriceEnvLabel(plan)} estava em ${configuredToken} (não recorrente/incompatível). Fallback automático para ${fallbackPrice.id}.`,
+                error: null as string | null,
+            };
+        } catch {
+            return {
+                priceId: null,
+                warning: null as string | null,
+                error: `${getPriceEnvLabel(plan)} aponta para price inválido (${configuredToken}).`,
+            };
+        }
     }
 
     if (!configuredToken.startsWith("prod_")) {
         return {
             priceId: null,
             warning: null as string | null,
-            error: `${getPriceEnvLabel(plan)} must be a Stripe price id (price_...).`,
+            error: `${getPriceEnvLabel(plan)} must be a Stripe price id (price_...) ou product id (prod_...).`,
         };
     }
 
     const desiredInterval = expectedRecurringInterval(plan);
-    const prices = await stripe.prices.list({
-        product: configuredToken,
-        active: true,
-        type: "recurring",
-        limit: 100,
-    });
-    const matchedPrice = prices.data.find(
-        (price) => price.recurring?.interval === desiredInterval
-    );
-
+    const matchedPrice = await findRecurringPriceForProduct(stripe, configuredToken, plan);
     if (!matchedPrice) {
         return {
             priceId: null,
             warning: null as string | null,
-            error: `Product ${configuredToken} has no active recurring price for interval "${desiredInterval}". Configure ${getPriceEnvLabel(plan)} with a valid price_ id.`,
+            error: `Product ${configuredToken} has no active recurring price for interval "${desiredInterval}". Configure ${getPriceEnvLabel(plan)} com um price_ recorrente.`,
         };
     }
 
