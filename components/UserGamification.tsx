@@ -60,10 +60,10 @@ function toRoleLabel(role: WorkspaceBehavioralMetrics["maturityRole"]) {
 function getPalette(isEnergized: boolean): IsoPalette {
     if (!isEnergized) {
         return {
-            top: "#cbd5e1",
-            left: "#94a3b8",
-            right: "#64748b",
-            ground: "#e2e8f0",
+            top: "#d1d5db",
+            left: "#9ca3af",
+            right: "#6b7280",
+            ground: "#cbd5e1",
             stroke: "#94a3b8",
             districtCore: "#94a3b833",
             districtInvest: "#94a3b822",
@@ -76,15 +76,15 @@ function getPalette(isEnergized: boolean): IsoPalette {
     }
 
     return {
-        top: "#60a5fa",
-        left: "#2563eb",
-        right: "#1d4ed8",
+        top: "#93c5fd",
+        left: "#3b82f6",
+        right: "#2563eb",
         ground: "#bfdbfe",
-        stroke: "#93c5fd",
-        districtCore: "#60a5fa33",
-        districtInvest: "#22d3ee2e",
-        districtLeisure: "#a78bfa29",
-        districtFamily: "#34d39924",
+        stroke: "#dbeafe",
+        districtCore: "#60a5fa45",
+        districtInvest: "#22d3ee35",
+        districtLeisure: "#a78bfa38",
+        districtFamily: "#34d39932",
         nodeActive: "#2563eb",
         nodeLocked: "#bfdbfe",
         nodeCurrent: "#1d4ed8",
@@ -95,54 +95,60 @@ function cubePolygons(cube: IsoCube) {
     const q = cube.size * 0.56;
     const topY = cube.y - cube.height;
 
-    const top = [
+    const top: [number, number][] = [
         [cube.x, topY - q],
         [cube.x + cube.size, topY],
         [cube.x, topY + q],
         [cube.x - cube.size, topY],
     ];
 
-    const base = [
+    const base: [number, number][] = [
         [cube.x, cube.y - q],
         [cube.x + cube.size, cube.y],
         [cube.x, cube.y + q],
         [cube.x - cube.size, cube.y],
     ];
 
+    const left: [number, number][] = [top[3], top[2], base[2], base[3]];
+    const right: [number, number][] = [top[1], top[2], base[2], base[1]];
+
     return {
-        top: top.map(([x, y]) => `${x},${y}`).join(" "),
-        left: [top[3], top[2], base[2], base[3]].map(([x, y]) => `${x},${y}`).join(" "),
-        right: [top[1], top[2], base[2], base[1]].map(([x, y]) => `${x},${y}`).join(" "),
+        top,
+        left,
+        right,
+        topPath: top.map(([x, y]) => `${x},${y}`).join(" "),
+        leftPath: left.map(([x, y]) => `${x},${y}`).join(" "),
+        rightPath: right.map(([x, y]) => `${x},${y}`).join(" "),
     };
 }
 
 function stageCubes(stage: CityStage): IsoCube[] {
     if (stage === 1) {
-        return [{ x: 210, y: 166, size: 56, height: 64, district: "core" }];
+        return [{ x: 210, y: 204, size: 48, height: 44, district: "core" }];
     }
 
     if (stage === 2) {
         return [
-            { x: 206, y: 182, size: 58, height: 44, district: "core" },
-            { x: 206, y: 154, size: 52, height: 46, district: "core" },
-            { x: 206, y: 122, size: 45, height: 40, district: "core" },
-            { x: 276, y: 188, size: 34, height: 34, district: "leisure", opacity: 0.92 },
-            { x: 146, y: 192, size: 30, height: 30, district: "family", opacity: 0.9 },
+            { x: 210, y: 212, size: 48, height: 36, district: "core" },
+            { x: 210, y: 185, size: 42, height: 34, district: "core" },
+            { x: 210, y: 160, size: 36, height: 32, district: "core" },
+            { x: 274, y: 214, size: 28, height: 30, district: "leisure", opacity: 0.94 },
+            { x: 146, y: 216, size: 26, height: 28, district: "family", opacity: 0.94 },
         ];
     }
 
     return [
-        { x: 210, y: 178, size: 52, height: 96, district: "core", opacity: 1 },
-        { x: 164, y: 186, size: 42, height: 70, district: "core", opacity: 0.98 },
-        { x: 256, y: 182, size: 42, height: 74, district: "core", opacity: 0.98 },
-        { x: 110, y: 196, size: 32, height: 46, district: "invest", opacity: 0.94 },
-        { x: 144, y: 188, size: 34, height: 58, district: "invest", opacity: 0.96 },
-        { x: 312, y: 200, size: 30, height: 42, district: "leisure", opacity: 0.9 },
-        { x: 282, y: 194, size: 34, height: 54, district: "leisure", opacity: 0.94 },
-        { x: 182, y: 212, size: 28, height: 30, district: "family", opacity: 0.9 },
-        { x: 240, y: 212, size: 28, height: 32, district: "family", opacity: 0.9 },
-        { x: 82, y: 206, size: 26, height: 28, district: "invest", opacity: 0.86 },
-        { x: 334, y: 210, size: 24, height: 24, district: "leisure", opacity: 0.84 },
+        { x: 210, y: 208, size: 50, height: 104, district: "core", opacity: 1 },
+        { x: 164, y: 214, size: 40, height: 78, district: "core", opacity: 0.98 },
+        { x: 258, y: 212, size: 40, height: 82, district: "core", opacity: 0.98 },
+        { x: 114, y: 222, size: 32, height: 56, district: "invest", opacity: 0.95 },
+        { x: 146, y: 216, size: 34, height: 70, district: "invest", opacity: 0.96 },
+        { x: 308, y: 224, size: 30, height: 48, district: "leisure", opacity: 0.92 },
+        { x: 282, y: 218, size: 34, height: 62, district: "leisure", opacity: 0.95 },
+        { x: 182, y: 232, size: 26, height: 36, district: "family", opacity: 0.9 },
+        { x: 240, y: 232, size: 26, height: 38, district: "family", opacity: 0.9 },
+        { x: 86, y: 228, size: 24, height: 30, district: "invest", opacity: 0.86 },
+        { x: 334, y: 230, size: 24, height: 28, district: "leisure", opacity: 0.84 },
     ];
 }
 
@@ -186,6 +192,35 @@ function stageProgress(stage: CityStage, consistencyIndex: number) {
     return 100;
 }
 
+function interpolatePair(a: [number, number], b: [number, number], t: number): [number, number] {
+    return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+}
+
+function facePoint(face: [number, number][], u: number, v: number): [number, number] {
+    const topEdge = interpolatePair(face[0], face[1], u);
+    const bottomEdge = interpolatePair(face[3], face[2], u);
+    return interpolatePair(topEdge, bottomEdge, v);
+}
+
+function faceWindows(face: [number, number][], rows: number, cols: number) {
+    const windows: Array<[number, number]> = [];
+    for (let row = 1; row <= rows; row += 1) {
+        for (let col = 1; col <= cols; col += 1) {
+            const u = col / (cols + 1);
+            const v = row / (rows + 1);
+            windows.push(facePoint(face, u, v));
+        }
+    }
+    return windows;
+}
+
+function districtAccentColor(district: DistrictKey) {
+    if (district === "invest") return "#67e8f9";
+    if (district === "leisure") return "#c4b5fd";
+    if (district === "family") return "#6ee7b7";
+    return "#fde68a";
+}
+
 function CityVisualizer({
     stage,
     isEnergized,
@@ -199,57 +234,118 @@ function CityVisualizer({
 }) {
     const palette = getPalette(isEnergized);
     const cubes = stageCubes(stage);
+    const skyTop = isEnergized ? "#0f172a" : "#1f2937";
+    const skyBottom = isEnergized ? "#1d4ed8" : "#374151";
+    const cloudColor = isEnergized ? "#dbeafe" : "#9ca3af";
+    const cloudShade = isEnergized ? "#bfdbfe" : "#6b7280";
+    const sunColor = isEnergized ? "#fde68a" : "#6b7280";
+    const roadColor = isEnergized ? "#1e3a8a" : "#475569";
+    const roadLineColor = isEnergized ? "#fef3c7" : "#94a3b8";
+    const parkColor = isEnergized ? "#86efac" : "#94a3b8";
+    const treeLeaf = isEnergized ? "#34d399" : "#9ca3af";
+    const treeTrunk = isEnergized ? "#8b5e3c" : "#6b7280";
+    const windowOn = isEnergized ? "#fef08a" : "#f3f4f6";
+    const windowOff = isEnergized ? "#93c5fd" : "#475569";
+    const cloudGroups = [
+        { x: 86, y: 60, scale: 1, delay: "0ms" },
+        { x: 168, y: 48, scale: 0.8, delay: "900ms" },
+        { x: 302, y: 66, scale: 0.95, delay: "1700ms" },
+    ];
+    const trees = [
+        { x: 88, y: 212, scale: 0.9 },
+        { x: 126, y: 230, scale: 0.8 },
+        { x: 170, y: 244, scale: 0.74 },
+        { x: 250, y: 246, scale: 0.74 },
+        { x: 296, y: 230, scale: 0.82 },
+        { x: 332, y: 214, scale: 0.9 },
+    ];
+    const skySparkles = [
+        { x: 116, y: 82, r: 1.6, delay: "0ms" },
+        { x: 194, y: 56, r: 1.4, delay: "600ms" },
+        { x: 282, y: 78, r: 1.5, delay: "1100ms" },
+        { x: 334, y: 98, r: 1.2, delay: "1500ms" },
+    ];
     const lightPoints = [
-        { x: 96, y: 214, r: 2.1, delay: "0ms" },
-        { x: 130, y: 196, r: 2.3, delay: "160ms" },
-        { x: 178, y: 226, r: 2.4, delay: "320ms" },
-        { x: 214, y: 208, r: 2.6, delay: "90ms" },
-        { x: 246, y: 232, r: 2.1, delay: "260ms" },
-        { x: 282, y: 204, r: 2.2, delay: "430ms" },
-        { x: 324, y: 214, r: 2.0, delay: "520ms" },
+        { x: 102, y: 244, r: 2.1, delay: "0ms" },
+        { x: 138, y: 228, r: 2.3, delay: "160ms" },
+        { x: 178, y: 252, r: 2.4, delay: "320ms" },
+        { x: 210, y: 238, r: 2.6, delay: "90ms" },
+        { x: 244, y: 252, r: 2.1, delay: "260ms" },
+        { x: 282, y: 228, r: 2.2, delay: "430ms" },
+        { x: 320, y: 242, r: 2.0, delay: "520ms" },
     ];
 
     return (
         <svg viewBox="0 0 420 300" className="h-full w-full" role="img" aria-label="Visual da cidade financeira">
             <defs>
                 <linearGradient id="citySky" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={isEnergized ? "#0f172a" : "#111827"} />
-                    <stop offset="100%" stopColor={isEnergized ? "#1e293b" : "#1f2937"} />
+                    <stop offset="0%" stopColor={skyTop} />
+                    <stop offset="100%" stopColor={skyBottom} />
+                </linearGradient>
+                <linearGradient id="cityGround" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={palette.ground} stopOpacity={isEnergized ? 0.4 : 0.22} />
+                    <stop offset="100%" stopColor={palette.ground} stopOpacity={isEnergized ? 0.14 : 0.08} />
+                </linearGradient>
+                <linearGradient id="cityRoad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor={roadColor} stopOpacity={0.85} />
+                    <stop offset="100%" stopColor={roadColor} stopOpacity={0.55} />
                 </linearGradient>
                 <filter id="cityGlow" x="-40%" y="-40%" width="180%" height="180%">
-                    <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor={isEnergized ? "#60a5fa" : "#94a3b8"} floodOpacity={isEnergized ? "0.65" : "0.2"} />
+                    <feDropShadow dx="0" dy="0" stdDeviation="7" floodColor={isEnergized ? "#93c5fd" : "#94a3b8"} floodOpacity={isEnergized ? "0.7" : "0.2"} />
                 </filter>
                 <filter id="districtGlow" x="-20%" y="-20%" width="140%" height="140%">
-                    <feDropShadow dx="0" dy="0" stdDeviation="3.5" floodColor={isEnergized ? "#7dd3fc" : "#94a3b8"} floodOpacity={isEnergized ? "0.7" : "0.18"} />
+                    <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor={isEnergized ? "#7dd3fc" : "#94a3b8"} floodOpacity={isEnergized ? "0.65" : "0.14"} />
                 </filter>
                 <radialGradient id="rewardWave" cx="50%" cy="50%" r="50%">
-                    <stop offset="0%" stopColor="#a5f3fc" stopOpacity="0.4" />
-                    <stop offset="100%" stopColor="#a5f3fc" stopOpacity="0" />
+                    <stop offset="0%" stopColor="#fde68a" stopOpacity="0.55" />
+                    <stop offset="100%" stopColor="#fde68a" stopOpacity="0" />
                 </radialGradient>
             </defs>
 
             <rect x="0" y="0" width="420" height="300" fill="url(#citySky)" />
 
-            <polygon
-                points="44,198 210,104 376,198 210,292"
-                fill={palette.ground}
-                opacity={isEnergized ? 0.2 : 0.12}
-            />
-            <polygon
-                points="74,198 210,122 346,198 210,274"
-                fill={palette.ground}
-                opacity={isEnergized ? 0.12 : 0.08}
-            />
+            <circle cx="350" cy="54" r="18" fill={sunColor} opacity={isEnergized ? 0.95 : 0.45} />
 
-            <polygon points="118,204 210,152 282,194 188,244" fill={palette.districtCore} opacity={highlightDistrict === "core" ? 0.7 : 0.3} filter={highlightDistrict === "core" ? "url(#districtGlow)" : undefined} />
-            <polygon points="54,206 134,160 178,184 98,228" fill={palette.districtInvest} opacity={highlightDistrict === "invest" ? 0.72 : 0.24} filter={highlightDistrict === "invest" ? "url(#districtGlow)" : undefined} />
-            <polygon points="282,194 346,198 320,226 262,222" fill={palette.districtLeisure} opacity={highlightDistrict === "leisure" ? 0.72 : 0.24} filter={highlightDistrict === "leisure" ? "url(#districtGlow)" : undefined} />
-            <polygon points="176,220 246,218 224,250 158,252" fill={palette.districtFamily} opacity={highlightDistrict === "family" ? 0.72 : 0.24} filter={highlightDistrict === "family" ? "url(#districtGlow)" : undefined} />
+            <g>
+                {cloudGroups.map((cloud) => (
+                    <g
+                        key={`${cloud.x}-${cloud.y}`}
+                        className={isEnergized ? "cloud-drift" : undefined}
+                        style={isEnergized ? ({ ["--cloud-delay" as string]: cloud.delay } as CSSProperties) : undefined}
+                    >
+                        <ellipse cx={cloud.x} cy={cloud.y} rx={20 * cloud.scale} ry={8 * cloud.scale} fill={cloudColor} opacity={0.9} />
+                        <ellipse cx={cloud.x - 12 * cloud.scale} cy={cloud.y + 1} rx={11 * cloud.scale} ry={7 * cloud.scale} fill={cloudShade} opacity={0.8} />
+                        <ellipse cx={cloud.x + 13 * cloud.scale} cy={cloud.y + 2} rx={10 * cloud.scale} ry={6 * cloud.scale} fill={cloudShade} opacity={0.75} />
+                    </g>
+                ))}
+            </g>
+
+            <polygon points="34,210 210,118 386,210 210,292" fill="url(#cityGround)" />
+            <polygon points="68,210 210,136 352,210 210,284" fill={parkColor} opacity={isEnergized ? 0.22 : 0.08} />
+
+            <path d="M102 242 L210 186 L318 242 L210 296 Z" fill="url(#cityRoad)" opacity={0.75} />
+            <path d="M210 192 L210 294" stroke={roadLineColor} strokeWidth="2" strokeDasharray="5 8" opacity={0.7} />
+
+            <polygon points="122,212 210,166 278,206 190,248" fill={palette.districtCore} opacity={highlightDistrict === "core" ? 0.75 : 0.34} filter={highlightDistrict === "core" ? "url(#districtGlow)" : undefined} />
+            <polygon points="62,214 138,172 178,194 102,236" fill={palette.districtInvest} opacity={highlightDistrict === "invest" ? 0.74 : 0.28} filter={highlightDistrict === "invest" ? "url(#districtGlow)" : undefined} />
+            <polygon points="278,204 344,210 318,234 258,228" fill={palette.districtLeisure} opacity={highlightDistrict === "leisure" ? 0.74 : 0.28} filter={highlightDistrict === "leisure" ? "url(#districtGlow)" : undefined} />
+            <polygon points="174,226 246,224 224,254 156,256" fill={palette.districtFamily} opacity={highlightDistrict === "family" ? 0.74 : 0.26} filter={highlightDistrict === "family" ? "url(#districtGlow)" : undefined} />
+
+            <g>
+                {trees.map((tree) => (
+                    <g key={`${tree.x}-${tree.y}`} opacity={isEnergized ? 1 : 0.72}>
+                        <rect x={tree.x - 1.7} y={tree.y + 3} width={3.4} height={7 * tree.scale} rx="1" fill={treeTrunk} />
+                        <circle cx={tree.x} cy={tree.y} r={5.6 * tree.scale} fill={treeLeaf} />
+                        <circle cx={tree.x - 3 * tree.scale} cy={tree.y + 2} r={3.4 * tree.scale} fill={treeLeaf} opacity={0.9} />
+                        <circle cx={tree.x + 3 * tree.scale} cy={tree.y + 1} r={3.2 * tree.scale} fill={treeLeaf} opacity={0.82} />
+                    </g>
+                ))}
+            </g>
 
             {didRecordToday && (
                 <g className="mission-wave">
-                    <circle cx="210" cy="194" r="12" fill="url(#rewardWave)" />
-                    <circle cx="210" cy="194" r="20" fill="none" stroke="#7dd3fc" strokeOpacity="0.35" strokeWidth="1.2" />
+                    <circle cx="210" cy="200" r="14" fill="url(#rewardWave)" />
+                    <circle cx="210" cy="200" r="22" fill="none" stroke="#fef08a" strokeOpacity="0.4" strokeWidth="1.2" />
                 </g>
             )}
 
@@ -258,8 +354,13 @@ function CityVisualizer({
                     const polygons = cubePolygons(cube);
                     const opacity = cube.opacity ?? 1;
                     const isHighlighted = cube.district === highlightDistrict;
+                    const windowRows = Math.max(1, Math.floor(cube.height / 24));
+                    const windowCols = Math.max(1, Math.floor(cube.size / 20));
+                    const windowsRight = faceWindows(polygons.right, windowRows, windowCols);
+                    const windowsLeft = faceWindows(polygons.left, Math.max(1, windowRows - 1), windowCols);
+                    const roofPoints = [...polygons.top, polygons.top[0]].map(([x, y]) => `${x},${y}`).join(" ");
                     const style = {
-                        ["--rise-delay" as string]: `${index * 70}ms`,
+                        ["--rise-delay" as string]: `${index * 75}ms`,
                     } as CSSProperties;
                     return (
                         <g
@@ -269,30 +370,73 @@ function CityVisualizer({
                             style={style}
                         >
                             <polygon
-                                points={polygons.left}
+                                points={polygons.leftPath}
                                 fill={palette.left}
                                 stroke={palette.stroke}
-                                strokeWidth={isHighlighted ? "1.15" : "0.8"}
-                                opacity={isHighlighted ? 1 : 0.9}
+                                strokeWidth={isHighlighted ? "1.18" : "0.9"}
+                                opacity={0.95}
                             />
                             <polygon
-                                points={polygons.right}
+                                points={polygons.rightPath}
                                 fill={palette.right}
                                 stroke={palette.stroke}
-                                strokeWidth={isHighlighted ? "1.15" : "0.8"}
-                                opacity={isHighlighted ? 1 : 0.9}
+                                strokeWidth={isHighlighted ? "1.18" : "0.9"}
+                                opacity={0.96}
                             />
                             <polygon
-                                points={polygons.top}
+                                points={polygons.topPath}
                                 fill={palette.top}
                                 stroke={palette.stroke}
-                                strokeWidth={isHighlighted ? "1.15" : "0.8"}
-                                opacity={isHighlighted ? 1 : 0.92}
+                                strokeWidth={isHighlighted ? "1.2" : "0.92"}
+                                opacity={0.98}
                             />
+                            <polyline
+                                points={roofPoints}
+                                fill="none"
+                                stroke={districtAccentColor(cube.district)}
+                                strokeWidth={isHighlighted ? "1.9" : "1.1"}
+                                opacity={0.85}
+                            />
+                            {windowsRight.map(([x, y], windowIndex) => (
+                                <circle
+                                    key={`right-${cube.x}-${cube.y}-${windowIndex}`}
+                                    cx={x}
+                                    cy={y}
+                                    r={Math.max(1.3, cube.size * 0.05)}
+                                    fill={didRecordToday ? windowOn : windowOff}
+                                    fillOpacity={didRecordToday ? 0.95 : 0.55}
+                                />
+                            ))}
+                            {windowsLeft.map(([x, y], windowIndex) => (
+                                <circle
+                                    key={`left-${cube.x}-${cube.y}-${windowIndex}`}
+                                    cx={x}
+                                    cy={y}
+                                    r={Math.max(1.15, cube.size * 0.045)}
+                                    fill={didRecordToday ? windowOn : windowOff}
+                                    fillOpacity={didRecordToday ? 0.86 : 0.46}
+                                />
+                            ))}
                         </g>
                     );
                 })}
             </g>
+
+            {isEnergized && (
+                <g>
+                    {skySparkles.map((sparkle) => (
+                        <circle
+                            key={`${sparkle.x}-${sparkle.y}`}
+                            cx={sparkle.x}
+                            cy={sparkle.y}
+                            r={sparkle.r}
+                            fill="#e0f2fe"
+                            className="sky-sparkle"
+                            style={{ ["--sparkle-delay" as string]: sparkle.delay } as CSSProperties}
+                        />
+                    ))}
+                </g>
+            )}
 
             <g>
                 {lightPoints.map((light) => (
@@ -302,33 +446,45 @@ function CityVisualizer({
                         cy={light.y}
                         r={light.r}
                         className={didRecordToday ? "city-light" : undefined}
-                        fill={didRecordToday ? "#fde68a" : "#94a3b8"}
-                        fillOpacity={didRecordToday ? 0.95 : 0.2}
+                        fill={didRecordToday ? windowOn : windowOff}
+                        fillOpacity={didRecordToday ? 0.95 : 0.26}
                         style={didRecordToday ? ({ ["--light-delay" as string]: light.delay } as CSSProperties) : undefined}
                     />
                 ))}
             </g>
 
             <style>{`
+                .cloud-drift {
+                    animation: cloudDrift 12s ease-in-out infinite;
+                    animation-delay: var(--cloud-delay, 0ms);
+                }
                 .city-float {
-                    animation: cityFloat 4.6s ease-in-out infinite;
-                    transform-origin: 210px 196px;
+                    animation: cityFloat 4.8s ease-in-out infinite;
+                    transform-origin: 210px 208px;
                 }
                 .district-highlight {
                     animation: districtPulse 2.2s ease-in-out infinite;
                 }
                 .cube-rise {
-                    animation: cubeRise 760ms cubic-bezier(0.2, 0.9, 0.28, 1) both;
+                    animation: cubeRise 740ms cubic-bezier(0.2, 0.88, 0.24, 1) both;
                     animation-delay: var(--rise-delay, 0ms);
-                    transform-origin: 210px 220px;
+                    transform-origin: 210px 228px;
                 }
                 .city-light {
                     animation: cityLightPulse 1.8s ease-in-out infinite;
                     animation-delay: var(--light-delay, 0ms);
                 }
                 .mission-wave {
-                    animation: missionWave 1.8s ease-out infinite;
-                    transform-origin: 210px 194px;
+                    animation: missionWave 1.7s ease-out infinite;
+                    transform-origin: 210px 200px;
+                }
+                .sky-sparkle {
+                    animation: sparkleTwinkle 2.4s ease-in-out infinite;
+                    animation-delay: var(--sparkle-delay, 0ms);
+                }
+                @keyframes cloudDrift {
+                    0%, 100% { transform: translateX(0px); }
+                    50% { transform: translateX(6px); }
                 }
                 @keyframes cityFloat {
                     0%, 100% { transform: translateY(0px); }
@@ -339,7 +495,7 @@ function CityVisualizer({
                     50% { opacity: 0.82; }
                 }
                 @keyframes cubeRise {
-                    0% { transform: translateY(18px) scale(0.93); opacity: 0; }
+                    0% { transform: translateY(16px) scale(0.94); opacity: 0; }
                     100% { transform: translateY(0px) scale(1); opacity: 1; }
                 }
                 @keyframes cityLightPulse {
@@ -347,8 +503,12 @@ function CityVisualizer({
                     50% { opacity: 1; filter: brightness(1.35); }
                 }
                 @keyframes missionWave {
-                    0% { opacity: 0.9; transform: scale(0.92); }
-                    100% { opacity: 0; transform: scale(1.28); }
+                    0% { opacity: 0.86; transform: scale(0.9); }
+                    100% { opacity: 0; transform: scale(1.35); }
+                }
+                @keyframes sparkleTwinkle {
+                    0%, 100% { opacity: 0.4; transform: scale(1); }
+                    50% { opacity: 0.95; transform: scale(1.2); }
                 }
             `}</style>
         </svg>
