@@ -26,7 +26,14 @@ export function useCardStatements(cardId: string, month?: number, year?: number)
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (!workspace?.id || !cardId || month === undefined || year === undefined) return;
+        if (!workspace?.id || !cardId || month === undefined || year === undefined) {
+            setStatement(null);
+            setLoading(false);
+            return;
+        }
+
+        setLoading(true);
+        setStatement(null);
 
         const q = query(
             collection(db, `workspaces/${workspace.id}/card_statements`),

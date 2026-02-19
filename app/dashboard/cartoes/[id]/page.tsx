@@ -42,11 +42,17 @@ export default function CartaoDetalhePage() {
     const { data: contas } = useCollection<Account>("accounts");
     const cartao = cartoes.find(c => c.id === cardId);
     const { summaryByCard } = useCardsLimitSummary(cartao ? [cartao] : []);
-    const { transactions, loading: transLoading, total } = useCardTransactions(cardId, month, year, cartao?.closingDay);
     const {
         statement, loading: stmtLoading,
         generateStatement, updateAmount, payStatement, reopenStatement
     } = useCardStatements(cardId, month, year);
+    const { transactions, loading: transLoading, total } = useCardTransactions(
+        cardId,
+        month,
+        year,
+        cartao?.closingDay,
+        statement?.id
+    );
 
     // Auto-generate statement when we have data
     useEffect(() => {
@@ -111,6 +117,9 @@ export default function CartaoDetalhePage() {
     const available = cartao.limit - outstanding;
     const usedPct = cartao.limit > 0 ? Math.min((Math.max(outstanding, 0) / cartao.limit) * 100, 100) : 0;
     const faturaStatus = statement?.status || 'open';
+    const effectiveInvoiceTotal = statement?.amountMode === 'manual'
+        ? statement.totalAmount
+        : total;
 
     const handlePayFatura = async () => {
         if (!payAccountId) return;
@@ -207,7 +216,7 @@ export default function CartaoDetalhePage() {
                         </div>
                     </div>
                     <p className="text-2xl font-bold text-slate-900">
-                        {formatCurrency(statement?.totalAmount ?? total)}
+                        {formatCurrency(effectiveInvoiceTotal)}
                     </p>
                 </div>
 
@@ -291,7 +300,7 @@ export default function CartaoDetalhePage() {
                     <div className="card p-6 w-full max-w-sm">
                         <h3 className="text-lg font-semibold text-slate-900 mb-4">Pagar Fatura</h3>
                         <p className="text-2xl font-bold text-slate-900 mb-4">
-                            {formatCurrency(statement?.totalAmount ?? total)}
+                            {formatCurrency(effectiveInvoiceTotal)}
                         </p>
                         <label className="block text-sm font-medium text-slate-700 mb-2">Pagar com qual conta?</label>
                         <select

@@ -21,6 +21,10 @@ import type { Transaction } from '@/types';
 import { recordWorkspaceAuditEvent } from '@/lib/audit';
 import { normalizeLegacyDateOnlyTimestamp } from '@/lib/dateInput';
 import { resolveCardStatementReference } from '@/lib/cardStatementCycle';
+import {
+    getTransactionInvoiceId,
+    resolveTransactionStatementReference,
+} from '@/lib/cardInvoiceReference';
 
 // Remove campos undefined de um objeto (Firebase não aceita undefined)
 function cleanUndefined<T extends Record<string, any>>(obj: T): Partial<T> {
@@ -433,13 +437,26 @@ export function useTransactions(month?: number, year?: number) {
 }
 
 // Transações de um cartão específico (para fatura)
-export function useCardTransactions(cardId: string, month?: number, year?: number, closingDay?: number) {
+export function useCardTransactions(
+    cardId: string,
+    month?: number,
+    year?: number,
+    closingDay?: number,
+    statementId?: string
+) {
     const { workspace } = useWorkspace();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (!workspace?.id || !cardId) return;
+        if (!workspace?.id || !cardId) {
+            setTransactions([]);
+            setLoading(false);
+            return;
+        }
+
+        setLoading(true);
+        setTransactions([]);
 
         const q = query(
             collection(db, `workspaces/${workspace.id}/transactions`),
@@ -462,9 +479,19 @@ export function useCardTransactions(cardId: string, month?: number, year?: numbe
             // Filtrar por mês/ano se especificado
             if (month !== undefined && year !== undefined) {
                 items = items.filter(t => {
-                    if (closingDay !== undefined) {
-                        const statementRef = resolveCardStatementReference(t.date, closingDay);
+                    const txInvoiceId = getTransactionInvoiceId(t as any);
+                    if (statementId && txInvoiceId) {
+                        return txInvoiceId === statementId;
+                    }
+
+                    const statementRef = resolveTransactionStatementReference(t as any, closingDay);
+                    if (statementRef) {
                         return statementRef.month === month && statementRef.year === year;
+                    }
+
+                    if (closingDay !== undefined) {
+                        const fallbackRef = resolveCardStatementReference(t.date, closingDay);
+                        return fallbackRef.month === month && fallbackRef.year === year;
                     }
 
                     const date = new Date(t.date);
@@ -478,9 +505,9 @@ export function useCardTransactions(cardId: string, month?: number, year?: numbe
         });
 
         return () => unsubscribe();
-    }, [workspace?.id, cardId, month, year, closingDay]);
+    }, [workspace?.id, cardId, month, year, closingDay, statementId]);
 
-    const total = transactions.reduce((acc, t) => acc + t.amount, 0);
+    const total = transactions.reduce((acc, t) => acc + Number((t as any).amount || 0), 0);
 
     return { transactions, loading, total };
 }

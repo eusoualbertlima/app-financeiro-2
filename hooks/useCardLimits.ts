@@ -5,16 +5,17 @@ import { useWorkspace } from '@/hooks/useFirestore';
 import type { CardStatement, CreditCard, Transaction } from '@/types';
 import { normalizeLegacyDateOnlyTimestamp } from '@/lib/dateInput';
 import { resolveCardStatementReference } from '@/lib/cardStatementCycle';
+import {
+    getTransactionInvoiceId,
+    resolveTransactionStatementReference,
+    statementMonthYearKey,
+} from '@/lib/cardInvoiceReference';
 
 export interface CardLimitSummary {
     outstanding: number;
     available: number;
     usedPercent: number;
     currentCycleAmount: number;
-}
-
-function statementKey(month: number, year: number) {
-    return `${year}-${String(month).padStart(2, '0')}`;
 }
 
 function pickPreferredStatement(existing: CardStatement | undefined, candidate: CardStatement) {
@@ -47,47 +48,99 @@ function buildCardSummary(
     cardTransactions: Transaction[],
     cardStatements: CardStatement[]
 ): CardLimitSummary {
-    const txTotalsByStatement = new Map<string, number>();
-
-    cardTransactions.forEach((transaction) => {
-        const reference = resolveCardStatementReference(transaction.date, card.closingDay);
-        const key = statementKey(reference.month, reference.year);
-        txTotalsByStatement.set(key, (txTotalsByStatement.get(key) || 0) + toPositiveAmount(transaction.amount));
+    const statementsById = new Map<string, CardStatement>();
+    cardStatements.forEach((statement) => {
+        statementsById.set(statement.id, statement);
     });
 
     const statementsByKey = new Map<string, CardStatement>();
     cardStatements.forEach((statement) => {
-        const key = statementKey(statement.month, statement.year);
+        const key = statementMonthYearKey(statement.month, statement.year);
         const preferred = pickPreferredStatement(statementsByKey.get(key), statement);
         statementsByKey.set(key, preferred);
     });
 
-    const keys = new Set<string>([
-        ...txTotalsByStatement.keys(),
-        ...statementsByKey.keys(),
-    ]);
+    const txTotalsByLinkedStatementId = new Map<string, number>();
+    const txTotalsByStatementKey = new Map<string, number>();
 
-    let outstanding = 0;
-    keys.forEach((key) => {
-        const statement = statementsByKey.get(key);
-        const txAmount = txTotalsByStatement.get(key) || 0;
+    cardTransactions.forEach((transaction) => {
+        const amount = toPositiveAmount(Number((transaction as any).amount));
+        if (amount <= 0) return;
 
-        if (statement) {
-            if (statement.status !== 'paid') {
-                outstanding += toPositiveAmount(statement.totalAmount);
-            }
+        const linkedStatementId = getTransactionInvoiceId(transaction as any);
+        if (linkedStatementId && statementsById.has(linkedStatementId)) {
+            txTotalsByLinkedStatementId.set(
+                linkedStatementId,
+                (txTotalsByLinkedStatementId.get(linkedStatementId) || 0) + amount
+            );
             return;
         }
 
-        outstanding += txAmount;
+        const reference = resolveTransactionStatementReference(transaction as any, card.closingDay);
+        if (!reference) return;
+
+        const key = statementMonthYearKey(reference.month, reference.year);
+        txTotalsByStatementKey.set(key, (txTotalsByStatementKey.get(key) || 0) + amount);
+    });
+
+    let outstanding = 0;
+    const processedKeys = new Set<string>();
+    const processedStatementIds = new Set<string>();
+
+    txTotalsByLinkedStatementId.forEach((txAmount, statementId) => {
+        const statement = statementsById.get(statementId);
+        if (statement?.status === 'paid') return;
+
+        const effectiveAmount = statement?.amountMode === 'manual'
+            ? toPositiveAmount(statement.totalAmount)
+            : txAmount;
+
+        outstanding += effectiveAmount;
+        processedStatementIds.add(statementId);
+        if (statement) {
+            processedKeys.add(statementMonthYearKey(statement.month, statement.year));
+        }
+    });
+
+    txTotalsByStatementKey.forEach((txAmount, key) => {
+        const statement = statementsByKey.get(key);
+        if (statement?.status === 'paid') return;
+
+        const effectiveAmount = statement?.amountMode === 'manual'
+            ? toPositiveAmount(statement.totalAmount)
+            : txAmount;
+
+        outstanding += effectiveAmount;
+        processedKeys.add(key);
+        if (statement) {
+            processedStatementIds.add(statement.id);
+        }
+    });
+
+    // Mantém ajuste manual mesmo sem transações vinculadas no período.
+    statementsByKey.forEach((statement, key) => {
+        if (statement.status === 'paid') return;
+        if (statement.amountMode !== 'manual') return;
+        if (processedKeys.has(key) || processedStatementIds.has(statement.id)) return;
+        outstanding += toPositiveAmount(statement.totalAmount);
     });
 
     const nowReference = resolveCardStatementReference(Date.now(), card.closingDay);
-    const currentKey = statementKey(nowReference.month, nowReference.year);
+    const currentKey = statementMonthYearKey(nowReference.month, nowReference.year);
+    let currentCycleAmount = toPositiveAmount(txTotalsByStatementKey.get(currentKey) || 0);
+
+    txTotalsByLinkedStatementId.forEach((txAmount, statementId) => {
+        const statement = statementsById.get(statementId);
+        if (!statement) return;
+        const statementKey = statementMonthYearKey(statement.month, statement.year);
+        if (statementKey !== currentKey) return;
+        currentCycleAmount += txAmount;
+    });
+
     const currentStatement = statementsByKey.get(currentKey);
-    const currentCycleAmount = currentStatement
-        ? toPositiveAmount(currentStatement.totalAmount)
-        : toPositiveAmount(txTotalsByStatement.get(currentKey) || 0);
+    if (currentStatement?.amountMode === 'manual' && currentStatement.status !== 'paid') {
+        currentCycleAmount = toPositiveAmount(currentStatement.totalAmount);
+    }
 
     const available = card.limit - outstanding;
     const usedPercent = card.limit > 0
