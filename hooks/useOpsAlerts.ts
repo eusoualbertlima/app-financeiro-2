@@ -4,13 +4,15 @@ import { db } from "@/lib/firebase";
 import { useWorkspace } from "@/hooks/useFirestore";
 import type { OpsAlert } from "@/types";
 
-export function useOpsAlerts(maxItems = 100) {
+export function useOpsAlerts(maxItems = 100, enabled = true) {
     const { workspace } = useWorkspace();
     const [alerts, setAlerts] = useState<OpsAlert[]>([]);
     const [loadedWorkspaceId, setLoadedWorkspaceId] = useState<string | null>(null);
+    const [loadedKey, setLoadedKey] = useState<string | null>(null);
+    const queryKey = workspace?.id && enabled ? `${workspace.id}:${maxItems}` : null;
 
     useEffect(() => {
-        if (!workspace?.id) {
+        if (!workspace?.id || !enabled || !queryKey) {
             return;
         }
 
@@ -30,20 +32,23 @@ export function useOpsAlerts(maxItems = 100) {
 
                 setAlerts(items);
                 setLoadedWorkspaceId(workspace.id);
+                setLoadedKey(queryKey);
             },
             () => {
                 setAlerts([]);
                 setLoadedWorkspaceId(workspace.id);
+                setLoadedKey(queryKey);
             }
         );
 
         return () => unsubscribe();
-    }, [workspace?.id, maxItems]);
+    }, [workspace?.id, maxItems, enabled, queryKey]);
 
     const hasLoadedCurrentWorkspace = Boolean(workspace?.id && loadedWorkspaceId === workspace.id);
+    const hasLoadedCurrentKey = Boolean(queryKey && loadedKey === queryKey);
 
     return {
-        alerts: hasLoadedCurrentWorkspace ? alerts : [],
-        loading: workspace?.id ? !hasLoadedCurrentWorkspace : false,
+        alerts: hasLoadedCurrentWorkspace && hasLoadedCurrentKey ? alerts : [],
+        loading: queryKey ? !(hasLoadedCurrentWorkspace && hasLoadedCurrentKey) : false,
     };
 }

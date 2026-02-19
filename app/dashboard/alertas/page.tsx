@@ -5,6 +5,8 @@ import { Header } from "@/components/Navigation";
 import { useOpsAlerts } from "@/hooks/useOpsAlerts";
 import { AlertTriangle, CheckCircle2, Info, ShieldAlert } from "lucide-react";
 import type { OpsAlert } from "@/types";
+import { useAuth } from "@/contexts/AuthContext";
+import { getClientDevAdminAllowlist, hasDevAdminAccess } from "@/lib/devAdmin";
 
 type AlertLevelFilter = "all" | "error" | "warning" | "info";
 
@@ -36,7 +38,13 @@ function formatDate(value?: number, timestamp?: string) {
 }
 
 export default function AlertasPage() {
-    const { alerts, loading } = useOpsAlerts(150);
+    const { user } = useAuth();
+    const isDeveloperAdmin = hasDevAdminAccess({
+        uid: user?.uid,
+        email: user?.email,
+        allowlist: getClientDevAdminAllowlist(),
+    });
+    const { alerts, loading } = useOpsAlerts(150, isDeveloperAdmin);
     const [filter, setFilter] = useState<AlertLevelFilter>("all");
 
     const filteredAlerts = useMemo(() => {
@@ -53,6 +61,17 @@ export default function AlertasPage() {
         }),
         [alerts]
     );
+
+    if (!isDeveloperAdmin) {
+        return (
+            <div className="p-6 lg:p-8 max-w-6xl mx-auto">
+                <Header title="Alertas" subtitle="Monitoramento interno de erros e avisos do sistema" />
+                <div className="card p-8 text-center text-slate-600">
+                    Acesso restrito ao time interno.
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="p-6 lg:p-8 max-w-6xl mx-auto">

@@ -37,7 +37,7 @@ const menuItems: MenuItem[] = [
     { href: "/dashboard/lancamentos", icon: Receipt, label: "Lançamentos" },
     { href: "/dashboard/notas", icon: FileText, label: "Notas" },
     { href: "/dashboard/admin", icon: Shield, label: "Admin", developerOnly: true },
-    { href: "/dashboard/alertas", icon: AlertTriangle, label: "Alertas", adminOnly: true },
+    { href: "/dashboard/alertas", icon: AlertTriangle, label: "Alertas", developerOnly: true },
     { href: "/dashboard/contas-fixas", icon: CalendarDays, label: "Contas Fixas" },
     { href: "/dashboard/configuracoes", icon: Settings, label: "Configurações" },
 ];
