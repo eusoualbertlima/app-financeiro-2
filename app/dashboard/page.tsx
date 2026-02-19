@@ -24,6 +24,8 @@ import type { Account, CreditCard as CardType, RecurringBill } from "@/types";
 import { Header } from "@/components/Navigation";
 import { DonutChart } from "@/components/Charts";
 import { OnboardingGuide } from "@/components/OnboardingGuide";
+import { BehavioralCityCard } from "@/components/BehavioralCityCard";
+import { normalizeBehavioralMetrics } from "@/lib/behavioralMetrics";
 
 export default function DashboardPage() {
     const { workspace, loading: workspaceLoading } = useWorkspace();
@@ -96,6 +98,9 @@ export default function DashboardPage() {
         new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
     const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const behavioralMetrics = normalizeBehavioralMetrics(workspace?.behavioralMetrics, {
+        members: workspace?.members || [],
+    });
 
     const defaultCategories = [
         { id: 'alimentacao', name: 'Alimentação', icon: '🍔', color: '#f59e0b' },
@@ -151,6 +156,11 @@ export default function DashboardPage() {
                 cardsCount={cartoes.length}
                 transactionsCount={transactions.length}
                 recurringBillsCount={recurringBills.filter((bill) => bill.isActive).length}
+            />
+
+            <BehavioralCityCard
+                metrics={behavioralMetrics}
+                membersCount={workspace?.members?.length || 1}
             />
 
             {/* Stats Grid */}

@@ -17,6 +17,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { RecurringBill, BillPayment } from '@/types';
 import { recordWorkspaceAuditEvent } from '@/lib/audit';
+import { reportBehavioralAction } from '@/lib/behavioralClient';
 
 const paymentStatusPriority: Record<BillPayment['status'], number> = {
     pending: 1,
@@ -65,6 +66,14 @@ export function useRecurringBills() {
     const [bills, setBills] = useState<RecurringBill[]>([]);
     const [loading, setLoading] = useState(true);
 
+    const reportAction = async (source: string) => {
+        await reportBehavioralAction({
+            workspaceId: workspace?.id,
+            user,
+            source,
+        });
+    };
+
     useEffect(() => {
         if (!workspace?.id) return;
 
@@ -103,6 +112,7 @@ export function useRecurringBills() {
                 bill: payload as Record<string, unknown>,
             },
         });
+        await reportAction('recurring_bills.add');
     };
 
     const update = async (id: string, bill: Partial<RecurringBill>) => {
@@ -119,6 +129,7 @@ export function useRecurringBills() {
                 changes: bill as Record<string, unknown>,
             },
         });
+        await reportAction('recurring_bills.update');
     };
 
     const remove = async (id: string) => {
@@ -148,6 +159,7 @@ export function useRecurringBills() {
                 removedPayments: snap.docs.length,
             },
         });
+        await reportAction('recurring_bills.remove');
     };
 
     return { bills, loading, add, update, remove };
@@ -161,6 +173,14 @@ export function useBillPayments(month: number, year: number) {
     const [payments, setPayments] = useState<BillPayment[]>([]);
     const [loading, setLoading] = useState(true);
     const cleaningIdsRef = useRef<Set<string>>(new Set());
+
+    const reportAction = async (source: string) => {
+        await reportBehavioralAction({
+            workspaceId: workspace?.id,
+            user,
+            source,
+        });
+    };
 
     useEffect(() => {
         if (!workspace?.id) return;
@@ -350,6 +370,7 @@ export function useBillPayments(month: number, year: number) {
                 note: normalizedNote || null,
             },
         });
+        await reportAction('bill_payments.mark_paid');
     };
 
     const markAsPending = async (paymentId: string) => {
@@ -399,6 +420,7 @@ export function useBillPayments(month: number, year: number) {
             entityId: paymentId,
             summary: 'Conta fixa voltou para pendente/atrasada.',
         });
+        await reportAction('bill_payments.mark_pending');
     };
 
     const markAsSkipped = async (paymentId: string) => {
@@ -444,6 +466,7 @@ export function useBillPayments(month: number, year: number) {
             entityId: paymentId,
             summary: 'Conta fixa marcada como pulada.',
         });
+        await reportAction('bill_payments.mark_skipped');
     };
 
     // Status resumido

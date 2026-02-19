@@ -18,6 +18,7 @@ import { useWorkspace } from '@/hooks/useFirestore';
 import { useState, useEffect } from 'react';
 import type { CreditCard, Transaction } from '@/types';
 import { recordWorkspaceAuditEvent } from '@/lib/audit';
+import { reportBehavioralAction } from '@/lib/behavioralClient';
 import { normalizeLegacyDateOnlyTimestamp } from '@/lib/dateInput';
 import {
     getTransactionInvoiceId,
@@ -92,6 +93,14 @@ export function useTransactions(month?: number, year?: number) {
     const { workspace } = useWorkspace();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
+
+    const reportAction = async (source: string) => {
+        await reportBehavioralAction({
+            workspaceId: workspace?.id,
+            user,
+            source,
+        });
+    };
 
     useEffect(() => {
         if (!workspace?.id) return;
@@ -195,6 +204,7 @@ export function useTransactions(month?: number, year?: number) {
                     accountId: item.accountId,
                 },
             });
+            await reportAction('transactions.add');
             return;
         }
 
@@ -210,6 +220,7 @@ export function useTransactions(month?: number, year?: number) {
                 transaction: cleanData,
             },
         });
+        await reportAction('transactions.add');
     };
 
     const update = async (id: string, item: Partial<Transaction>) => {
@@ -290,6 +301,7 @@ export function useTransactions(month?: number, year?: number) {
                 changes: cleanData as Record<string, unknown>,
             },
         });
+        await reportAction('transactions.update');
     };
 
     const remove = async (id: string) => {
@@ -335,6 +347,7 @@ export function useTransactions(month?: number, year?: number) {
                         removedTransactions: transferSnap.docs.length,
                     },
                 });
+                await reportAction('transactions.remove_transfer_pair');
                 return;
             }
 
@@ -369,6 +382,7 @@ export function useTransactions(month?: number, year?: number) {
                     previous: data as unknown as Record<string, unknown>,
                 },
             });
+            await reportAction('transactions.remove');
             return;
         }
 
@@ -381,6 +395,7 @@ export function useTransactions(month?: number, year?: number) {
             entityId: id,
             summary: 'Lançamento removido sem snapshot prévio.',
         });
+        await reportAction('transactions.remove');
     };
 
     const markAsPaid = async (id: string, accountId?: string) => {
@@ -430,6 +445,7 @@ export function useTransactions(month?: number, year?: number) {
                 paidAccountId: accountId || null,
             },
         });
+        await reportAction('transactions.mark_paid');
     };
 
     const transfer = async (params: {
@@ -506,6 +522,7 @@ export function useTransactions(month?: number, year?: number) {
                 incomingTransactionId: incomingRef.id,
             },
         });
+        await reportAction('transactions.transfer');
     };
 
     // Calcular totais

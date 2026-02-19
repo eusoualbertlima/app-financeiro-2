@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth, getAdminDb } from "@/lib/firebaseAdmin";
 import { requireUserFromRequest } from "@/lib/serverAuth";
 import { getDefaultTrialEndsAt, normalizeWorkspaceBilling } from "@/lib/billing";
+import { createInitialBehavioralMetrics, normalizeBehavioralMetrics } from "@/lib/behavioralMetrics";
 import type { Workspace } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -37,15 +38,21 @@ function toWorkspaceRecord(raw: Partial<WorkspaceRecord> | undefined, uid: strin
         trialEndsAt: getDefaultTrialEndsAt(createdAt),
         updatedAt: Date.now(),
     };
+    const members = Array.isArray(raw?.members) ? raw.members.filter(Boolean) : [uid];
+    const behavioralMetrics = normalizeBehavioralMetrics(raw?.behavioralMetrics, {
+        now: Date.now(),
+        members,
+    });
 
     return {
         name: typeof raw?.name === "string" && raw.name.trim() ? raw.name : "Minhas Finanças",
-        members: Array.isArray(raw?.members) ? raw.members.filter(Boolean) : [uid],
+        members,
         ownerId: typeof raw?.ownerId === "string" && raw.ownerId ? raw.ownerId : uid,
         ownerEmail: normalizeEmail(raw?.ownerEmail),
         createdAt,
         pendingInvites: Array.isArray(raw?.pendingInvites) ? raw.pendingInvites : [],
         billing,
+        behavioralMetrics,
         legal: raw?.legal,
     };
 }
@@ -213,6 +220,7 @@ export async function POST(request: NextRequest) {
                     trialEndsAt: getDefaultTrialEndsAt(createdAt),
                     updatedAt: Date.now(),
                 },
+                behavioralMetrics: createInitialBehavioralMetrics(createdAt),
                 pendingInvites: [],
             };
 

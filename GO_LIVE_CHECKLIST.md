@@ -30,6 +30,7 @@
 - [x] Onboarding guiado para primeiro uso (componente `OnboardingGuide` no dashboard)
 - [x] Registro de auditoria para ações críticas (editar/excluir/marcações em coleções financeiras em `workspaces/{id}/audit_logs`)
 - [x] Exportação CSV para lançamentos/contas/notas
+- [x] Base de retenção comportamental (Metrópole Financeira): métricas no workspace + recalculo server-side + aging diário (`/api/behavioral/recalculate` e `/api/behavioral/daily-aging`)
 
 ## 5) Definição de pronto para escala
 - [ ] Testes E2E dos fluxos críticos (suite Playwright criada em `e2e/`; falta executar fluxo autenticado com `E2E_STORAGE_STATE`):

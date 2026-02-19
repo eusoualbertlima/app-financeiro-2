@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/behavioral/daily-aging",
+      "schedule": "5 6 * * *"
+    }
+  ]
+}

@@ -18,6 +18,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import type { Workspace } from '@/types';
 import { getDefaultTrialEndsAt, normalizeWorkspaceBilling } from '@/lib/billing';
+import { createInitialBehavioralMetrics, normalizeBehavioralMetrics } from '@/lib/behavioralMetrics';
 import { recordWorkspaceAuditEvent } from '@/lib/audit';
 
 function pickPreferredWorkspaceDoc(
@@ -73,6 +74,10 @@ export function useWorkspace() {
 
         const hydrateWorkspace = (workspaceId: string, docData: Omit<Workspace, 'id'>) => {
             const normalizedBilling = normalizeWorkspaceBilling({ id: workspaceId, ...docData } as Workspace);
+            const normalizedBehavioralMetrics = normalizeBehavioralMetrics(docData.behavioralMetrics, {
+                now: Date.now(),
+                members: Array.isArray(docData.members) ? docData.members : [],
+            });
             return {
                 id: workspaceId,
                 ...docData,
@@ -80,6 +85,7 @@ export function useWorkspace() {
                     ...docData.billing,
                     ...normalizedBilling,
                 },
+                behavioralMetrics: normalizedBehavioralMetrics,
             } as Workspace;
         };
 
@@ -137,6 +143,7 @@ export function useWorkspace() {
                     trialEndsAt: getDefaultTrialEndsAt(createdAt),
                     updatedAt: Date.now(),
                 },
+                behavioralMetrics: createInitialBehavioralMetrics(createdAt),
             };
             await setDoc(doc(db, 'workspaces', workspaceId), newWorkspace, { merge: true });
             setWorkspaceFromData(workspaceId, newWorkspace);
@@ -217,19 +224,29 @@ export function useWorkspace() {
                     !docData.billing
                     || docData.billing.status !== hydratedWorkspace?.billing?.status
                     || docData.billing.trialEndsAt !== hydratedWorkspace?.billing?.trialEndsAt;
+                const shouldPatchBehavioralMetrics = !docData.behavioralMetrics;
 
                 const isOwner = docData.ownerId === user.uid;
 
-                if (shouldPatchBilling && isOwner && hydratedWorkspace?.billing) {
+                if ((shouldPatchBilling || shouldPatchBehavioralMetrics) && isOwner && hydratedWorkspace) {
                     try {
                         await setDoc(
                             doc(db, 'workspaces', workspaceId),
                             {
-                                billing: {
-                                    ...docData.billing,
-                                    ...hydratedWorkspace.billing,
-                                    updatedAt: Date.now(),
-                                }
+                                ...(shouldPatchBilling
+                                    ? {
+                                        billing: {
+                                            ...docData.billing,
+                                            ...hydratedWorkspace.billing,
+                                            updatedAt: Date.now(),
+                                        }
+                                    }
+                                    : {}),
+                                ...(shouldPatchBehavioralMetrics
+                                    ? {
+                                        behavioralMetrics: hydratedWorkspace.behavioralMetrics,
+                                    }
+                                    : {}),
                             },
                             { merge: true }
                         );

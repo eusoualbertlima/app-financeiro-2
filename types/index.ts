@@ -21,6 +21,27 @@ export interface WorkspaceLegal {
     acceptedByEmail?: string;
 }
 
+export type BehavioralStructureStage = 'foundation' | 'growth' | 'consolidation';
+
+export type BehavioralEnergyState = 'energized' | 'flicker' | 'blackout_partial' | 'abandoned';
+
+export type BehavioralMaturityRole = 'arquiteto' | 'construtor' | 'gestor_urbano' | 'magnata';
+
+export interface WorkspaceBehavioralMetrics {
+    consistencyIndex: number;
+    lastActionTimestamp: number;
+    maturityScore: number;
+    structureStage: BehavioralStructureStage;
+    maturityRole?: BehavioralMaturityRole;
+    inactiveDays?: number;
+    cityEnergyState?: BehavioralEnergyState;
+    memberLastActionAt?: Record<string, number>;
+    memberEnergyState?: Record<string, BehavioralEnergyState>;
+    sharedConsistencyState?: BehavioralEnergyState;
+    sharedConsistencyIndex?: number;
+    updatedAt?: number;
+}
+
 export interface Workspace {
     id: string;
     name: string;
@@ -31,6 +52,7 @@ export interface Workspace {
     pendingInvites?: string[];
     billing?: WorkspaceBilling;
     legal?: WorkspaceLegal;
+    behavioralMetrics?: WorkspaceBehavioralMetrics;
 }
 
 // Conta Bancária

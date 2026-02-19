@@ -13,6 +13,9 @@
 - Destino recomendado:
   - Email operacional
   - Slack/Discord/Webhook de operações
+- Cron (retenção comportamental):
+  - Arquivo: `vercel.json` com job diário para `/api/behavioral/daily-aging`
+  - Configure `CRON_SECRET` (ou `BEHAVIORAL_CRON_SECRET`) no ambiente de produção para proteger a rota.
 
 ### Stripe
 - Acesse: `Stripe Dashboard > Developers > Webhooks > Endpoint production`
@@ -120,3 +123,16 @@ npm run firebase:projects
   - validar tela `/dashboard/configuracoes` e badge de assinatura.
 - Se algo falhar:
   - aplicar rollback imediato para o último commit estável.
+
+## 6) Checklist de retenção comportamental
+- Confirmar no workspace a estrutura `behavioralMetrics` com:
+  - `consistencyIndex`
+  - `lastActionTimestamp`
+  - `maturityScore`
+  - `structureStage`
+- Validar que um lançamento/manual ou ação em contas fixas chama `POST /api/behavioral/recalculate`.
+- Validar aging diário com dry-run:
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" \
+  "https://app-financeiro-2.vercel.app/api/behavioral/daily-aging?dryRun=1&limit=20"
+```
