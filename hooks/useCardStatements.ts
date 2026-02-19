@@ -14,9 +14,10 @@ import {
 import { db } from '@/lib/firebase';
 import { useWorkspace } from '@/hooks/useFirestore';
 import { useState, useEffect } from 'react';
-import type { CardStatement, Transaction } from '@/types';
+import type { CardStatement } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { recordWorkspaceAuditEvent } from '@/lib/audit';
+import { resolveStatementDates } from '@/lib/cardStatementCycle';
 
 export function useCardStatements(cardId: string, month?: number, year?: number) {
     const { workspace } = useWorkspace();
@@ -66,8 +67,7 @@ export function useCardStatements(cardId: string, month?: number, year?: number)
         const existing = await getDocs(q);
         if (!existing.empty) return;
 
-        const closingDate = new Date(year, month - 1, closingDay).getTime();
-        const dueDate = new Date(year, month - 1, dueDay).getTime();
+        const { closingDate, dueDate } = resolveStatementDates(month, year, closingDay, dueDay);
 
         await addDoc(collection(db, `workspaces/${workspace.id}/card_statements`), {
             cardId,
@@ -77,6 +77,7 @@ export function useCardStatements(cardId: string, month?: number, year?: number)
             closingDate,
             dueDate,
             totalAmount: totalFromTransactions,
+            amountMode: 'auto',
             status: 'open',
         });
 
@@ -97,11 +98,19 @@ export function useCardStatements(cardId: string, month?: number, year?: number)
     };
 
     // Atualizar valor da fatura
-    const updateAmount = async (newAmount: number) => {
+    const updateAmount = async (
+        newAmount: number,
+        options?: { source?: 'auto' | 'manual' }
+    ) => {
         if (!workspace?.id || !statement?.id) return;
+        const source = options?.source || 'manual';
+
         await updateDoc(
             doc(db, `workspaces/${workspace.id}/card_statements`, statement.id),
-            { totalAmount: newAmount }
+            {
+                totalAmount: newAmount,
+                amountMode: source,
+            }
         );
 
         await recordWorkspaceAuditEvent({
@@ -114,6 +123,7 @@ export function useCardStatements(cardId: string, month?: number, year?: number)
             payload: {
                 previousAmount: statement.totalAmount,
                 newAmount,
+                source,
             },
         });
     };

@@ -20,6 +20,7 @@ import { useState, useEffect } from 'react';
 import type { Transaction } from '@/types';
 import { recordWorkspaceAuditEvent } from '@/lib/audit';
 import { normalizeLegacyDateOnlyTimestamp } from '@/lib/dateInput';
+import { resolveCardStatementReference } from '@/lib/cardStatementCycle';
 
 // Remove campos undefined de um objeto (Firebase não aceita undefined)
 function cleanUndefined<T extends Record<string, any>>(obj: T): Partial<T> {
@@ -432,7 +433,7 @@ export function useTransactions(month?: number, year?: number) {
 }
 
 // Transações de um cartão específico (para fatura)
-export function useCardTransactions(cardId: string, month?: number, year?: number) {
+export function useCardTransactions(cardId: string, month?: number, year?: number, closingDay?: number) {
     const { workspace } = useWorkspace();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
@@ -461,6 +462,11 @@ export function useCardTransactions(cardId: string, month?: number, year?: numbe
             // Filtrar por mês/ano se especificado
             if (month !== undefined && year !== undefined) {
                 items = items.filter(t => {
+                    if (closingDay !== undefined) {
+                        const statementRef = resolveCardStatementReference(t.date, closingDay);
+                        return statementRef.month === month && statementRef.year === year;
+                    }
+
                     const date = new Date(t.date);
                     return date.getMonth() + 1 === month && date.getFullYear() === year;
                 });
@@ -472,7 +478,7 @@ export function useCardTransactions(cardId: string, month?: number, year?: numbe
         });
 
         return () => unsubscribe();
-    }, [workspace?.id, cardId, month, year]);
+    }, [workspace?.id, cardId, month, year, closingDay]);
 
     const total = transactions.reduce((acc, t) => acc + t.amount, 0);
 

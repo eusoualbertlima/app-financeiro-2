@@ -39,13 +39,12 @@ export default function CartaoDetalhePage() {
 
     const { data: cartoes } = useCollection<CardType>("credit_cards");
     const { data: contas } = useCollection<Account>("accounts");
-    const { transactions, loading: transLoading, total } = useCardTransactions(cardId, month, year);
+    const cartao = cartoes.find(c => c.id === cardId);
+    const { transactions, loading: transLoading, total } = useCardTransactions(cardId, month, year, cartao?.closingDay);
     const {
         statement, loading: stmtLoading,
         generateStatement, updateAmount, payStatement, reopenStatement
     } = useCardStatements(cardId, month, year);
-
-    const cartao = cartoes.find(c => c.id === cardId);
 
     // Auto-generate statement when we have data
     useEffect(() => {
@@ -56,8 +55,13 @@ export default function CartaoDetalhePage() {
 
     // Update statement total when transactions change
     useEffect(() => {
-        if (statement && statement.status === 'open' && total !== statement.totalAmount) {
-            updateAmount(total);
+        if (
+            statement
+            && statement.status === 'open'
+            && statement.amountMode !== 'manual'
+            && total !== statement.totalAmount
+        ) {
+            updateAmount(total, { source: 'auto' });
         }
     }, [total, statement]);
 
@@ -112,7 +116,8 @@ export default function CartaoDetalhePage() {
     };
 
     const handleEditAmount = async () => {
-        await updateAmount(editAmount);
+        if (!statement) return;
+        await updateAmount(editAmount, { source: 'manual' });
         setShowEditAmountModal(false);
     };
 
@@ -198,12 +203,12 @@ export default function CartaoDetalhePage() {
                         </div>
                     </div>
                     <p className="text-2xl font-bold text-slate-900">
-                        {formatCurrency(statement?.totalAmount || total)}
+                        {formatCurrency(statement?.totalAmount ?? total)}
                     </p>
                 </div>
 
                 <div className="flex gap-2">
-                    {faturaStatus !== 'paid' && (
+                    {faturaStatus !== 'paid' && statement && (
                         <button
                             onClick={() => setShowPayModal(true)}
                             className="btn-primary flex items-center gap-2 flex-1"
@@ -211,10 +216,10 @@ export default function CartaoDetalhePage() {
                             <Check className="w-4 h-4" /> Pagar Fatura
                         </button>
                     )}
-                    {faturaStatus !== 'paid' && (
+                    {faturaStatus !== 'paid' && statement && (
                         <button
                             onClick={() => {
-                                setEditAmount(statement?.totalAmount || total);
+                                setEditAmount(statement.totalAmount);
                                 setShowEditAmountModal(true);
                             }}
                             className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 flex items-center gap-2"
@@ -282,7 +287,7 @@ export default function CartaoDetalhePage() {
                     <div className="card p-6 w-full max-w-sm">
                         <h3 className="text-lg font-semibold text-slate-900 mb-4">Pagar Fatura</h3>
                         <p className="text-2xl font-bold text-slate-900 mb-4">
-                            {formatCurrency(statement?.totalAmount || total)}
+                            {formatCurrency(statement?.totalAmount ?? total)}
                         </p>
                         <label className="block text-sm font-medium text-slate-700 mb-2">Pagar com qual conta?</label>
                         <select

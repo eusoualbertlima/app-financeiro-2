@@ -182,6 +182,7 @@ export interface CardStatement {
     closingDate: number;
     dueDate: number;
     totalAmount: number;
+    amountMode?: 'auto' | 'manual';
     status: 'open' | 'closed' | 'paid';
     paidAt?: number;
     paidAccountId?: string;

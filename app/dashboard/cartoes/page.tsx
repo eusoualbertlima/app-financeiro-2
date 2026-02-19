@@ -10,9 +10,9 @@ import Link from "next/link";
 import { CurrencyInput } from "@/components/CurrencyInput";
 
 // Componente para mostrar gastos de cada cartão
-function CardSpent({ cardId, limit }: { cardId: string; limit: number }) {
+function CardSpent({ cardId, limit, closingDay }: { cardId: string; limit: number; closingDay: number }) {
     const now = new Date();
-    const { total, loading } = useCardTransactions(cardId, now.getMonth() + 1, now.getFullYear());
+    const { total, loading } = useCardTransactions(cardId, now.getMonth() + 1, now.getFullYear(), closingDay);
     const formatCurrency = (value: number) =>
         new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
     const available = limit - total;
@@ -213,7 +213,7 @@ export default function CartoesPage() {
                                         <p className="text-lg font-bold">Dia {cartao.dueDay}</p>
                                     </div>
                                 </div>
-                                <CardSpent cardId={cartao.id} limit={cartao.limit} />
+                                <CardSpent cardId={cartao.id} limit={cartao.limit} closingDay={cartao.closingDay} />
                             </div>
                         </div>
                     ))}
