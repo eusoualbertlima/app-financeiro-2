@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useCollection } from "@/hooks/useFirestore";
-import { useCardTransactions } from "@/hooks/useTransactions";
+import { useCardsLimitSummary } from "@/hooks/useCardLimits";
 import { CreditCard as CardIcon, Plus, Trash2, X, Edit3, Eye } from "lucide-react";
 import type { CreditCard } from "@/types";
 import { Header } from "@/components/Navigation";
@@ -10,20 +10,18 @@ import Link from "next/link";
 import { CurrencyInput } from "@/components/CurrencyInput";
 
 // Componente para mostrar gastos de cada cartão
-function CardSpent({ cardId, limit, closingDay }: { cardId: string; limit: number; closingDay: number }) {
-    const now = new Date();
-    const { total, loading } = useCardTransactions(cardId, now.getMonth() + 1, now.getFullYear(), closingDay);
+function CardSpent({ limit, outstanding, loading }: { limit: number; outstanding: number; loading: boolean }) {
     const formatCurrency = (value: number) =>
         new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-    const available = limit - total;
-    const usedPercent = limit > 0 ? Math.min((total / limit) * 100, 100) : 0;
+    const available = limit - outstanding;
+    const usedPercent = limit > 0 ? Math.min((Math.max(outstanding, 0) / limit) * 100, 100) : 0;
 
     if (loading) return null;
 
     return (
         <div className="mt-4 pt-3 border-t border-white/20">
             <div className="flex justify-between text-xs text-white/70 mb-2">
-                <span>Gasto: {formatCurrency(total)}</span>
+                <span>Em aberto: {formatCurrency(outstanding)}</span>
                 <span>Disponível: {formatCurrency(available)}</span>
             </div>
             <div className="w-full h-2 bg-white/20 rounded-full overflow-hidden">
@@ -46,6 +44,7 @@ const brandLogos: Record<string, string> = {
 
 export default function CartoesPage() {
     const { data: cartoes, loading, add, remove, update } = useCollection<CreditCard>("credit_cards");
+    const { summaryByCard, loading: limitsLoading } = useCardsLimitSummary(cartoes);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [formData, setFormData] = useState<Partial<CreditCard>>({
@@ -213,7 +212,11 @@ export default function CartoesPage() {
                                         <p className="text-lg font-bold">Dia {cartao.dueDay}</p>
                                     </div>
                                 </div>
-                                <CardSpent cardId={cartao.id} limit={cartao.limit} closingDay={cartao.closingDay} />
+                                <CardSpent
+                                    limit={cartao.limit}
+                                    outstanding={summaryByCard[cartao.id]?.outstanding || 0}
+                                    loading={limitsLoading}
+                                />
                             </div>
                         </div>
                     ))}

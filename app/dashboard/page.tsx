@@ -3,6 +3,7 @@
 import { useWorkspace, useCollection } from "@/hooks/useFirestore";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useBillPayments } from "@/hooks/useBills";
+import { useCardsLimitSummary } from "@/hooks/useCardLimits";
 import {
     Wallet,
     CreditCard,
@@ -29,6 +30,7 @@ export default function DashboardPage() {
     const { data: contas } = useCollection<Account>("accounts");
     const { data: cartoes } = useCollection<CardType>("credit_cards");
     const { data: recurringBills } = useCollection<RecurringBill>("recurring_bills");
+    const { summaryByCard, totals: cardTotals, loading: cardLimitsLoading } = useCardsLimitSummary(cartoes);
 
     // Dados do mês atual
     const now = new Date();
@@ -39,7 +41,9 @@ export default function DashboardPage() {
     const { payments, summary: billSummary, loading: billsLoading } = useBillPayments(currentMonth, currentYear);
 
     const saldoTotal = contas.reduce((acc, conta) => acc + conta.balance, 0);
-    const limiteTotal = cartoes.reduce((acc, cartao) => acc + cartao.limit, 0);
+    const limiteTotal = cardTotals.totalLimit;
+    const limiteDisponivel = cardLimitsLoading ? limiteTotal : cardTotals.totalAvailable;
+    const limiteComprometido = cardLimitsLoading ? 0 : cardTotals.totalOutstanding;
 
     const paidExpenseTransactions = transactions.filter(
         (transaction) =>
@@ -171,9 +175,11 @@ export default function DashboardPage() {
                         <div>
                             <p className="text-sm font-medium text-slate-500 mb-1">Limite Disponível</p>
                             <p className="text-2xl lg:text-3xl font-bold text-slate-900">
-                                {formatCurrency(limiteTotal)}
+                                {formatCurrency(limiteDisponivel)}
                             </p>
-                            <p className="text-xs text-slate-400 mt-2">{cartoes.length} cartão(ões)</p>
+                            <p className="text-xs text-slate-400 mt-2">
+                                {cartoes.length} cartão(ões) • Em aberto {formatCurrency(limiteComprometido)}
+                            </p>
                         </div>
                         <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-accent-100 to-accent-200 flex items-center justify-center">
                             <CreditCard className="w-6 h-6 text-accent-600" />
@@ -504,8 +510,13 @@ export default function DashboardPage() {
                                         </p>
                                     </div>
                                     <div className="text-right">
-                                        <p className="font-bold text-slate-900">{formatCurrency(cartao.limit)}</p>
-                                        <p className="text-xs text-slate-400">limite</p>
+                                        <p className="font-bold text-slate-900">
+                                            {formatCurrency(summaryByCard[cartao.id]?.available ?? cartao.limit)}
+                                        </p>
+                                        <p className="text-xs text-slate-400">disponível</p>
+                                        <p className="text-[11px] text-slate-400">
+                                            aberto {formatCurrency(summaryByCard[cartao.id]?.outstanding || 0)}
+                                        </p>
                                     </div>
                                 </div>
                             ))}

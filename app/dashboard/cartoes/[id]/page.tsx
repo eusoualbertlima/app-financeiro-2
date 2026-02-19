@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useCollection } from "@/hooks/useFirestore";
 import { useCardTransactions } from "@/hooks/useTransactions";
 import { useCardStatements } from "@/hooks/useCardStatements";
+import { useCardsLimitSummary } from "@/hooks/useCardLimits";
 import { CurrencyInput } from "@/components/CurrencyInput";
 import { DonutChart } from "@/components/Charts";
 import {
@@ -40,6 +41,7 @@ export default function CartaoDetalhePage() {
     const { data: cartoes } = useCollection<CardType>("credit_cards");
     const { data: contas } = useCollection<Account>("accounts");
     const cartao = cartoes.find(c => c.id === cardId);
+    const { summaryByCard } = useCardsLimitSummary(cartao ? [cartao] : []);
     const { transactions, loading: transLoading, total } = useCardTransactions(cardId, month, year, cartao?.closingDay);
     const {
         statement, loading: stmtLoading,
@@ -104,8 +106,10 @@ export default function CartaoDetalhePage() {
         );
     }
 
-    const available = cartao.limit - total;
-    const usedPct = cartao.limit > 0 ? Math.min((total / cartao.limit) * 100, 100) : 0;
+    const fallbackOutstanding = statement?.totalAmount ?? total;
+    const outstanding = summaryByCard[cartao.id]?.outstanding ?? fallbackOutstanding;
+    const available = cartao.limit - outstanding;
+    const usedPct = cartao.limit > 0 ? Math.min((Math.max(outstanding, 0) / cartao.limit) * 100, 100) : 0;
     const faturaStatus = statement?.status || 'open';
 
     const handlePayFatura = async () => {
@@ -146,8 +150,8 @@ export default function CartaoDetalhePage() {
                         <p className="text-lg font-bold">{formatCurrency(cartao.limit)}</p>
                     </div>
                     <div className="text-center">
-                        <p className="text-xs text-white/60 uppercase mb-1">Gasto</p>
-                        <p className="text-lg font-bold">{formatCurrency(total)}</p>
+                        <p className="text-xs text-white/60 uppercase mb-1">Em aberto</p>
+                        <p className="text-lg font-bold">{formatCurrency(outstanding)}</p>
                     </div>
                     <div className="text-right">
                         <p className="text-xs text-white/60 uppercase mb-1">Disponível</p>
