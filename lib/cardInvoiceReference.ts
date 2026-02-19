@@ -6,6 +6,39 @@ interface StatementRef {
     year: number;
 }
 
+function normalizeClosingDayForDate(year: number, month: number, closingDay: number) {
+    const raw = Number(closingDay);
+    if (!Number.isFinite(raw)) return 1;
+    const normalized = Math.max(1, Math.trunc(raw));
+    const maxDay = new Date(year, month, 0).getDate();
+    return Math.min(normalized, maxDay);
+}
+
+export function resolveStatementReferenceByClosingDay(timestamp: number, closingDay: number): StatementRef {
+    const date = new Date(timestamp);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const normalizedClosingDay = normalizeClosingDayForDate(year, month, closingDay);
+
+    // Compatibilidade com cartões configurados para fechamento no início do mês
+    // (ex.: "fecha 1 de fevereiro a fatura de janeiro").
+    if (normalizedClosingDay <= 10) {
+        let refMonth = month;
+        let refYear = year;
+        if (day <= normalizedClosingDay) {
+            refMonth -= 1;
+            if (refMonth < 1) {
+                refMonth = 12;
+                refYear -= 1;
+            }
+        }
+        return { month: refMonth, year: refYear };
+    }
+
+    return resolveCardStatementReference(timestamp, normalizedClosingDay);
+}
+
 function toInt(value: unknown): number | null {
     if (typeof value === 'number' && Number.isFinite(value)) {
         return Math.trunc(value);
@@ -215,7 +248,7 @@ export function resolveTransactionStatementReference(
     if (timestamp === null) return null;
 
     if (closingDay !== undefined) {
-        return resolveCardStatementReference(timestamp, closingDay);
+        return resolveStatementReferenceByClosingDay(timestamp, closingDay);
     }
 
     const date = new Date(timestamp);

@@ -20,10 +20,10 @@ import { useState, useEffect } from 'react';
 import type { CreditCard, Transaction } from '@/types';
 import { recordWorkspaceAuditEvent } from '@/lib/audit';
 import { normalizeLegacyDateOnlyTimestamp } from '@/lib/dateInput';
-import { resolveCardStatementReference } from '@/lib/cardStatementCycle';
 import {
     getTransactionInvoiceId,
     isTransactionExcludedFromTotals,
+    resolveStatementReferenceByClosingDay,
     resolveTransactionStatementReference,
 } from '@/lib/cardInvoiceReference';
 
@@ -69,7 +69,7 @@ async function resolveCardInvoiceMetadata(
     const closingDay = Number(card.closingDay);
     if (!Number.isFinite(closingDay)) return null;
 
-    const statementRef = resolveCardStatementReference(txDate, closingDay);
+    const statementRef = resolveStatementReferenceByClosingDay(txDate, closingDay);
     const invoiceRef = `${statementRef.year}-${String(statementRef.month).padStart(2, '0')}`;
     const statementsQuery = query(
         collection(db, `workspaces/${workspaceId}/card_statements`),
@@ -252,7 +252,7 @@ export function useTransactions(month?: number, year?: number) {
                     const card = cardSnap.data() as Partial<CreditCard>;
                     const closingDay = Number(card.closingDay);
                     if (Number.isFinite(closingDay)) {
-                        const statementRef = resolveCardStatementReference(nextData.date, closingDay);
+                        const statementRef = resolveStatementReferenceByClosingDay(nextData.date, closingDay);
                         const invoiceRef = `${statementRef.year}-${String(statementRef.month).padStart(2, '0')}`;
                         updatePayload.invoiceMonth = statementRef.month;
                         updatePayload.invoiceYear = statementRef.year;
@@ -580,7 +580,7 @@ export function useCardTransactions(
                     }
 
                     if (closingDay !== undefined) {
-                        const fallbackRef = resolveCardStatementReference(t.date, closingDay);
+                        const fallbackRef = resolveStatementReferenceByClosingDay(t.date, closingDay);
                         return fallbackRef.month === month && fallbackRef.year === year;
                     }
 
