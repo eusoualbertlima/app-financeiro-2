@@ -28,8 +28,18 @@ function getPriceEnvLabel(plan: BillingPlan) {
     return plan === "yearly" ? "STRIPE_PRICE_ID_YEARLY" : "STRIPE_PRICE_ID_MONTHLY";
 }
 
-function expectedRecurringInterval(plan: BillingPlan) {
-    return plan === "yearly" ? "year" : "month";
+function isRecurringPriceCompatibleWithPlan(
+    recurring: { interval: string; interval_count: number } | null | undefined,
+    plan: BillingPlan
+) {
+    if (!recurring) return false;
+    if (plan === "monthly") {
+        return recurring.interval === "month" && recurring.interval_count === 1;
+    }
+    return (
+        (recurring.interval === "year" && recurring.interval_count === 1)
+        || (recurring.interval === "month" && recurring.interval_count === 12)
+    );
 }
 
 function normalizeConfiguredToken(value?: string) {
@@ -43,7 +53,6 @@ async function findRecurringPriceForProduct(
     plan: BillingPlan,
     preferredCurrency?: string
 ) {
-    const desiredInterval = expectedRecurringInterval(plan);
     const prices = await stripe.prices.list({
         product: productId,
         active: true,
@@ -54,8 +63,8 @@ async function findRecurringPriceForProduct(
     const sameCurrency = preferredCurrency
         ? prices.data.filter((price) => price.currency === preferredCurrency)
         : prices.data;
-    const matched = sameCurrency.find((price) => price.recurring?.interval === desiredInterval)
-        || prices.data.find((price) => price.recurring?.interval === desiredInterval);
+    const matched = sameCurrency.find((price) => isRecurringPriceCompatibleWithPlan(price.recurring, plan))
+        || prices.data.find((price) => isRecurringPriceCompatibleWithPlan(price.recurring, plan));
 
     return matched || null;
 }
@@ -76,11 +85,10 @@ async function resolveCheckoutPriceId(
     if (configuredToken.startsWith("price_")) {
         try {
             const configuredPrice = await stripe.prices.retrieve(configuredToken);
-            const desiredInterval = expectedRecurringInterval(plan);
             const isCorrectRecurring = Boolean(
                 configuredPrice.active
                 && configuredPrice.recurring
-                && configuredPrice.recurring.interval === desiredInterval
+                && isRecurringPriceCompatibleWithPlan(configuredPrice.recurring, plan)
             );
 
             if (isCorrectRecurring) {
@@ -98,7 +106,7 @@ async function resolveCheckoutPriceId(
                 return {
                     priceId: null,
                     warning: null as string | null,
-                    error: `${getPriceEnvLabel(plan)} (${configuredToken}) não é recorrente para plano ${plan}. Configure um price_ recorrente (${desiredInterval}).`,
+                    error: `${getPriceEnvLabel(plan)} (${configuredToken}) não é recorrente para plano ${plan}. Configure um price_ recorrente compatível.`,
                 };
             }
 
@@ -112,7 +120,7 @@ async function resolveCheckoutPriceId(
                 return {
                     priceId: null,
                     warning: null as string | null,
-                    error: `Price ${configuredToken} não é recorrente compatível com ${plan} e o produto ${productId} não possui preço recorrente ativo para "${desiredInterval}".`,
+                    error: `Price ${configuredToken} não é recorrente compatível com ${plan} e o produto ${productId} não possui preço recorrente ativo compatível.`,
                 };
             }
 
@@ -138,13 +146,12 @@ async function resolveCheckoutPriceId(
         };
     }
 
-    const desiredInterval = expectedRecurringInterval(plan);
     const matchedPrice = await findRecurringPriceForProduct(stripe, configuredToken, plan);
     if (!matchedPrice) {
         return {
             priceId: null,
             warning: null as string | null,
-            error: `Product ${configuredToken} has no active recurring price for interval "${desiredInterval}". Configure ${getPriceEnvLabel(plan)} com um price_ recorrente.`,
+            error: `Product ${configuredToken} has no active recurring price compatible with ${plan}. Configure ${getPriceEnvLabel(plan)} com um price_ recorrente.`,
         };
     }
 
