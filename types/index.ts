@@ -100,6 +100,14 @@ export interface Transaction {
     transferFromAccountId?: string;
     transferToAccountId?: string;
     transferPairId?: string;
+
+    // Compatibilidade de referência de fatura (legado/integradores)
+    invoiceId?: string;
+    invoice_id?: string;
+    invoiceRef?: string;
+    invoice_ref?: string;
+    invoiceMonth?: number;
+    invoiceYear?: number;
 }
 
 // Despesa Fixa (Recorrente)
