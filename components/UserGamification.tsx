@@ -276,7 +276,13 @@ function CityVisualizer({
     ];
 
     return (
-        <svg viewBox="0 0 420 300" className="h-full w-full" role="img" aria-label="Visual da cidade financeira">
+        <svg
+            viewBox="0 0 420 300"
+            preserveAspectRatio="xMidYMid slice"
+            className="h-full w-full"
+            role="img"
+            aria-label="Visual da cidade financeira"
+        >
             <defs>
                 <linearGradient id="citySky" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor={skyTop} />
