@@ -17,7 +17,7 @@ import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWorkspace } from '@/hooks/useFirestore';
 import { useState, useEffect } from 'react';
-import type { Transaction } from '@/types';
+import type { CreditCard, Transaction } from '@/types';
 import { recordWorkspaceAuditEvent } from '@/lib/audit';
 import { normalizeLegacyDateOnlyTimestamp } from '@/lib/dateInput';
 import { resolveCardStatementReference } from '@/lib/cardStatementCycle';
@@ -51,6 +51,41 @@ function toTransactionAmount(value: unknown) {
         if (Number.isFinite(normalized)) return normalized;
     }
     return 0;
+}
+
+async function resolveCardInvoiceMetadata(
+    workspaceId: string,
+    cardId: string,
+    rawDate: unknown
+) {
+    const txDate = typeof rawDate === 'number' ? rawDate : Number(rawDate);
+    if (!Number.isFinite(txDate)) return null;
+
+    const cardRef = doc(db, `workspaces/${workspaceId}/credit_cards`, cardId);
+    const cardSnap = await getDoc(cardRef);
+    if (!cardSnap.exists()) return null;
+
+    const card = cardSnap.data() as Partial<CreditCard>;
+    const closingDay = Number(card.closingDay);
+    if (!Number.isFinite(closingDay)) return null;
+
+    const statementRef = resolveCardStatementReference(txDate, closingDay);
+    const invoiceRef = `${statementRef.year}-${String(statementRef.month).padStart(2, '0')}`;
+    const statementsQuery = query(
+        collection(db, `workspaces/${workspaceId}/card_statements`),
+        where('cardId', '==', cardId),
+        where('month', '==', statementRef.month),
+        where('year', '==', statementRef.year)
+    );
+    const statementsSnap = await getDocs(statementsQuery);
+    const invoiceId = statementsSnap.empty ? null : statementsSnap.docs[0].id;
+
+    return {
+        invoiceId,
+        invoiceMonth: statementRef.month,
+        invoiceYear: statementRef.year,
+        invoiceRef,
+    };
 }
 
 export function useTransactions(month?: number, year?: number) {
@@ -127,6 +162,15 @@ export function useTransactions(month?: number, year?: number) {
         }
         if (item.cardId) {
             (cleanData as any).cardId = item.cardId;
+            const invoiceMeta = await resolveCardInvoiceMetadata(workspace.id, item.cardId, item.date);
+            if (invoiceMeta) {
+                (cleanData as any).invoiceId = invoiceMeta.invoiceId;
+                (cleanData as any).invoice_id = invoiceMeta.invoiceId;
+                (cleanData as any).invoiceMonth = invoiceMeta.invoiceMonth;
+                (cleanData as any).invoiceYear = invoiceMeta.invoiceYear;
+                (cleanData as any).invoiceRef = invoiceMeta.invoiceRef;
+                (cleanData as any).invoice_ref = invoiceMeta.invoiceRef;
+            }
         }
 
         if (item.status === 'paid' && item.accountId) {
@@ -193,8 +237,32 @@ export function useTransactions(month?: number, year?: number) {
                 currentData.amount !== nextData.amount ||
                 currentData.type !== nextData.type ||
                 currentAccountId !== nextAccountId;
+            const updatePayload: Record<string, unknown> = { ...cleanData };
+            updatePayload.invoiceId = null;
+            updatePayload.invoice_id = null;
+            updatePayload.invoiceMonth = null;
+            updatePayload.invoiceYear = null;
+            updatePayload.invoiceRef = null;
+            updatePayload.invoice_ref = null;
 
-            transaction.update(txRef, cleanData);
+            if (nextData.cardId && Number.isFinite(nextData.date)) {
+                const cardRef = doc(db, `workspaces/${workspace.id}/credit_cards`, nextData.cardId);
+                const cardSnap = await transaction.get(cardRef);
+                if (cardSnap.exists()) {
+                    const card = cardSnap.data() as Partial<CreditCard>;
+                    const closingDay = Number(card.closingDay);
+                    if (Number.isFinite(closingDay)) {
+                        const statementRef = resolveCardStatementReference(nextData.date, closingDay);
+                        const invoiceRef = `${statementRef.year}-${String(statementRef.month).padStart(2, '0')}`;
+                        updatePayload.invoiceMonth = statementRef.month;
+                        updatePayload.invoiceYear = statementRef.year;
+                        updatePayload.invoiceRef = invoiceRef;
+                        updatePayload.invoice_ref = invoiceRef;
+                    }
+                }
+            }
+
+            transaction.update(txRef, updatePayload);
 
             if (!affectsBalance) return;
 

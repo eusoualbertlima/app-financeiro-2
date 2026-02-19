@@ -141,6 +141,16 @@ export default function LancamentosPage() {
             return;
         }
 
+        if (formData.type === 'expense' && !formData.accountId && !formData.cardId) {
+            alert('Selecione uma origem para a despesa: conta ou cartão.');
+            return;
+        }
+
+        if (formData.type === 'income' && !formData.accountId) {
+            alert('Selecione a conta de entrada para a receita.');
+            return;
+        }
+
         if (editingId) {
             await update(editingId, {
                 description: formData.description,
