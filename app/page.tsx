@@ -43,7 +43,7 @@ export default function Home() {
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
                         </span>
                         <span className="text-blue-200 text-sm font-medium">
-                            Oferta Beta: Acesso Vitalício por <span className="text-white font-bold">R$ 97,00</span>
+                            Planos ativos: <span className="text-white font-bold">R$ 49/mês</span> ou <span className="text-white font-bold">R$ 497/ano</span>
                         </span>
                     </div>
                     <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent">
