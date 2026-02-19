@@ -20,7 +20,7 @@ import {
     Receipt
 } from "lucide-react";
 import Link from "next/link";
-import type { Account, BillPayment, CardStatement, CreditCard as CardType, RecurringBill } from "@/types";
+import type { Account, CreditCard as CardType, RecurringBill } from "@/types";
 import { Header } from "@/components/Navigation";
 import { DonutChart, BarChart } from "@/components/Charts";
 import { OnboardingGuide } from "@/components/OnboardingGuide";
@@ -30,8 +30,6 @@ export default function DashboardPage() {
     const { data: contas } = useCollection<Account>("accounts");
     const { data: cartoes } = useCollection<CardType>("credit_cards");
     const { data: recurringBills } = useCollection<RecurringBill>("recurring_bills");
-    const { data: cardStatements } = useCollection<CardStatement>("card_statements");
-    const { data: allBillPayments } = useCollection<BillPayment>("bill_payments");
     const { summaryByCard, totals: cardTotals, loading: cardLimitsLoading } = useCardsLimitSummary(cartoes);
 
     // Dados do mês atual
@@ -40,7 +38,6 @@ export default function DashboardPage() {
     const currentYear = now.getFullYear();
 
     const { transactions, totals, loading: transLoading } = useTransactions(currentMonth, currentYear);
-    const { transactions: allTransactions } = useTransactions();
     const { payments, summary: billSummary, loading: billsLoading } = useBillPayments(currentMonth, currentYear);
 
     const saldoTotal = contas.reduce((acc, conta) => acc + conta.balance, 0);
@@ -71,23 +68,20 @@ export default function DashboardPage() {
         .sort((a, b) => a.dueDay - b.dueDay);
     const pendingBillsAmount = pendingBills.reduce((acc, p) => acc + p.amount, 0);
 
-    // Saldo Projetado (dinâmico)
-    // = Saldo Atual + receitas pendentes - (despesas pendentes + contas fixas pendentes + faturas não pagas)
-    const pendingIncomeTransactions = allTransactions
+    // Saldo Projetado (mês atual)
+    // = Saldo Atual + receitas pendentes - (despesas pendentes + contas fixas pendentes/atrasadas + faturas em aberto)
+    const pendingIncomeTransactions = transactions
         .filter(t => t.type === 'income' && t.status === 'pending' && t.source !== 'transfer')
         .reduce((acc, t) => acc + t.amount, 0);
 
-    const pendingExpenseTransactions = allTransactions
+    const pendingExpenseTransactions = transactions
         .filter(t => t.type === 'expense' && t.status === 'pending' && t.source !== 'transfer')
         .reduce((acc, t) => acc + t.amount, 0);
 
-    const projectedPendingBillsAmount = allBillPayments
-        .filter((payment) => payment.status === 'pending' || payment.status === 'overdue')
-        .reduce((acc, payment) => acc + Number(payment.amount || 0), 0);
+    const projectedPendingBillsAmount = pendingBillsAmount;
 
-    const projectedUnpaidCardStatementsAmount = cardStatements
-        .filter((statement) => statement.status !== 'paid')
-        .reduce((acc, statement) => acc + Number(statement.totalAmount || 0), 0);
+    // Reaproveita o mesmo agregado do card principal para manter consistência.
+    const projectedUnpaidCardStatementsAmount = limiteComprometido;
 
     const projectedBalance = saldoTotal + pendingIncomeTransactions - (
         pendingExpenseTransactions
