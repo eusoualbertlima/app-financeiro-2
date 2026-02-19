@@ -3,31 +3,25 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/hooks/useFirestore";
-import { getWorkspaceAccessState } from "@/lib/billing";
-import { getClientDevAdminAllowlist, hasDevAdminAccess } from "@/lib/devAdmin";
+import { resolveWorkspaceAccessDecision } from "@/lib/accessPolicy";
 import { Header } from "@/components/Navigation";
 import { Settings, User, Shield, Bell, Palette, LogOut, ChevronRight, UserPlus, Users, Copy, Check, CreditCard, Loader2 } from "lucide-react";
-import { collection, query, where, getDocs, updateDoc, doc, arrayUnion } from "firebase/firestore";
+import { updateDoc, doc, arrayUnion } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import Link from "next/link";
 
 export default function ConfiguracoesPage() {
     const { user, signOut } = useAuth();
     const { workspace } = useWorkspace();
-    const access = getWorkspaceAccessState(workspace);
-    const allowlist = getClientDevAdminAllowlist();
-    const isDevAdmin = hasDevAdminAccess({
-        uid: user?.uid,
-        email: user?.email,
-        allowlist,
+    const accessDecision = resolveWorkspaceAccessDecision({
+        workspace,
+        user: {
+            uid: user?.uid,
+            email: user?.email,
+        },
     });
-    const ownerIsDevAdmin = hasDevAdminAccess({
-        uid: workspace?.ownerId,
-        email: workspace?.ownerEmail,
-        allowlist,
-    });
-    const hasWorkspaceInternalBypass = Boolean(workspace?.internalBypassByOwner || ownerIsDevAdmin);
-    const hasEffectiveAccess = access.hasAccess || isDevAdmin || hasWorkspaceInternalBypass;
+    const access = accessDecision.accessState;
+    const hasEffectiveAccess = accessDecision.hasEffectiveAccess;
     const [activeSection, setActiveSection] = useState<string | null>(null);
     const [inviteEmail, setInviteEmail] = useState("");
     const [inviteStatus, setInviteStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
@@ -246,14 +240,18 @@ export default function ConfiguracoesPage() {
                         <h3 className="font-semibold text-slate-900">Assinatura</h3>
                     </div>
                     <span className={`text-xs font-bold px-2 py-1 rounded-full ${hasEffectiveAccess ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
-                        {isDevAdmin ? "internal_active" : hasWorkspaceInternalBypass ? "workspace_internal_active" : access.status}
+                        {hasEffectiveAccess && !access.hasAccess
+                            ? accessDecision.reason === "dev_admin"
+                                ? "internal_active"
+                                : "workspace_internal_active"
+                            : access.status}
                     </span>
                 </div>
                 <p className="text-sm text-slate-500 mb-4">
-                    {isDevAdmin
+                    {hasEffectiveAccess && !access.hasAccess
+                        ? accessDecision.reason === "dev_admin"
                         ? "Acesso interno liberado por conta dev-admin (bypass de cobrança ativo somente para sua conta)."
-                        : hasWorkspaceInternalBypass
-                        ? "Acesso interno liberado para membros deste workspace porque o dono é uma conta dev-admin."
+                        : "Acesso interno liberado para membros deste workspace porque o dono é uma conta dev-admin."
                         : access.status === "trialing"
                         ? `Seu teste expira em ${access.trialDaysLeft || 0} dia(s).`
                         : hasEffectiveAccess

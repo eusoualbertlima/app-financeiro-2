@@ -1,6 +1,6 @@
 # Operação de Produção (App Financeiro 2.0)
 
-Última atualização: 13 de fevereiro de 2026
+Última atualização: 19 de fevereiro de 2026
 
 ## 1) Alertas de falha (Vercel + Stripe)
 
@@ -54,7 +54,21 @@
   - `NEXT_PUBLIC_APP_URL=http://localhost:3000`
   - `APP_URL=http://localhost:3000`
 
-## 3) Revisão de segurança Firestore por coleção
+## 3) Modo de acesso em produção (fixo no código)
+
+- Arquivo-fonte da política: `lib/accessPolicy.ts`
+- Modo atual de produção: `workspace_internal_bypass`
+- Troca de modo: somente via commit (não depende de toggle no Vercel).
+
+### Modos disponíveis
+- `workspace_internal_bypass`
+  - libera por billing normal (`active`/`trialing`), ou
+  - libera conta `dev-admin`, ou
+  - libera membros do workspace quando o dono for `dev-admin`.
+- `billing_only`
+  - libera apenas por billing normal (`active`/`trialing`).
+
+## 4) Revisão de segurança Firestore por coleção
 
 Arquivo de regras versionado no projeto:
 - `firestore.rules`
@@ -94,3 +108,15 @@ npm run firebase:projects
 - Confirmar que usuário deslogado não lê nada sensível.
 - Testar com 2 usuários de workspaces diferentes.
 - Testar owner vs membro comum (ações de billing/admin).
+
+## 5) Checklist de release de acesso
+- Antes do deploy:
+  - confirmar `PRODUCTION_ACCESS_MODE` em `lib/accessPolicy.ts`.
+  - revisar `DEV_ADMIN_EMAILS` e `NEXT_PUBLIC_DEV_ADMIN_EMAILS` no Vercel.
+- Após o deploy:
+  - testar login do dono (deve abrir `/dashboard`).
+  - testar login de membro do mesmo workspace (deve abrir `/dashboard`).
+  - testar login de usuário fora do workspace (não deve ver dados).
+  - validar tela `/dashboard/configuracoes` e badge de assinatura.
+- Se algo falhar:
+  - aplicar rollback imediato para o último commit estável.

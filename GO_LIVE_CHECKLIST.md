@@ -21,8 +21,10 @@
 ## 3) Segurança e operação
 - [x] Revisar regras de segurança do Firestore por coleção (regras versionadas em `firestore.rules` + guia em `OPERACOES_PRODUCAO.md`)
 - [x] Deploy das regras Firestore no projeto de produção (`npm run deploy:firestore:rules`)
+- [x] Centralizar política de acesso em produção (arquivo único: `lib/accessPolicy.ts`)
 - [ ] Ativar alertas de falha de deploy/webhook (Vercel + Stripe) (guia em `OPERACOES_PRODUCAO.md`)
 - [ ] Revisar gestão de segredos no Vercel (produção vs teste) (matriz em `OPERACOES_PRODUCAO.md`)
+- [ ] Executar checklist pós-deploy de acesso (owner + membro + usuário externo) em toda release (`OPERACOES_PRODUCAO.md`)
 
 ## 4) Produto e retenção
 - [x] Onboarding guiado para primeiro uso (componente `OnboardingGuide` no dashboard)
