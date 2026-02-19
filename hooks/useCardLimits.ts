@@ -17,6 +17,12 @@ export interface CardLimitSummary {
     available: number;
     usedPercent: number;
     currentCycleAmount: number;
+    selectedMonthOutstanding?: number;
+}
+
+export interface UseCardsLimitSummaryOptions {
+    month?: number;
+    year?: number;
 }
 
 function pickPreferredStatement(existing: CardStatement | undefined, candidate: CardStatement) {
@@ -44,6 +50,22 @@ function toPositiveAmount(value: number) {
     return Math.max(0, value);
 }
 
+function toAmount(value: unknown) {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (!trimmed) return 0;
+
+        const direct = Number(trimmed);
+        if (Number.isFinite(direct)) return direct;
+
+        const normalized = Number(trimmed.replace(/\./g, '').replace(',', '.'));
+        if (Number.isFinite(normalized)) return normalized;
+    }
+
+    return 0;
+}
+
 function getStatementIdentifiers(statement: CardStatement | (CardStatement & Record<string, unknown>)) {
     const source = statement as CardStatement & Record<string, unknown>;
     const candidates: unknown[] = [
@@ -69,8 +91,11 @@ function getStatementIdentifiers(statement: CardStatement | (CardStatement & Rec
 function buildCardSummary(
     card: CreditCard,
     cardTransactions: Transaction[],
-    cardStatements: CardStatement[]
+    cardStatements: CardStatement[],
+    options?: UseCardsLimitSummaryOptions
 ): CardLimitSummary {
+    const cardLimit = toPositiveAmount(toAmount((card as any).limit));
+
     const statementsById = new Map<string, CardStatement>();
     const statementsByExternalId = new Map<string, CardStatement>();
     cardStatements.forEach((statement) => {
@@ -93,7 +118,7 @@ function buildCardSummary(
     cardTransactions.forEach((transaction) => {
         if (isTransactionExcludedFromTotals(transaction as any)) return;
 
-        const amount = toPositiveAmount(Number((transaction as any).amount));
+        const amount = toPositiveAmount(toAmount((transaction as any).amount));
         if (amount <= 0) return;
 
         const linkedStatementId = getTransactionInvoiceId(transaction as any);
@@ -135,6 +160,12 @@ function buildCardSummary(
     txTotalsByStatementKey.forEach((txAmount, key) => {
         const statement = statementsByKey.get(key);
         if (statement?.status === 'paid') return;
+        if (
+            statement?.amountMode === 'manual'
+            && (processedStatementIds.has(statement.id) || processedKeys.has(key))
+        ) {
+            return;
+        }
 
         const effectiveAmount = statement?.amountMode === 'manual'
             ? toPositiveAmount(statement.totalAmount)
@@ -172,9 +203,27 @@ function buildCardSummary(
         currentCycleAmount = toPositiveAmount(currentStatement.totalAmount);
     }
 
-    const available = card.limit - outstanding;
-    const usedPercent = card.limit > 0
-        ? Math.min((toPositiveAmount(outstanding) / card.limit) * 100, 100)
+    let selectedMonthOutstanding: number | undefined = undefined;
+    if (options?.month !== undefined && options?.year !== undefined) {
+        const selectedKey = statementMonthYearKey(options.month, options.year);
+        const selectedStatement = statementsByKey.get(selectedKey);
+
+        if (selectedStatement?.status === 'paid') {
+            selectedMonthOutstanding = 0;
+        } else if (selectedStatement?.amountMode === 'manual') {
+            selectedMonthOutstanding = toPositiveAmount(selectedStatement.totalAmount);
+        } else {
+            const byKeyAmount = toPositiveAmount(txTotalsByStatementKey.get(selectedKey) || 0);
+            const linkedAmount = selectedStatement
+                ? toPositiveAmount(txTotalsByLinkedStatementId.get(selectedStatement.id) || 0)
+                : 0;
+            selectedMonthOutstanding = byKeyAmount + linkedAmount;
+        }
+    }
+
+    const available = cardLimit - outstanding;
+    const usedPercent = cardLimit > 0
+        ? Math.min((toPositiveAmount(outstanding) / cardLimit) * 100, 100)
         : 0;
 
     return {
@@ -182,14 +231,17 @@ function buildCardSummary(
         available,
         usedPercent,
         currentCycleAmount,
+        selectedMonthOutstanding,
     };
 }
 
-export function useCardsLimitSummary(cards: CreditCard[]) {
+export function useCardsLimitSummary(cards: CreditCard[], options?: UseCardsLimitSummaryOptions) {
     const { workspace } = useWorkspace();
     const [cardTransactions, setCardTransactions] = useState<Transaction[]>([]);
     const [cardStatements, setCardStatements] = useState<CardStatement[]>([]);
     const [loading, setLoading] = useState(true);
+    const selectedMonth = options?.month;
+    const selectedYear = options?.year;
 
     useEffect(() => {
         if (!workspace?.id) {
@@ -221,6 +273,7 @@ export function useCardsLimitSummary(cards: CreditCard[]) {
 
                         return {
                             ...transaction,
+                            amount: toAmount((transaction as any).amount),
                             date: normalizeLegacyDateOnlyTimestamp(transaction.date),
                         } as Transaction;
                     })
@@ -266,14 +319,22 @@ export function useCardsLimitSummary(cards: CreditCard[]) {
         cards.forEach((card) => {
             const transactionsForCard = cardTransactions.filter((transaction) => transaction.cardId === card.id);
             const statementsForCard = cardStatements.filter((statement) => statement.cardId === card.id);
-            summaries[card.id] = buildCardSummary(card, transactionsForCard, statementsForCard);
+            summaries[card.id] = buildCardSummary(
+                card,
+                transactionsForCard,
+                statementsForCard,
+                { month: selectedMonth, year: selectedYear }
+            );
         });
 
         return summaries;
-    }, [cards, cardTransactions, cardStatements]);
+    }, [cards, cardTransactions, cardStatements, selectedMonth, selectedYear]);
 
     const totals = useMemo(() => {
-        const totalLimit = cards.reduce((acc, card) => acc + card.limit, 0);
+        const totalLimit = cards.reduce(
+            (acc, card) => acc + toPositiveAmount(toAmount((card as any).limit)),
+            0
+        );
         const totalOutstanding = cards.reduce(
             (acc, card) => acc + (summaryByCard[card.id]?.outstanding || 0),
             0

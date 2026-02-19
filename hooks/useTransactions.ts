@@ -92,6 +92,8 @@ export function useTransactions(month?: number, year?: number) {
                 });
             }
 
+            items = items.filter((transaction) => !isTransactionExcludedFromTotals(transaction as any));
+
             // Ordenar por data (mais recente primeiro)
             items.sort((a, b) => b.date - a.date);
 
@@ -489,6 +491,7 @@ export function useCardTransactions(
 
                 return {
                     ...transaction,
+                    amount: toTransactionAmount((transaction as any).amount),
                     date: normalizeLegacyDateOnlyTimestamp(transaction.date),
                 } as Transaction;
             });
@@ -527,7 +530,7 @@ export function useCardTransactions(
         return () => unsubscribe();
     }, [workspace?.id, cardId, month, year, closingDay, statementId]);
 
-    const total = transactions.reduce((acc, t) => acc + Number((t as any).amount || 0), 0);
+    const total = transactions.reduce((acc, t) => acc + toTransactionAmount((t as any).amount), 0);
 
     return { transactions, loading, total };
 }

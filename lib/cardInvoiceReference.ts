@@ -11,11 +11,23 @@ function toInt(value: unknown): number | null {
         return Math.trunc(value);
     }
     if (typeof value === 'string' && value.trim() !== '') {
-        const parsed = Number(value);
+        const trimmed = value.trim();
+        const parsed = Number(trimmed);
         if (Number.isFinite(parsed)) return Math.trunc(parsed);
+
+        const parsedDate = Date.parse(trimmed);
+        if (Number.isFinite(parsedDate)) return Math.trunc(parsedDate);
     }
     if (value && typeof value === 'object') {
         const source = value as Record<string, unknown>;
+
+        const toDate = source.toDate;
+        if (typeof toDate === 'function') {
+            const date = (toDate as () => Date)();
+            if (date instanceof Date && Number.isFinite(date.getTime())) {
+                return Math.trunc(date.getTime());
+            }
+        }
 
         const toMillis = source.toMillis;
         if (typeof toMillis === 'function') {
@@ -26,6 +38,11 @@ function toInt(value: unknown): number | null {
         const seconds = source.seconds;
         if (typeof seconds === 'number' && Number.isFinite(seconds)) {
             return Math.trunc(seconds * 1000);
+        }
+
+        const milliseconds = source.milliseconds;
+        if (typeof milliseconds === 'number' && Number.isFinite(milliseconds)) {
+            return Math.trunc(milliseconds);
         }
 
         if (value instanceof Date) {
@@ -146,7 +163,40 @@ export function isTransactionExcludedFromTotals(transaction: Partial<Transaction
         source.exclude_from_invoice_totals,
     ];
 
-    return flags.some(parseBooleanLike);
+    if (flags.some(parseBooleanLike)) return true;
+
+    const description = typeof source.description === 'string'
+        ? source.description.trim().toLowerCase()
+        : '';
+    const hasCardContext = Boolean(source.cardId) || Boolean(getTransactionInvoiceId(source));
+
+    if (description && hasCardContext) {
+        const technicalDescriptions = [
+            'fatura atualizada',
+            'fatura ajustada',
+            'ajuste de saldo',
+            'ajuste saldo',
+            'ajuste de fatura',
+            'ajuste fatura',
+        ];
+
+        if (technicalDescriptions.some((entry) => description === entry || description.startsWith(`${entry} `))) {
+            return true;
+        }
+    }
+
+    const sourceType = typeof source.source === 'string' ? source.source.trim().toLowerCase() : '';
+    if (sourceType) {
+        const technicalSources = [
+            'system',
+            'operational',
+            'card_statement_adjustment',
+            'invoice_adjustment',
+        ];
+        if (technicalSources.includes(sourceType)) return true;
+    }
+
+    return false;
 }
 
 export function resolveTransactionStatementReference(

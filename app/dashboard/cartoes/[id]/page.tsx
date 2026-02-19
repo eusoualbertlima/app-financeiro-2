@@ -41,7 +41,10 @@ export default function CartaoDetalhePage() {
     const { data: cartoes } = useCollection<CardType>("credit_cards");
     const { data: contas } = useCollection<Account>("accounts");
     const cartao = cartoes.find(c => c.id === cardId);
-    const { summaryByCard } = useCardsLimitSummary(cartao ? [cartao] : []);
+    const { summaryByCard } = useCardsLimitSummary(
+        cartao ? [cartao] : [],
+        { month, year }
+    );
     const {
         statement, loading: stmtLoading,
         generateStatement, updateAmount, payStatement, reopenStatement
@@ -113,15 +116,17 @@ export default function CartaoDetalhePage() {
         );
     }
 
-    const fallbackOutstanding = statement?.totalAmount ?? total;
-    const totalOutstanding = summaryByCard[cartao.id]?.outstanding ?? fallbackOutstanding;
-    const faturaStatus = statement?.status || 'open';
-    const selectedInvoiceOutstanding = faturaStatus === 'paid' ? 0 : fallbackOutstanding;
-    const available = cartao.limit - totalOutstanding;
-    const usedPct = cartao.limit > 0 ? Math.min((Math.max(totalOutstanding, 0) / cartao.limit) * 100, 100) : 0;
     const effectiveInvoiceTotal = statement?.amountMode === 'manual'
         ? statement.totalAmount
         : total;
+    const selectedMonthOutstanding = summaryByCard[cartao.id]?.selectedMonthOutstanding;
+    const totalOutstanding = summaryByCard[cartao.id]?.outstanding ?? effectiveInvoiceTotal;
+    const faturaStatus = statement?.status || 'open';
+    const selectedInvoiceOutstanding = faturaStatus === 'paid'
+        ? 0
+        : (selectedMonthOutstanding ?? effectiveInvoiceTotal);
+    const available = cartao.limit - totalOutstanding;
+    const usedPct = cartao.limit > 0 ? Math.min((Math.max(totalOutstanding, 0) / cartao.limit) * 100, 100) : 0;
 
     const handlePayFatura = async () => {
         if (!payAccountId) return;

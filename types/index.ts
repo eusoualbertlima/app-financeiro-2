@@ -91,7 +91,14 @@ export interface Transaction {
     paidAccountId?: string;
 
     // Origem e vínculos de automações/fluxos internos
-    source?: 'manual' | 'bill_payment' | 'transfer';
+    source?:
+        | 'manual'
+        | 'bill_payment'
+        | 'transfer'
+        | 'system'
+        | 'operational'
+        | 'card_statement_adjustment'
+        | 'invoice_adjustment';
     billPaymentId?: string;
 
     // Metadados para transferência entre contas
@@ -108,6 +115,10 @@ export interface Transaction {
     invoice_ref?: string;
     invoiceMonth?: number;
     invoiceYear?: number;
+    excludeFromTotals?: boolean;
+    exclude_from_totals?: boolean;
+    excludeFromInvoiceTotals?: boolean;
+    exclude_from_invoice_totals?: boolean;
 }
 
 // Despesa Fixa (Recorrente)
