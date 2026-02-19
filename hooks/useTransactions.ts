@@ -501,7 +501,9 @@ export function useCardTransactions(
                 items = items.filter(t => {
                     const txInvoiceId = getTransactionInvoiceId(t as any);
                     if (statementId && txInvoiceId) {
-                        return txInvoiceId === statementId;
+                        // Compatibilidade: se o id de referência não bater com o id do doc da fatura,
+                        // ainda tentamos resolver por competência (mês/ano + fechamento).
+                        if (txInvoiceId === statementId) return true;
                     }
 
                     const statementRef = resolveTransactionStatementReference(t as any, closingDay);

@@ -20,7 +20,7 @@ import {
     Receipt
 } from "lucide-react";
 import Link from "next/link";
-import type { Account, CreditCard as CardType, RecurringBill } from "@/types";
+import type { Account, BillPayment, CardStatement, CreditCard as CardType, RecurringBill } from "@/types";
 import { Header } from "@/components/Navigation";
 import { DonutChart, BarChart } from "@/components/Charts";
 import { OnboardingGuide } from "@/components/OnboardingGuide";
@@ -30,6 +30,8 @@ export default function DashboardPage() {
     const { data: contas } = useCollection<Account>("accounts");
     const { data: cartoes } = useCollection<CardType>("credit_cards");
     const { data: recurringBills } = useCollection<RecurringBill>("recurring_bills");
+    const { data: cardStatements } = useCollection<CardStatement>("card_statements");
+    const { data: allBillPayments } = useCollection<BillPayment>("bill_payments");
     const { summaryByCard, totals: cardTotals, loading: cardLimitsLoading } = useCardsLimitSummary(cartoes);
 
     // Dados do mês atual
@@ -38,6 +40,7 @@ export default function DashboardPage() {
     const currentYear = now.getFullYear();
 
     const { transactions, totals, loading: transLoading } = useTransactions(currentMonth, currentYear);
+    const { transactions: allTransactions } = useTransactions();
     const { payments, summary: billSummary, loading: billsLoading } = useBillPayments(currentMonth, currentYear);
 
     const saldoTotal = contas.reduce((acc, conta) => acc + conta.balance, 0);
@@ -68,19 +71,29 @@ export default function DashboardPage() {
         .sort((a, b) => a.dueDay - b.dueDay);
     const pendingBillsAmount = pendingBills.reduce((acc, p) => acc + p.amount, 0);
 
-    // Saldo Projetado
-    // = Saldo Atual + Receitas Pendentes - Despesas Pendentes (Transações + Contas Fixas)
-    // Nota: Transações de contas fixas pagas já estão em totals.expense se criadas, mas as pendentes estão só em pendingBills
-
-    const pendingIncomeTransactions = transactions
-        .filter(t => t.type === 'income' && t.status === 'pending')
+    // Saldo Projetado (dinâmico)
+    // = Saldo Atual + receitas pendentes - (despesas pendentes + contas fixas pendentes + faturas não pagas)
+    const pendingIncomeTransactions = allTransactions
+        .filter(t => t.type === 'income' && t.status === 'pending' && t.source !== 'transfer')
         .reduce((acc, t) => acc + t.amount, 0);
 
-    const pendingExpenseTransactions = transactions
-        .filter(t => t.type === 'expense' && t.status === 'pending')
+    const pendingExpenseTransactions = allTransactions
+        .filter(t => t.type === 'expense' && t.status === 'pending' && t.source !== 'transfer')
         .reduce((acc, t) => acc + t.amount, 0);
 
-    const projectedBalance = saldoTotal + pendingIncomeTransactions - (pendingExpenseTransactions + pendingBillsAmount);
+    const projectedPendingBillsAmount = allBillPayments
+        .filter((payment) => payment.status === 'pending' || payment.status === 'overdue')
+        .reduce((acc, payment) => acc + Number(payment.amount || 0), 0);
+
+    const projectedUnpaidCardStatementsAmount = cardStatements
+        .filter((statement) => statement.status !== 'paid')
+        .reduce((acc, statement) => acc + Number(statement.totalAmount || 0), 0);
+
+    const projectedBalance = saldoTotal + pendingIncomeTransactions - (
+        pendingExpenseTransactions
+        + projectedPendingBillsAmount
+        + projectedUnpaidCardStatementsAmount
+    );
 
     // Últimas transações (5 mais recentes)
     const recentTransactions = transactions.slice(0, 5);
@@ -242,7 +255,13 @@ export default function DashboardPage() {
                                     + {formatCurrency(pendingIncomeTransactions)} a receber
                                 </p>
                                 <p className="text-xs text-slate-400">
-                                    - {formatCurrency(pendingExpenseTransactions + pendingBillsAmount)} a pagar
+                                    - {formatCurrency(pendingExpenseTransactions)} pendente de lançamentos
+                                </p>
+                                <p className="text-xs text-slate-400">
+                                    - {formatCurrency(projectedPendingBillsAmount)} contas fixas pendentes
+                                </p>
+                                <p className="text-xs text-slate-400">
+                                    - {formatCurrency(projectedUnpaidCardStatementsAmount)} faturas em aberto
                                 </p>
                             </div>
                         </div>

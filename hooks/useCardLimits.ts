@@ -88,6 +88,26 @@ function getStatementIdentifiers(statement: CardStatement | (CardStatement & Rec
     return Array.from(ids);
 }
 
+function resolveStatementEffectiveAmount(statement: CardStatement | undefined, txAmount: number) {
+    const normalizedTxAmount = toPositiveAmount(txAmount);
+    if (!statement) return normalizedTxAmount;
+    if (statement.amountMode !== 'manual') return normalizedTxAmount;
+
+    const source = statement as CardStatement & Record<string, unknown>;
+    const rawManualDelta: unknown = source.manualDelta;
+    const hasManualDelta =
+        rawManualDelta !== undefined
+        && rawManualDelta !== null
+        && !(typeof rawManualDelta === 'string' && rawManualDelta.trim() === '');
+
+    if (!hasManualDelta) {
+        return toPositiveAmount(statement.totalAmount);
+    }
+
+    const manualDelta = toAmount(rawManualDelta);
+    return toPositiveAmount(normalizedTxAmount + manualDelta);
+}
+
 function buildCardSummary(
     card: CreditCard,
     cardTransactions: Transaction[],
@@ -146,9 +166,7 @@ function buildCardSummary(
         const statement = statementsById.get(statementId);
         if (statement?.status === 'paid') return;
 
-        const effectiveAmount = statement?.amountMode === 'manual'
-            ? toPositiveAmount(statement.totalAmount)
-            : txAmount;
+        const effectiveAmount = resolveStatementEffectiveAmount(statement, txAmount);
 
         outstanding += effectiveAmount;
         processedStatementIds.add(statementId);
@@ -167,9 +185,7 @@ function buildCardSummary(
             return;
         }
 
-        const effectiveAmount = statement?.amountMode === 'manual'
-            ? toPositiveAmount(statement.totalAmount)
-            : txAmount;
+        const effectiveAmount = resolveStatementEffectiveAmount(statement, txAmount);
 
         outstanding += effectiveAmount;
         processedKeys.add(key);
@@ -183,7 +199,10 @@ function buildCardSummary(
         if (statement.status === 'paid') return;
         if (statement.amountMode !== 'manual') return;
         if (processedKeys.has(key) || processedStatementIds.has(statement.id)) return;
-        outstanding += toPositiveAmount(statement.totalAmount);
+        const fallbackTxAmount =
+            toPositiveAmount(txTotalsByStatementKey.get(key) || 0)
+            + toPositiveAmount(txTotalsByLinkedStatementId.get(statement.id) || 0);
+        outstanding += resolveStatementEffectiveAmount(statement, fallbackTxAmount);
     });
 
     const nowReference = resolveCardStatementReference(Date.now(), card.closingDay);
@@ -199,8 +218,8 @@ function buildCardSummary(
     });
 
     const currentStatement = statementsByKey.get(currentKey);
-    if (currentStatement?.amountMode === 'manual' && currentStatement.status !== 'paid') {
-        currentCycleAmount = toPositiveAmount(currentStatement.totalAmount);
+    if (currentStatement && currentStatement.status !== 'paid') {
+        currentCycleAmount = resolveStatementEffectiveAmount(currentStatement, currentCycleAmount);
     }
 
     let selectedMonthOutstanding: number | undefined = undefined;
@@ -210,14 +229,15 @@ function buildCardSummary(
 
         if (selectedStatement?.status === 'paid') {
             selectedMonthOutstanding = 0;
-        } else if (selectedStatement?.amountMode === 'manual') {
-            selectedMonthOutstanding = toPositiveAmount(selectedStatement.totalAmount);
         } else {
             const byKeyAmount = toPositiveAmount(txTotalsByStatementKey.get(selectedKey) || 0);
             const linkedAmount = selectedStatement
                 ? toPositiveAmount(txTotalsByLinkedStatementId.get(selectedStatement.id) || 0)
                 : 0;
-            selectedMonthOutstanding = byKeyAmount + linkedAmount;
+            selectedMonthOutstanding = resolveStatementEffectiveAmount(
+                selectedStatement,
+                byKeyAmount + linkedAmount
+            );
         }
     }
 

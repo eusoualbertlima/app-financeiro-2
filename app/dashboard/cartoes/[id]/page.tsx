@@ -66,12 +66,13 @@ export default function CartaoDetalhePage() {
 
     // Update statement total when transactions change
     useEffect(() => {
+        const manualDelta = Number((statement as any)?.manualDelta || 0);
+        const expectedTotal = Math.max(0, total + manualDelta);
         if (
             statement
             && !transLoading
             && statement.status === 'open'
-            && statement.amountMode !== 'manual'
-            && total !== statement.totalAmount
+            && Math.abs(expectedTotal - statement.totalAmount) > 0.009
         ) {
             updateAmount(total, { source: 'auto' });
         }
@@ -116,9 +117,7 @@ export default function CartaoDetalhePage() {
         );
     }
 
-    const effectiveInvoiceTotal = statement?.amountMode === 'manual'
-        ? statement.totalAmount
-        : total;
+    const effectiveInvoiceTotal = statement?.totalAmount ?? total;
     const selectedMonthOutstanding = summaryByCard[cartao.id]?.selectedMonthOutstanding;
     const totalOutstanding = summaryByCard[cartao.id]?.outstanding ?? effectiveInvoiceTotal;
     const faturaStatus = statement?.status || 'open';
@@ -127,6 +126,9 @@ export default function CartaoDetalhePage() {
         : (selectedMonthOutstanding ?? effectiveInvoiceTotal);
     const available = cartao.limit - totalOutstanding;
     const usedPct = cartao.limit > 0 ? Math.min((Math.max(totalOutstanding, 0) / cartao.limit) * 100, 100) : 0;
+    const statementAdjustments = Array.isArray((statement as any)?.adjustments)
+        ? ([...(statement as any).adjustments] as Array<any>).sort((a, b) => (b?.at || 0) - (a?.at || 0))
+        : [];
 
     const handlePayFatura = async () => {
         if (!payAccountId) return;
@@ -138,6 +140,8 @@ export default function CartaoDetalhePage() {
     const handleEditAmount = async () => {
         await updateAmount(editAmount, {
             source: 'manual',
+            baseAutoTotal: total,
+            note: 'Ajuste manual da fatura',
             createIfMissing: {
                 cardName: cartao.name,
                 closingDay: cartao.closingDay,
@@ -267,6 +271,36 @@ export default function CartaoDetalhePage() {
                     )}
                 </div>
             </div>
+
+            {statementAdjustments.length > 0 && (
+                <div className="card p-5 mb-6">
+                    <h3 className="font-semibold text-slate-900 mb-3">Histórico de Ajustes</h3>
+                    <div className="space-y-2">
+                        {statementAdjustments.slice(0, 6).map((entry, idx) => (
+                            <div key={`${entry.at || 0}-${idx}`} className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                                <div className="flex items-center justify-between gap-3">
+                                    <p className="text-sm font-medium text-slate-700">
+                                        {entry?.source === 'manual' ? 'Ajuste manual' : 'Sincronização automática'}
+                                    </p>
+                                    <p className="text-xs text-slate-500">
+                                        {entry?.at ? formatDate(entry.at) : '-'}
+                                    </p>
+                                </div>
+                                <p className="text-sm text-slate-600 mt-1">
+                                    {formatCurrency(Number(entry?.previousAmount || 0))}
+                                    {' -> '}
+                                    <span className="font-semibold text-slate-900">{formatCurrency(Number(entry?.newAmount || 0))}</span>
+                                </p>
+                                {Number.isFinite(Number(entry?.delta)) && (
+                                    <p className="text-xs text-slate-500 mt-1">
+                                        Delta manual: {formatCurrency(Number(entry?.delta || 0))}
+                                    </p>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Transactions List */}

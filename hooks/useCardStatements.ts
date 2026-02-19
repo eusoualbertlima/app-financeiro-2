@@ -2,6 +2,7 @@ import {
     collection,
     doc,
     addDoc,
+    arrayUnion,
     updateDoc,
     query,
     where,
@@ -105,6 +106,8 @@ export function useCardStatements(cardId: string, month?: number, year?: number)
     // Atualizar valor da fatura
     type UpdateAmountOptions = {
         source?: 'auto' | 'manual';
+        baseAutoTotal?: number;
+        note?: string;
         createIfMissing?: {
             cardName: string;
             closingDay: number;
@@ -118,9 +121,11 @@ export function useCardStatements(cardId: string, month?: number, year?: number)
     ) => {
         if (!workspace?.id || !cardId || month === undefined || year === undefined) return;
         const source = options?.source || 'manual';
+        const normalizedNewAmount = Number.isFinite(newAmount) ? Math.max(0, newAmount) : 0;
 
         let targetStatementId = statement?.id;
         let previousAmount = statement?.totalAmount ?? 0;
+        let snapshotData = statement as CardStatement | null;
 
         if (!targetStatementId) {
             const existingQuery = query(
@@ -134,11 +139,29 @@ export function useCardStatements(cardId: string, month?: number, year?: number)
             if (!existing.empty) {
                 const docSnap = existing.docs[0];
                 targetStatementId = docSnap.id;
-                previousAmount = Number((docSnap.data() as CardStatement).totalAmount || 0);
+                snapshotData = { id: docSnap.id, ...docSnap.data() } as CardStatement;
+                previousAmount = Number(snapshotData.totalAmount || 0);
             } else {
                 const seed = options?.createIfMissing;
                 if (!seed) return;
 
+                const baseAutoAmount = Number(options?.baseAutoTotal ?? 0);
+                const manualDelta = source === 'manual'
+                    ? normalizedNewAmount - baseAutoAmount
+                    : 0;
+                const now = Date.now();
+                const adjustmentEntry = source === 'manual'
+                    ? {
+                        at: now,
+                        actorUid: user?.uid || null,
+                        source: 'manual' as const,
+                        previousAmount: 0,
+                        newAmount: normalizedNewAmount,
+                        baseAutoAmount,
+                        delta: manualDelta,
+                        note: options?.note || 'Ajuste manual de fatura',
+                    }
+                    : null;
                 const { closingDate, dueDate } = resolveStatementDates(month, year, seed.closingDay, seed.dueDay);
                 const docRef = await addDoc(collection(db, `workspaces/${workspace.id}/card_statements`), {
                     cardId,
@@ -147,36 +170,77 @@ export function useCardStatements(cardId: string, month?: number, year?: number)
                     year,
                     closingDate,
                     dueDate,
-                    totalAmount: newAmount,
-                    amountMode: source,
+                    totalAmount: normalizedNewAmount,
+                    amountMode: source === 'manual' && Math.abs(manualDelta) > 0.009 ? 'manual' : 'auto',
+                    manualDelta: manualDelta,
+                    lastAdjustedAt: source === 'manual' ? now : null,
+                    adjustments: adjustmentEntry ? [adjustmentEntry] : [],
                     status: 'open',
                 });
+                targetStatementId = docRef.id;
 
                 await recordWorkspaceAuditEvent({
                     workspaceId: workspace.id,
                     actorUid: user?.uid,
-                    action: 'create',
+                    action: source === 'manual' ? 'update' : 'create',
                     entity: 'card_statements',
                     entityId: docRef.id,
-                    summary: 'Fatura criada manualmente no ajuste.',
+                    summary: source === 'manual'
+                        ? 'Ajuste manual criou fatura inexistente no período.'
+                        : 'Fatura criada manualmente.',
                     payload: {
                         cardId,
                         month,
                         year,
-                        totalAmount: newAmount,
+                        previousAmount: 0,
+                        newAmount: normalizedNewAmount,
+                        baseAutoAmount: source === 'manual' ? Number(options?.baseAutoTotal ?? 0) : null,
+                        manualDelta: source === 'manual'
+                            ? normalizedNewAmount - Number(options?.baseAutoTotal ?? 0)
+                            : null,
                         source,
+                        note: options?.note || null,
                     },
                 });
                 return;
             }
         }
 
+        if (!targetStatementId) return;
+
+        const previousManualDelta = Number((snapshotData as any)?.manualDelta || 0);
+        let targetAmount = normalizedNewAmount;
+        const payload: Record<string, unknown> = {};
+        let computedManualDelta = previousManualDelta;
+
+        if (source === 'manual') {
+            const now = Date.now();
+            const baseAutoAmount = Number(options?.baseAutoTotal ?? normalizedNewAmount);
+            computedManualDelta = normalizedNewAmount - baseAutoAmount;
+            payload.totalAmount = normalizedNewAmount;
+            payload.manualDelta = computedManualDelta;
+            payload.amountMode = Math.abs(computedManualDelta) > 0.009 ? 'manual' : 'auto';
+            payload.lastAdjustedAt = now;
+            payload.adjustments = arrayUnion({
+                at: now,
+                actorUid: user?.uid || null,
+                source: 'manual',
+                previousAmount,
+                newAmount: normalizedNewAmount,
+                baseAutoAmount,
+                delta: computedManualDelta,
+                note: options?.note || 'Ajuste manual de fatura',
+            });
+        } else {
+            targetAmount = Math.max(0, normalizedNewAmount + previousManualDelta);
+            payload.totalAmount = targetAmount;
+            payload.manualDelta = previousManualDelta;
+            payload.amountMode = Math.abs(previousManualDelta) > 0.009 ? 'manual' : 'auto';
+        }
+
         await updateDoc(
             doc(db, `workspaces/${workspace.id}/card_statements`, targetStatementId),
-            {
-                totalAmount: newAmount,
-                amountMode: source,
-            }
+            payload
         );
 
         await recordWorkspaceAuditEvent({
@@ -185,11 +249,16 @@ export function useCardStatements(cardId: string, month?: number, year?: number)
             action: 'update',
             entity: 'card_statements',
             entityId: targetStatementId,
-            summary: 'Valor da fatura atualizado.',
+            summary: source === 'manual'
+                ? 'Fatura ajustada manualmente.'
+                : 'Fatura sincronizada automaticamente pelas transações.',
             payload: {
                 previousAmount,
-                newAmount,
+                newAmount: targetAmount,
                 source,
+                baseAutoAmount: source === 'manual' ? Number(options?.baseAutoTotal ?? normalizedNewAmount) : null,
+                manualDelta: source === 'manual' ? computedManualDelta : previousManualDelta,
+                note: options?.note || null,
             },
         });
     };

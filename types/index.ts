@@ -191,6 +191,17 @@ export interface AuditLog {
     createdAt: number;
 }
 
+export interface CardStatementAdjustment {
+    at: number;
+    actorUid?: string | null;
+    source: 'manual' | 'auto';
+    previousAmount: number;
+    newAmount: number;
+    baseAutoAmount?: number;
+    delta?: number;
+    note?: string;
+}
+
 // Fatura do Cartão
 export interface CardStatement {
     id: string;
@@ -202,6 +213,9 @@ export interface CardStatement {
     dueDate: number;
     totalAmount: number;
     amountMode?: 'auto' | 'manual';
+    manualDelta?: number;
+    lastAdjustedAt?: number;
+    adjustments?: CardStatementAdjustment[];
     status: 'open' | 'closed' | 'paid';
     paidAt?: number;
     paidAccountId?: string;
