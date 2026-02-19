@@ -7,6 +7,7 @@ import { normalizeLegacyDateOnlyTimestamp } from '@/lib/dateInput';
 import { resolveCardStatementReference } from '@/lib/cardStatementCycle';
 import {
     getTransactionInvoiceId,
+    isTransactionExcludedFromTotals,
     resolveTransactionStatementReference,
     statementMonthYearKey,
 } from '@/lib/cardInvoiceReference';
@@ -43,14 +44,40 @@ function toPositiveAmount(value: number) {
     return Math.max(0, value);
 }
 
+function getStatementIdentifiers(statement: CardStatement | (CardStatement & Record<string, unknown>)) {
+    const source = statement as CardStatement & Record<string, unknown>;
+    const candidates: unknown[] = [
+        source.id,
+        source.invoiceId,
+        source.invoice_id,
+        source.statementId,
+        source.statement_id,
+        source.faturaId,
+        source.fatura_id,
+    ];
+
+    const ids = new Set<string>();
+    candidates.forEach((value) => {
+        if (typeof value === 'string' && value.trim()) {
+            ids.add(value.trim());
+        }
+    });
+
+    return Array.from(ids);
+}
+
 function buildCardSummary(
     card: CreditCard,
     cardTransactions: Transaction[],
     cardStatements: CardStatement[]
 ): CardLimitSummary {
     const statementsById = new Map<string, CardStatement>();
+    const statementsByExternalId = new Map<string, CardStatement>();
     cardStatements.forEach((statement) => {
         statementsById.set(statement.id, statement);
+        getStatementIdentifiers(statement as any).forEach((key) => {
+            statementsByExternalId.set(key, statement);
+        });
     });
 
     const statementsByKey = new Map<string, CardStatement>();
@@ -64,14 +91,17 @@ function buildCardSummary(
     const txTotalsByStatementKey = new Map<string, number>();
 
     cardTransactions.forEach((transaction) => {
+        if (isTransactionExcludedFromTotals(transaction as any)) return;
+
         const amount = toPositiveAmount(Number((transaction as any).amount));
         if (amount <= 0) return;
 
         const linkedStatementId = getTransactionInvoiceId(transaction as any);
-        if (linkedStatementId && statementsById.has(linkedStatementId)) {
+        const linkedStatement = linkedStatementId ? statementsByExternalId.get(linkedStatementId) : null;
+        if (linkedStatement) {
             txTotalsByLinkedStatementId.set(
-                linkedStatementId,
-                (txTotalsByLinkedStatementId.get(linkedStatementId) || 0) + amount
+                linkedStatement.id,
+                (txTotalsByLinkedStatementId.get(linkedStatement.id) || 0) + amount
             );
             return;
         }

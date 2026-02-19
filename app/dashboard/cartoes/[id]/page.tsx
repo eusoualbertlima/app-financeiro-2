@@ -65,13 +65,14 @@ export default function CartaoDetalhePage() {
     useEffect(() => {
         if (
             statement
+            && !transLoading
             && statement.status === 'open'
             && statement.amountMode !== 'manual'
             && total !== statement.totalAmount
         ) {
             updateAmount(total, { source: 'auto' });
         }
-    }, [total, statement]);
+    }, [total, statement, transLoading]);
 
     const formatCurrency = (v: number) =>
         new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
@@ -113,10 +114,11 @@ export default function CartaoDetalhePage() {
     }
 
     const fallbackOutstanding = statement?.totalAmount ?? total;
-    const outstanding = summaryByCard[cartao.id]?.outstanding ?? fallbackOutstanding;
-    const available = cartao.limit - outstanding;
-    const usedPct = cartao.limit > 0 ? Math.min((Math.max(outstanding, 0) / cartao.limit) * 100, 100) : 0;
+    const totalOutstanding = summaryByCard[cartao.id]?.outstanding ?? fallbackOutstanding;
     const faturaStatus = statement?.status || 'open';
+    const selectedInvoiceOutstanding = faturaStatus === 'paid' ? 0 : fallbackOutstanding;
+    const available = cartao.limit - totalOutstanding;
+    const usedPct = cartao.limit > 0 ? Math.min((Math.max(totalOutstanding, 0) / cartao.limit) * 100, 100) : 0;
     const effectiveInvoiceTotal = statement?.amountMode === 'manual'
         ? statement.totalAmount
         : total;
@@ -160,7 +162,7 @@ export default function CartaoDetalhePage() {
                     </div>
                     <div className="text-center">
                         <p className="text-xs text-white/60 uppercase mb-1">Em aberto</p>
-                        <p className="text-lg font-bold">{formatCurrency(outstanding)}</p>
+                        <p className="text-lg font-bold">{formatCurrency(selectedInvoiceOutstanding)}</p>
                     </div>
                     <div className="text-right">
                         <p className="text-xs text-white/60 uppercase mb-1">Disponível</p>

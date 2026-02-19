@@ -14,6 +14,25 @@ function toInt(value: unknown): number | null {
         const parsed = Number(value);
         if (Number.isFinite(parsed)) return Math.trunc(parsed);
     }
+    if (value && typeof value === 'object') {
+        const source = value as Record<string, unknown>;
+
+        const toMillis = source.toMillis;
+        if (typeof toMillis === 'function') {
+            const millis = (toMillis as () => number)();
+            if (Number.isFinite(millis)) return Math.trunc(millis);
+        }
+
+        const seconds = source.seconds;
+        if (typeof seconds === 'number' && Number.isFinite(seconds)) {
+            return Math.trunc(seconds * 1000);
+        }
+
+        if (value instanceof Date) {
+            const millis = value.getTime();
+            if (Number.isFinite(millis)) return Math.trunc(millis);
+        }
+    }
     return null;
 }
 
@@ -106,6 +125,28 @@ export function getTransactionInvoiceId(transaction: Partial<Transaction> | Reco
     }
 
     return null;
+}
+
+function parseBooleanLike(value: unknown) {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return value === 1;
+    if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase();
+        return normalized === 'true' || normalized === '1' || normalized === 'yes';
+    }
+    return false;
+}
+
+export function isTransactionExcludedFromTotals(transaction: Partial<Transaction> | Record<string, unknown>) {
+    const source = transaction as Record<string, unknown>;
+    const flags: unknown[] = [
+        source.excludeFromTotals,
+        source.exclude_from_totals,
+        source.excludeFromInvoiceTotals,
+        source.exclude_from_invoice_totals,
+    ];
+
+    return flags.some(parseBooleanLike);
 }
 
 export function resolveTransactionStatementReference(

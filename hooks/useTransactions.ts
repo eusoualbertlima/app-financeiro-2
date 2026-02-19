@@ -23,6 +23,7 @@ import { normalizeLegacyDateOnlyTimestamp } from '@/lib/dateInput';
 import { resolveCardStatementReference } from '@/lib/cardStatementCycle';
 import {
     getTransactionInvoiceId,
+    isTransactionExcludedFromTotals,
     resolveTransactionStatementReference,
 } from '@/lib/cardInvoiceReference';
 
@@ -35,6 +36,21 @@ function cleanUndefined<T extends Record<string, any>>(obj: T): Partial<T> {
 
 function resolveTransactionAccountId(transaction: Partial<Transaction>) {
     return transaction.paidAccountId || transaction.accountId;
+}
+
+function toTransactionAmount(value: unknown) {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (!trimmed) return 0;
+
+        const direct = Number(trimmed);
+        if (Number.isFinite(direct)) return direct;
+
+        const normalized = Number(trimmed.replace(/\./g, '').replace(',', '.'));
+        if (Number.isFinite(normalized)) return normalized;
+    }
+    return 0;
 }
 
 export function useTransactions(month?: number, year?: number) {
@@ -57,6 +73,7 @@ export function useTransactions(month?: number, year?: number) {
 
                 return {
                     ...transaction,
+                    amount: toTransactionAmount((transaction as any).amount),
                     date: normalizeLegacyDateOnlyTimestamp(transaction.date),
                 } as Transaction;
             });
@@ -498,6 +515,9 @@ export function useCardTransactions(
                     return date.getMonth() + 1 === month && date.getFullYear() === year;
                 });
             }
+
+            // Remover ajustes técnicos que não devem entrar em gráficos/total da fatura
+            items = items.filter((transaction) => !isTransactionExcludedFromTotals(transaction as any));
 
             items.sort((a, b) => b.date - a.date);
             setTransactions(items);
