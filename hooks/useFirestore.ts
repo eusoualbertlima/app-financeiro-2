@@ -25,9 +25,23 @@ function pickPreferredWorkspaceDoc(
 ) {
     if (docs.length <= 1) return docs[0] || null;
 
+    const getBillingPriority = (doc: { id: string; data: () => Record<string, unknown> }) => {
+        const workspaceLike = { id: doc.id, ...(doc.data() as Omit<Workspace, "id">) } as Workspace;
+        const status = normalizeWorkspaceBilling(workspaceLike).status;
+        if (status === "active") return 5;
+        if (status === "trialing") return 4;
+        if (status === "past_due") return 3;
+        if (status === "canceled") return 2;
+        return 1;
+    };
+
     const sorted = [...docs].sort((a, b) => {
         const aData = a.data();
         const bData = b.data();
+        const aBillingPriority = getBillingPriority(a);
+        const bBillingPriority = getBillingPriority(b);
+        if (aBillingPriority !== bBillingPriority) return bBillingPriority - aBillingPriority;
+
         const aMembers = Array.isArray(aData.members) ? aData.members.length : 0;
         const bMembers = Array.isArray(bData.members) ? bData.members.length : 0;
         if (aMembers !== bMembers) return bMembers - aMembers;
@@ -174,7 +188,8 @@ export function useWorkspace() {
                     return;
                 }
 
-                if (snapshot.docs.length > 1) {
+                const shouldTryRecoverSelection = snapshot.docs.length > 1 || Boolean(user.email);
+                if (shouldTryRecoverSelection) {
                     const recoveredWorkspace = await recoverWorkspaceViaApi(false);
                     if (recoveredWorkspace) {
                         return;

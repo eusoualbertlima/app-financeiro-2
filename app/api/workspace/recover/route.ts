@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { requireUserFromRequest } from "@/lib/serverAuth";
-import { getDefaultTrialEndsAt } from "@/lib/billing";
+import { getDefaultTrialEndsAt, normalizeWorkspaceBilling } from "@/lib/billing";
 import type { Workspace } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -56,9 +56,23 @@ function pickPreferredWorkspace(
 ) {
     if (candidates.length === 0) return null;
 
+    const getBillingPriority = (workspace: { id: string; data: WorkspaceRecord }) => {
+        const workspaceLike = { id: workspace.id, ...workspace.data } as Workspace;
+        const status = normalizeWorkspaceBilling(workspaceLike).status;
+        if (status === "active") return 5;
+        if (status === "trialing") return 4;
+        if (status === "past_due") return 3;
+        if (status === "canceled") return 2;
+        return 1;
+    };
+
     const ranked = [...candidates].sort((a, b) => {
         const aMembers = Array.isArray(a.data.members) ? a.data.members : [];
         const bMembers = Array.isArray(b.data.members) ? b.data.members : [];
+        const aBillingPriority = getBillingPriority(a);
+        const bBillingPriority = getBillingPriority(b);
+
+        if (aBillingPriority !== bBillingPriority) return bBillingPriority - aBillingPriority;
 
         const aIsMember = aMembers.includes(uid) ? 1 : 0;
         const bIsMember = bMembers.includes(uid) ? 1 : 0;
