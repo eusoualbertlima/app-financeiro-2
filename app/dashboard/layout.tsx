@@ -4,7 +4,7 @@ import { Sidebar, MobileNav } from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/hooks/useFirestore";
 import { getWorkspaceAccessState } from "@/lib/billing";
-import { getClientDevAdminAllowlist, hasDevAdminAccess } from "@/lib/devAdmin";
+import { canBypassBilling } from "@/lib/devBillingBypass";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
@@ -17,19 +17,11 @@ export default function DashboardLayout({
     const { workspace, loading: workspaceLoading } = useWorkspace();
     const router = useRouter();
     const access = getWorkspaceAccessState(workspace);
-    const allowlist = getClientDevAdminAllowlist();
-    const isDevAdmin = hasDevAdminAccess({
+    const hasBillingBypass = canBypassBilling({
         uid: user?.uid,
         email: user?.email,
-        allowlist,
     });
-    const ownerIsDevAdmin = hasDevAdminAccess({
-        uid: workspace?.ownerId,
-        email: workspace?.ownerEmail,
-        allowlist,
-    });
-    const hasWorkspaceInternalBypass = Boolean(workspace?.internalBypassByOwner || ownerIsDevAdmin);
-    const hasEffectiveAccess = access.hasAccess || isDevAdmin || hasWorkspaceInternalBypass;
+    const hasEffectiveAccess = access.hasAccess || hasBillingBypass;
 
     useEffect(() => {
         if (authLoading || workspaceLoading) return;

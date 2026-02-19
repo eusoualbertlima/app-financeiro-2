@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth, getAdminDb } from "@/lib/firebaseAdmin";
 import { requireUserFromRequest } from "@/lib/serverAuth";
 import { getDefaultTrialEndsAt, normalizeWorkspaceBilling } from "@/lib/billing";
-import { getServerDevAdminAllowlist, hasDevAdminAccess } from "@/lib/devAdmin";
 import type { Workspace } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -275,19 +274,12 @@ export async function POST(request: NextRequest) {
             await workspacesRef.doc(selected.id).set(patch, { merge: true });
         }
 
-        const ownerIsDevAdmin = hasDevAdminAccess({
-            uid: selected.data.ownerId,
-            email: ownerEmail || selected.data.ownerEmail || null,
-            allowlist: getServerDevAdminAllowlist(),
-        });
-
         const workspace: Workspace = {
             id: selected.id,
             ...selected.data,
             ownerEmail: ownerEmail || selected.data.ownerEmail,
             members: nextMembers,
             pendingInvites: nextPendingInvites,
-            internalBypassByOwner: ownerIsDevAdmin,
         };
 
         let deletedDuplicates = 0;
