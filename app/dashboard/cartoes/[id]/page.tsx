@@ -136,8 +136,14 @@ export default function CartaoDetalhePage() {
     };
 
     const handleEditAmount = async () => {
-        if (!statement) return;
-        await updateAmount(editAmount, { source: 'manual' });
+        await updateAmount(editAmount, {
+            source: 'manual',
+            createIfMissing: {
+                cardName: cartao.name,
+                closingDay: cartao.closingDay,
+                dueDay: cartao.dueDay,
+            },
+        });
         setShowEditAmountModal(false);
     };
 
@@ -236,10 +242,10 @@ export default function CartaoDetalhePage() {
                             <Check className="w-4 h-4" /> Pagar Fatura
                         </button>
                     )}
-                    {faturaStatus !== 'paid' && statement && (
+                    {faturaStatus !== 'paid' && (
                         <button
                             onClick={() => {
-                                setEditAmount(statement.totalAmount);
+                                setEditAmount(statement?.totalAmount ?? selectedInvoiceOutstanding ?? 0);
                                 setShowEditAmountModal(true);
                             }}
                             className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 flex items-center gap-2"

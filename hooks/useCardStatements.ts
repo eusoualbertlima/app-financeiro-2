@@ -3,11 +3,9 @@ import {
     doc,
     addDoc,
     updateDoc,
-    deleteDoc,
     query,
     where,
     onSnapshot,
-    getDoc,
     getDocs,
     increment
 } from 'firebase/firestore';
@@ -105,15 +103,76 @@ export function useCardStatements(cardId: string, month?: number, year?: number)
     };
 
     // Atualizar valor da fatura
+    type UpdateAmountOptions = {
+        source?: 'auto' | 'manual';
+        createIfMissing?: {
+            cardName: string;
+            closingDay: number;
+            dueDay: number;
+        };
+    };
+
     const updateAmount = async (
         newAmount: number,
-        options?: { source?: 'auto' | 'manual' }
+        options?: UpdateAmountOptions
     ) => {
-        if (!workspace?.id || !statement?.id) return;
+        if (!workspace?.id || !cardId || month === undefined || year === undefined) return;
         const source = options?.source || 'manual';
 
+        let targetStatementId = statement?.id;
+        let previousAmount = statement?.totalAmount ?? 0;
+
+        if (!targetStatementId) {
+            const existingQuery = query(
+                collection(db, `workspaces/${workspace.id}/card_statements`),
+                where('cardId', '==', cardId),
+                where('month', '==', month),
+                where('year', '==', year)
+            );
+            const existing = await getDocs(existingQuery);
+
+            if (!existing.empty) {
+                const docSnap = existing.docs[0];
+                targetStatementId = docSnap.id;
+                previousAmount = Number((docSnap.data() as CardStatement).totalAmount || 0);
+            } else {
+                const seed = options?.createIfMissing;
+                if (!seed) return;
+
+                const { closingDate, dueDate } = resolveStatementDates(month, year, seed.closingDay, seed.dueDay);
+                const docRef = await addDoc(collection(db, `workspaces/${workspace.id}/card_statements`), {
+                    cardId,
+                    cardName: seed.cardName,
+                    month,
+                    year,
+                    closingDate,
+                    dueDate,
+                    totalAmount: newAmount,
+                    amountMode: source,
+                    status: 'open',
+                });
+
+                await recordWorkspaceAuditEvent({
+                    workspaceId: workspace.id,
+                    actorUid: user?.uid,
+                    action: 'create',
+                    entity: 'card_statements',
+                    entityId: docRef.id,
+                    summary: 'Fatura criada manualmente no ajuste.',
+                    payload: {
+                        cardId,
+                        month,
+                        year,
+                        totalAmount: newAmount,
+                        source,
+                    },
+                });
+                return;
+            }
+        }
+
         await updateDoc(
-            doc(db, `workspaces/${workspace.id}/card_statements`, statement.id),
+            doc(db, `workspaces/${workspace.id}/card_statements`, targetStatementId),
             {
                 totalAmount: newAmount,
                 amountMode: source,
@@ -125,10 +184,10 @@ export function useCardStatements(cardId: string, month?: number, year?: number)
             actorUid: user?.uid,
             action: 'update',
             entity: 'card_statements',
-            entityId: statement.id,
+            entityId: targetStatementId,
             summary: 'Valor da fatura atualizado.',
             payload: {
-                previousAmount: statement.totalAmount,
+                previousAmount,
                 newAmount,
                 source,
             },
