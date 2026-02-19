@@ -20,12 +20,19 @@ function CheckoutContent() {
     const [message, setMessage] = useState("");
     const [acceptedLegal, setAcceptedLegal] = useState(false);
     const access = getWorkspaceAccessState(workspace);
+    const allowlist = getClientDevAdminAllowlist();
     const isDevAdmin = hasDevAdminAccess({
         uid: user?.uid,
         email: user?.email,
-        allowlist: getClientDevAdminAllowlist(),
+        allowlist,
     });
-    const hasEffectiveAccess = access.hasAccess || isDevAdmin;
+    const ownerIsDevAdmin = hasDevAdminAccess({
+        uid: workspace?.ownerId,
+        email: workspace?.ownerEmail,
+        allowlist,
+    });
+    const hasWorkspaceInternalBypass = Boolean(workspace?.internalBypassByOwner || ownerIsDevAdmin);
+    const hasEffectiveAccess = access.hasAccess || isDevAdmin || hasWorkspaceInternalBypass;
     const isOwner = workspace?.ownerId ? user?.uid === workspace.ownerId : true;
     const paymentSuccess = searchParams.get("success") === "1";
     const paymentCanceled = searchParams.get("canceled") === "1";

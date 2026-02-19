@@ -17,12 +17,19 @@ export default function DashboardLayout({
     const { workspace, loading: workspaceLoading } = useWorkspace();
     const router = useRouter();
     const access = getWorkspaceAccessState(workspace);
+    const allowlist = getClientDevAdminAllowlist();
     const isDevAdmin = hasDevAdminAccess({
         uid: user?.uid,
         email: user?.email,
-        allowlist: getClientDevAdminAllowlist(),
+        allowlist,
     });
-    const hasEffectiveAccess = access.hasAccess || isDevAdmin;
+    const ownerIsDevAdmin = hasDevAdminAccess({
+        uid: workspace?.ownerId,
+        email: workspace?.ownerEmail,
+        allowlist,
+    });
+    const hasWorkspaceInternalBypass = Boolean(workspace?.internalBypassByOwner || ownerIsDevAdmin);
+    const hasEffectiveAccess = access.hasAccess || isDevAdmin || hasWorkspaceInternalBypass;
 
     useEffect(() => {
         if (authLoading || workspaceLoading) return;

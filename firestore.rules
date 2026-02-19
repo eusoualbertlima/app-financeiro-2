@@ -34,6 +34,7 @@ service cloud.firestore {
     function isInviteAcceptanceUpdate(workspaceId) {
       return isInvitedByEmail(workspaceId)
         && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.ownerEmail == resource.data.ownerEmail
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.name == resource.data.name
         && request.resource.data.billing == resource.data.billing

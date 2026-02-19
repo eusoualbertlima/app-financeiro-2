@@ -130,6 +130,7 @@ export function useWorkspace() {
                 name: 'Minhas Finanças',
                 members: [user.uid],
                 ownerId: user.uid,
+                ownerEmail: user.email?.toLowerCase() || undefined,
                 createdAt,
                 billing: {
                     status: 'trialing' as const,

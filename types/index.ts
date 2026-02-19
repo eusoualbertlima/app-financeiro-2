@@ -26,10 +26,12 @@ export interface Workspace {
     name: string;
     members: string[];
     ownerId: string;
+    ownerEmail?: string;
     createdAt: number;
     pendingInvites?: string[];
     billing?: WorkspaceBilling;
     legal?: WorkspaceLegal;
+    internalBypassByOwner?: boolean;
 }
 
 // Conta Bancária

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminDb } from "@/lib/firebaseAdmin";
+import { getAdminAuth, getAdminDb } from "@/lib/firebaseAdmin";
 import { requireUserFromRequest } from "@/lib/serverAuth";
 import { getDefaultTrialEndsAt, normalizeWorkspaceBilling } from "@/lib/billing";
+import { getServerDevAdminAllowlist, hasDevAdminAccess } from "@/lib/devAdmin";
 import type { Workspace } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +43,7 @@ function toWorkspaceRecord(raw: Partial<WorkspaceRecord> | undefined, uid: strin
         name: typeof raw?.name === "string" && raw.name.trim() ? raw.name : "Minhas Finanças",
         members: Array.isArray(raw?.members) ? raw.members.filter(Boolean) : [uid],
         ownerId: typeof raw?.ownerId === "string" && raw.ownerId ? raw.ownerId : uid,
+        ownerEmail: normalizeEmail(raw?.ownerEmail),
         createdAt,
         pendingInvites: Array.isArray(raw?.pendingInvites) ? raw.pendingInvites : [],
         billing,
@@ -205,6 +207,7 @@ export async function POST(request: NextRequest) {
                 name: "Minhas Finanças",
                 members: [uid],
                 ownerId: uid,
+                ownerEmail: normalizedEmail || undefined,
                 createdAt,
                 billing: {
                     status: "trialing",
@@ -250,15 +253,41 @@ export async function POST(request: NextRequest) {
             patch.pendingInvites = nextPendingInvites;
         }
 
+        let ownerEmail = normalizeEmail(selected.data.ownerEmail);
+        if (!ownerEmail && selected.data.ownerId === uid && normalizedEmail) {
+            ownerEmail = normalizedEmail;
+        }
+
+        if (!ownerEmail && selected.data.ownerId) {
+            try {
+                const ownerUser = await getAdminAuth().getUser(selected.data.ownerId);
+                ownerEmail = normalizeEmail(ownerUser.email);
+            } catch (ownerEmailError) {
+                console.warn("workspace recover owner email lookup warning:", ownerEmailError);
+            }
+        }
+
+        if (ownerEmail && ownerEmail !== normalizeEmail(selected.data.ownerEmail)) {
+            patch.ownerEmail = ownerEmail;
+        }
+
         if (Object.keys(patch).length > 0) {
             await workspacesRef.doc(selected.id).set(patch, { merge: true });
         }
 
+        const ownerIsDevAdmin = hasDevAdminAccess({
+            uid: selected.data.ownerId,
+            email: ownerEmail || selected.data.ownerEmail || null,
+            allowlist: getServerDevAdminAllowlist(),
+        });
+
         const workspace: Workspace = {
             id: selected.id,
             ...selected.data,
+            ownerEmail: ownerEmail || selected.data.ownerEmail,
             members: nextMembers,
             pendingInvites: nextPendingInvites,
+            internalBypassByOwner: ownerIsDevAdmin,
         };
 
         let deletedDuplicates = 0;
