@@ -86,25 +86,25 @@ function cubePolygons(cube: IsoCube) {
 
 function stageCubes(stage: CityStage): IsoCube[] {
     if (stage === 1) {
-        return [{ x: 190, y: 180, size: 52, height: 54 }];
+        return [{ x: 190, y: 150, size: 52, height: 54 }];
     }
 
     if (stage === 2) {
         return [
-            { x: 190, y: 184, size: 58, height: 42 },
-            { x: 190, y: 154, size: 50, height: 40 },
-            { x: 190, y: 126, size: 44, height: 36 },
+            { x: 190, y: 162, size: 58, height: 42 },
+            { x: 190, y: 134, size: 50, height: 40 },
+            { x: 190, y: 108, size: 44, height: 36 },
         ];
     }
 
     return [
-        { x: 102, y: 188, size: 34, height: 40, opacity: 0.95 },
-        { x: 150, y: 176, size: 40, height: 64, opacity: 1 },
-        { x: 190, y: 184, size: 46, height: 86, opacity: 1 },
-        { x: 236, y: 174, size: 40, height: 70, opacity: 0.98 },
-        { x: 278, y: 186, size: 34, height: 50, opacity: 0.94 },
-        { x: 170, y: 202, size: 30, height: 28, opacity: 0.86 },
-        { x: 224, y: 204, size: 30, height: 32, opacity: 0.88 },
+        { x: 102, y: 170, size: 34, height: 40, opacity: 0.95 },
+        { x: 150, y: 156, size: 40, height: 64, opacity: 1 },
+        { x: 190, y: 162, size: 46, height: 86, opacity: 1 },
+        { x: 236, y: 154, size: 40, height: 70, opacity: 0.98 },
+        { x: 278, y: 168, size: 34, height: 50, opacity: 0.94 },
+        { x: 170, y: 182, size: 30, height: 28, opacity: 0.86 },
+        { x: 224, y: 184, size: 30, height: 32, opacity: 0.88 },
     ];
 }
 
@@ -113,7 +113,7 @@ function CityVisualizer({ stage, isEnergized }: { stage: CityStage; isEnergized:
     const cubes = stageCubes(stage);
 
     return (
-        <svg viewBox="0 0 380 260" className="h-full w-full" role="img" aria-label="Visual da cidade financeira">
+        <svg viewBox="0 0 380 280" className="h-full w-full" role="img" aria-label="Visual da cidade financeira">
             <defs>
                 <linearGradient id="citySky" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor={isEnergized ? "#0f172a" : "#111827"} />
@@ -124,15 +124,15 @@ function CityVisualizer({ stage, isEnergized }: { stage: CityStage; isEnergized:
                 </filter>
             </defs>
 
-            <rect x="0" y="0" width="380" height="260" fill="url(#citySky)" />
+            <rect x="0" y="0" width="380" height="280" fill="url(#citySky)" />
 
             <polygon
-                points="40,188 190,102 340,188 190,274"
+                points="40,186 190,106 340,186 190,266"
                 fill={palette.ground}
                 opacity={isEnergized ? 0.2 : 0.12}
             />
             <polygon
-                points="64,188 190,116 316,188 190,260"
+                points="64,186 190,120 316,186 190,252"
                 fill={palette.ground}
                 opacity={isEnergized ? 0.12 : 0.08}
             />
@@ -166,8 +166,8 @@ export function UserGamification({ metrics, membersCount, className = "" }: User
 
     return (
         <section className={`card overflow-hidden ${className}`}>
-            <div className="grid h-[360px] md:h-[420px] grid-rows-[7fr_3fr]">
-                <div className="relative">
+            <div className="h-[360px] md:h-[420px] flex flex-col">
+                <div className="relative basis-[70%] min-h-0">
                     <CityVisualizer stage={stage} isEnergized={isEnergized} />
                     <div className="pointer-events-none absolute inset-x-0 top-4 flex justify-center">
                         <div className="rounded-full border border-white/15 bg-slate-900/50 px-3 py-1 text-[11px] font-medium text-slate-100 backdrop-blur">
@@ -176,7 +176,7 @@ export function UserGamification({ metrics, membersCount, className = "" }: User
                     </div>
                 </div>
 
-                <footer className="border-t border-slate-200/80 bg-white px-4 py-3 md:px-5">
+                <footer className="basis-[30%] border-t border-slate-200/80 bg-white px-4 py-3 md:px-5">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-slate-500">
                         <div>
                             <p className="uppercase tracking-wide text-[10px]">Nível</p>
