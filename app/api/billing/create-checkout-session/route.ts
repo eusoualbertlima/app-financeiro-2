@@ -42,6 +42,22 @@ function isRecurringPriceCompatibleWithPlan(
     );
 }
 
+function buildRecurringConfigForPlan(plan: BillingPlan) {
+    if (plan === "monthly") {
+        return { interval: "month" as const, interval_count: 1 };
+    }
+    return { interval: "year" as const, interval_count: 1 };
+}
+
+type OneTimeBasePrice = {
+    id: string;
+    active: boolean;
+    type: string;
+    product: string | { id: string } | null;
+    unit_amount: number | null;
+    currency: string;
+};
+
 function normalizeConfiguredToken(value?: string) {
     const normalized = value?.trim();
     return normalized || null;
@@ -67,6 +83,62 @@ async function findRecurringPriceForProduct(
         || prices.data.find((price) => isRecurringPriceCompatibleWithPlan(price.recurring, plan));
 
     return matched || null;
+}
+
+async function findOneTimePriceForProduct(
+    stripe: ReturnType<typeof getStripe>,
+    productId: string,
+    preferredCurrency?: string
+) {
+    const prices = await stripe.prices.list({
+        product: productId,
+        active: true,
+        type: "one_time",
+        limit: 100,
+    });
+
+    if (!prices.data.length) return null;
+
+    const byPreferredCurrency = preferredCurrency
+        ? prices.data.find((price) => price.currency === preferredCurrency)
+        : null;
+    if (byPreferredCurrency) return byPreferredCurrency;
+
+    const byBRL = prices.data.find((price) => price.currency === "brl");
+    if (byBRL) return byBRL;
+
+    return prices.data[0] || null;
+}
+
+async function autoCreateRecurringPriceFromOneTime(
+    stripe: ReturnType<typeof getStripe>,
+    basePrice: OneTimeBasePrice,
+    plan: BillingPlan
+) {
+    if (!basePrice.active || basePrice.type !== "one_time") {
+        return null;
+    }
+
+    const productId = typeof basePrice.product === "string"
+        ? basePrice.product
+        : basePrice.product?.id;
+    if (!productId || basePrice.unit_amount === null) {
+        return null;
+    }
+
+    const recurring = buildRecurringConfigForPlan(plan);
+    return stripe.prices.create({
+        product: productId,
+        currency: basePrice.currency,
+        unit_amount: basePrice.unit_amount,
+        recurring,
+        nickname: `Auto ${plan} from ${basePrice.id}`,
+        metadata: {
+            source: "auto_fix_non_recurring_price",
+            original_price_id: basePrice.id,
+            target_plan: plan,
+        },
+    });
 }
 
 async function resolveCheckoutPriceId(
@@ -117,6 +189,19 @@ async function resolveCheckoutPriceId(
                 configuredPrice.currency
             );
             if (!fallbackPrice) {
+                const autoCreatedRecurringPrice = await autoCreateRecurringPriceFromOneTime(
+                    stripe,
+                    configuredPrice,
+                    plan
+                );
+                if (autoCreatedRecurringPrice) {
+                    return {
+                        priceId: autoCreatedRecurringPrice.id,
+                        warning: `${getPriceEnvLabel(plan)} estava em ${configuredToken} (não recorrente/incompatível). Criado preço recorrente automático ${autoCreatedRecurringPrice.id}.`,
+                        error: null as string | null,
+                    };
+                }
+
                 return {
                     priceId: null,
                     warning: null as string | null,
@@ -148,6 +233,22 @@ async function resolveCheckoutPriceId(
 
     const matchedPrice = await findRecurringPriceForProduct(stripe, configuredToken, plan);
     if (!matchedPrice) {
+        const baseOneTimePrice = await findOneTimePriceForProduct(stripe, configuredToken);
+        if (baseOneTimePrice) {
+            const autoCreatedRecurringPrice = await autoCreateRecurringPriceFromOneTime(
+                stripe,
+                baseOneTimePrice,
+                plan
+            );
+            if (autoCreatedRecurringPrice) {
+                return {
+                    priceId: autoCreatedRecurringPrice.id,
+                    warning: `${getPriceEnvLabel(plan)} está em product id (${configuredToken}) sem recorrente compatível. Criado preço recorrente automático ${autoCreatedRecurringPrice.id}.`,
+                    error: null as string | null,
+                };
+            }
+        }
+
         return {
             priceId: null,
             warning: null as string | null,
