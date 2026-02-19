@@ -1,6 +1,7 @@
 "use client";
 
 import { useWorkspace, useCollection } from "@/hooks/useFirestore";
+import { useAuth } from "@/contexts/AuthContext";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useBillPayments } from "@/hooks/useBills";
 import { useCardsLimitSummary } from "@/hooks/useCardLimits";
@@ -26,8 +27,21 @@ import { DonutChart } from "@/components/Charts";
 import { OnboardingGuide } from "@/components/OnboardingGuide";
 import { BehavioralCityCard } from "@/components/BehavioralCityCard";
 import { normalizeBehavioralMetrics } from "@/lib/behavioralMetrics";
+import { getClientDevAdminAllowlist, hasDevAdminAccess } from "@/lib/devAdmin";
+
+const clientDevAllowlist = getClientDevAdminAllowlist();
+
+type BehavioralRolloutMode = "off" | "dev_admin" | "all";
+
+function getBehavioralRolloutMode(): BehavioralRolloutMode {
+    const raw = (process.env.NEXT_PUBLIC_BEHAVIORAL_CITY_ROLLOUT || "dev_admin").trim().toLowerCase();
+    if (raw === "all") return "all";
+    if (raw === "off") return "off";
+    return "dev_admin";
+}
 
 export default function DashboardPage() {
+    const { user } = useAuth();
     const { workspace, loading: workspaceLoading } = useWorkspace();
     const { data: contas } = useCollection<Account>("accounts");
     const { data: cartoes } = useCollection<CardType>("credit_cards");
@@ -101,6 +115,14 @@ export default function DashboardPage() {
     const behavioralMetrics = normalizeBehavioralMetrics(workspace?.behavioralMetrics, {
         members: workspace?.members || [],
     });
+    const behavioralRolloutMode = getBehavioralRolloutMode();
+    const isDeveloperAdmin = hasDevAdminAccess({
+        uid: user?.uid,
+        email: user?.email,
+        allowlist: clientDevAllowlist,
+    });
+    const showBehavioralCityCard = behavioralRolloutMode === "all"
+        || (behavioralRolloutMode === "dev_admin" && isDeveloperAdmin);
 
     const defaultCategories = [
         { id: 'alimentacao', name: 'Alimentação', icon: '🍔', color: '#f59e0b' },
@@ -158,10 +180,12 @@ export default function DashboardPage() {
                 recurringBillsCount={recurringBills.filter((bill) => bill.isActive).length}
             />
 
-            <BehavioralCityCard
-                metrics={behavioralMetrics}
-                membersCount={workspace?.members?.length || 1}
-            />
+            {showBehavioralCityCard && (
+                <BehavioralCityCard
+                    metrics={behavioralMetrics}
+                    membersCount={workspace?.members?.length || 1}
+                />
+            )}
 
             {/* Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-8">

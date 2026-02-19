@@ -16,6 +16,11 @@
 - Cron (retenção comportamental):
   - Arquivo: `vercel.json` com job diário para `/api/behavioral/daily-aging`
   - Configure `CRON_SECRET` (ou `BEHAVIORAL_CRON_SECRET`) no ambiente de produção para proteger a rota.
+  - Controle de rollout:
+    - `BEHAVIORAL_CITY_ROLLOUT=dev_admin` (somente contas dev-admin)
+    - `BEHAVIORAL_CITY_ROLLOUT=all` (libera para todos)
+    - `BEHAVIORAL_CITY_ROLLOUT=off` (desliga)
+    - Espelhar no client com `NEXT_PUBLIC_BEHAVIORAL_CITY_ROLLOUT`.
 
 ### Stripe
 - Acesse: `Stripe Dashboard > Developers > Webhooks > Endpoint production`

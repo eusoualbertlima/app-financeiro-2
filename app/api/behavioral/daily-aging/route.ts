@@ -19,6 +19,15 @@ type AgingRequest = {
     limit?: number;
 };
 
+type BehavioralRolloutMode = "off" | "dev_admin" | "all";
+
+function getBehavioralRolloutMode(): BehavioralRolloutMode {
+    const raw = (process.env.BEHAVIORAL_CITY_ROLLOUT || "dev_admin").trim().toLowerCase();
+    if (raw === "all") return "all";
+    if (raw === "off") return "off";
+    return "dev_admin";
+}
+
 function parseBoolean(value: string | null | undefined) {
     if (!value) return false;
     const normalized = value.trim().toLowerCase();
@@ -126,6 +135,20 @@ async function handleAging(request: NextRequest) {
     const dryRun = Boolean(body.dryRun) || parseBoolean(query.get("dryRun"));
     const limit = parseLimit(body.limit ?? query.get("limit"), 200);
     const now = Date.now();
+    const rolloutMode = getBehavioralRolloutMode();
+
+    if (rolloutMode === "off") {
+        return NextResponse.json({
+            ok: true,
+            dryRun,
+            generatedAt: now,
+            processed: 0,
+            changed: 0,
+            ignored: true,
+            reason: "rollout_disabled",
+            workspaces: [],
+        }, { status: 202 });
+    }
 
     const db = getAdminDb();
     let workspaceDocs: Array<{ id: string; data: Omit<Workspace, "id"> }> = [];
@@ -142,6 +165,17 @@ async function handleAging(request: NextRequest) {
             id: workspaceDoc.id,
             data: workspaceDoc.data() as Omit<Workspace, "id">,
         }));
+    }
+
+    if (rolloutMode === "dev_admin") {
+        const allowlist = getServerDevAdminAllowlist();
+        workspaceDocs = workspaceDocs.filter((workspaceDoc) => {
+            return hasDevAdminAccess({
+                uid: workspaceDoc.data.ownerId || null,
+                email: workspaceDoc.data.ownerEmail || null,
+                allowlist,
+            });
+        });
     }
 
     const changed: Array<{

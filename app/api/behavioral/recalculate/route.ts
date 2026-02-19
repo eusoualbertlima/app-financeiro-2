@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { requireUserFromRequest } from "@/lib/serverAuth";
 import { applyBehavioralAction } from "@/lib/behavioralMetrics";
+import { getServerDevAdminAllowlist, hasDevAdminAccess } from "@/lib/devAdmin";
 import { sendOpsAlert, serializeError } from "@/lib/opsAlerts";
 import type { Workspace } from "@/types";
 
@@ -13,6 +14,15 @@ type RecalculateBody = {
     actionAt?: number;
     source?: string;
 };
+
+type BehavioralRolloutMode = "off" | "dev_admin" | "all";
+
+function getBehavioralRolloutMode(): BehavioralRolloutMode {
+    const raw = (process.env.BEHAVIORAL_CITY_ROLLOUT || "dev_admin").trim().toLowerCase();
+    if (raw === "all") return "all";
+    if (raw === "off") return "off";
+    return "dev_admin";
+}
 
 function normalizeTimestamp(value: unknown) {
     if (typeof value !== "number" || !Number.isFinite(value)) return Date.now();
@@ -45,6 +55,7 @@ export async function POST(request: NextRequest) {
     try {
         const decoded = await requireUserFromRequest(request);
         const uid = decoded.uid;
+        const rolloutMode = getBehavioralRolloutMode();
         const body = (await request.json().catch(() => ({}))) as RecalculateBody;
         const workspaceId = body.workspaceId?.trim();
 
@@ -52,7 +63,32 @@ export async function POST(request: NextRequest) {
             uid,
             workspaceId: workspaceId || "missing",
             source: body.source || "unspecified",
+            rolloutMode,
         };
+
+        if (rolloutMode === "off") {
+            return NextResponse.json({
+                ok: true,
+                ignored: true,
+                reason: "rollout_disabled",
+            }, { status: 202 });
+        }
+
+        if (rolloutMode === "dev_admin") {
+            const allowlist = getServerDevAdminAllowlist();
+            const isDevAdmin = hasDevAdminAccess({
+                uid,
+                email: decoded.email || null,
+                allowlist,
+            });
+            if (!isDevAdmin) {
+                return NextResponse.json({
+                    ok: true,
+                    ignored: true,
+                    reason: "rollout_dev_only",
+                }, { status: 202 });
+            }
+        }
 
         if (!workspaceId) {
             return NextResponse.json({ error: "workspaceId é obrigatório." }, { status: 400 });
