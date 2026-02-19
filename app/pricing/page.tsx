@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Check, ArrowRight } from "lucide-react";
 
+type BillingPlan = "monthly" | "yearly";
+
 export default function PricingPage() {
     const { user, loading, signInWithGoogle } = useAuth();
     const router = useRouter();
@@ -15,6 +17,19 @@ export default function PricingPage() {
             router.push("/checkout");
         }
     }, [user, loading, router]);
+
+    const startCheckout = async (plan: BillingPlan) => {
+        if (typeof window !== "undefined") {
+            window.localStorage.setItem("checkout:preferredPlan", plan);
+        }
+
+        if (user) {
+            router.push(`/checkout?plan=${plan}`);
+            return;
+        }
+
+        await signInWithGoogle();
+    };
 
     return (
         <div className="min-h-screen bg-slate-950 text-white">
@@ -38,7 +53,7 @@ export default function PricingPage() {
                             <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Suporte prioritário</li>
                         </ul>
                         <button
-                            onClick={signInWithGoogle}
+                            onClick={() => startCheckout("monthly")}
                             className="w-full mt-8 bg-white text-slate-900 py-3 rounded-xl font-semibold hover:bg-slate-100 transition-colors inline-flex items-center justify-center gap-2"
                         >
                             Começar com Google <ArrowRight className="w-4 h-4" />
@@ -49,15 +64,15 @@ export default function PricingPage() {
                         <span className="absolute -top-3 left-6 bg-blue-600 text-white text-xs px-3 py-1 rounded-full">Mais vantajoso</span>
                         <h2 className="text-2xl font-semibold">Anual</h2>
                         <p className="text-slate-400 mt-1">Economize no longo prazo.</p>
-                        <div className="text-3xl font-bold mt-6">R$ 497<span className="text-base text-slate-400 font-normal">/ano</span></div>
-                        <p className="text-xs text-blue-300 mt-1">equivalente a R$ 41,41/mês</p>
+                        <div className="text-3xl font-bold mt-6">R$ 97<span className="text-base text-slate-400 font-normal">/ano</span></div>
+                        <p className="text-xs text-blue-300 mt-1">equivalente a R$ 8,08/mês</p>
                         <ul className="space-y-2 mt-6 text-sm text-slate-200">
                             <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Tudo do plano mensal</li>
                             <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Melhor custo-benefício</li>
                             <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-400" /> Renovação automática</li>
                         </ul>
                         <button
-                            onClick={signInWithGoogle}
+                            onClick={() => startCheckout("yearly")}
                             className="w-full mt-8 bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-500 transition-colors inline-flex items-center justify-center gap-2"
                         >
                             Começar com Google <ArrowRight className="w-4 h-4" />

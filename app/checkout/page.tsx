@@ -8,12 +8,19 @@ import { Suspense, useEffect, useState } from "react";
 import { Check, Star, LogOut, Loader2, CircleAlert, CalendarClock, CreditCard } from "lucide-react";
 import Link from "next/link";
 
+type BillingPlan = "monthly" | "yearly";
+
+function normalizePlan(value: string | null | undefined): BillingPlan | null {
+    if (value === "monthly" || value === "yearly") return value;
+    return null;
+}
+
 function CheckoutContent() {
     const { user, loading: authLoading, signOut } = useAuth();
     const { workspace, loading: workspaceLoading } = useWorkspace();
     const router = useRouter();
     const searchParams = useSearchParams();
-    const [plan, setPlan] = useState<"monthly" | "yearly">("monthly");
+    const [plan, setPlan] = useState<BillingPlan>("monthly");
     const [checkoutLoading, setCheckoutLoading] = useState(false);
     const [portalLoading, setPortalLoading] = useState(false);
     const [message, setMessage] = useState("");
@@ -49,6 +56,22 @@ function CheckoutContent() {
             setAcceptedLegal(true);
         }
     }, [workspace]);
+
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+
+        const queryPlan = normalizePlan(searchParams.get("plan"));
+        const storedPlan = normalizePlan(window.localStorage.getItem("checkout:preferredPlan"));
+        const workspacePlan = normalizePlan(workspace?.billing?.plan);
+
+        const resolvedPlan = queryPlan || storedPlan || workspacePlan || "monthly";
+        setPlan(resolvedPlan);
+    }, [searchParams, workspace?.billing?.plan]);
+
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        window.localStorage.setItem("checkout:preferredPlan", plan);
+    }, [plan]);
 
     const handleStartCheckout = async () => {
         if (!user || !workspace?.id) return;
@@ -236,6 +259,9 @@ function CheckoutContent() {
                             Anual
                         </button>
                     </div>
+                    <p className="text-xs text-slate-400 text-center">
+                        Plano selecionado: <strong className="text-slate-200">{plan === "yearly" ? "Anual" : "Mensal"}</strong>
+                    </p>
 
                     <button
                         onClick={handleStartCheckout}
