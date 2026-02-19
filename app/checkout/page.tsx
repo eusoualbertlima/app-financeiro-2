@@ -3,10 +3,10 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/hooks/useFirestore";
 import { getWorkspaceAccessState } from "@/lib/billing";
-import { canBypassBilling } from "@/lib/devBillingBypass";
+import { getClientDevAdminAllowlist, hasDevAdminAccess } from "@/lib/devAdmin";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { Check, Star, LogOut, Loader2, CircleAlert, CalendarClock, CreditCard } from "lucide-react";
+import { Shield, Check, Star, LogOut, Loader2, CircleAlert, CalendarClock, CreditCard } from "lucide-react";
 import Link from "next/link";
 
 function CheckoutContent() {
@@ -20,11 +20,19 @@ function CheckoutContent() {
     const [message, setMessage] = useState("");
     const [acceptedLegal, setAcceptedLegal] = useState(false);
     const access = getWorkspaceAccessState(workspace);
-    const hasBillingBypass = canBypassBilling({
+    const allowlist = getClientDevAdminAllowlist();
+    const isDevAdmin = hasDevAdminAccess({
         uid: user?.uid,
         email: user?.email,
+        allowlist,
     });
-    const hasEffectiveAccess = access.hasAccess || hasBillingBypass;
+    const ownerIsDevAdmin = hasDevAdminAccess({
+        uid: workspace?.ownerId,
+        email: workspace?.ownerEmail,
+        allowlist,
+    });
+    const hasWorkspaceInternalBypass = Boolean(workspace?.internalBypassByOwner || ownerIsDevAdmin);
+    const hasEffectiveAccess = access.hasAccess || isDevAdmin || hasWorkspaceInternalBypass;
     const isOwner = workspace?.ownerId ? user?.uid === workspace.ownerId : true;
     const paymentSuccess = searchParams.get("success") === "1";
     const paymentCanceled = searchParams.get("canceled") === "1";
@@ -149,14 +157,6 @@ function CheckoutContent() {
                 <p className="text-slate-400 text-center mb-8">
                     Para acessar o App Financeiro 2.0 e controlar sua vida financeira, você precisa ativar sua conta Premium.
                 </p>
-
-                {hasBillingBypass && (
-                    <div className="mb-6 rounded-xl border border-blue-500/30 bg-blue-500/10 p-4">
-                        <p className="text-xs text-blue-100">
-                            Bypass de billing para desenvolvimento ativo (`NEXT_PUBLIC_ENABLE_DEV_BILLING_BYPASS=true`).
-                        </p>
-                    </div>
-                )}
 
                 {access.status === "trialing" && (
                     <div className="mb-6 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">

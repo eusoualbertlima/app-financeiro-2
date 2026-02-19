@@ -31,6 +31,7 @@ export interface Workspace {
     pendingInvites?: string[];
     billing?: WorkspaceBilling;
     legal?: WorkspaceLegal;
+    internalBypassByOwner?: boolean;
 }
 
 // Conta Bancária
