@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import type { WorkspaceBehavioralMetrics } from "@/types";
-import { Lock, Sparkles } from "lucide-react";
+import { CheckCircle2, Lock, Sparkles } from "lucide-react";
 
 type CityStage = 1 | 2 | 3;
 type DistrictKey = "core" | "invest" | "leisure" | "family";
@@ -189,14 +189,25 @@ function stageProgress(stage: CityStage, consistencyIndex: number) {
 function CityVisualizer({
     stage,
     isEnergized,
+    didRecordToday,
     highlightDistrict,
 }: {
     stage: CityStage;
     isEnergized: boolean;
+    didRecordToday: boolean;
     highlightDistrict: DistrictKey;
 }) {
     const palette = getPalette(isEnergized);
     const cubes = stageCubes(stage);
+    const lightPoints = [
+        { x: 96, y: 214, r: 2.1, delay: "0ms" },
+        { x: 130, y: 196, r: 2.3, delay: "160ms" },
+        { x: 178, y: 226, r: 2.4, delay: "320ms" },
+        { x: 214, y: 208, r: 2.6, delay: "90ms" },
+        { x: 246, y: 232, r: 2.1, delay: "260ms" },
+        { x: 282, y: 204, r: 2.2, delay: "430ms" },
+        { x: 324, y: 214, r: 2.0, delay: "520ms" },
+    ];
 
     return (
         <svg viewBox="0 0 420 300" className="h-full w-full" role="img" aria-label="Visual da cidade financeira">
@@ -211,6 +222,10 @@ function CityVisualizer({
                 <filter id="districtGlow" x="-20%" y="-20%" width="140%" height="140%">
                     <feDropShadow dx="0" dy="0" stdDeviation="3.5" floodColor={isEnergized ? "#7dd3fc" : "#94a3b8"} floodOpacity={isEnergized ? "0.7" : "0.18"} />
                 </filter>
+                <radialGradient id="rewardWave" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stopColor="#a5f3fc" stopOpacity="0.4" />
+                    <stop offset="100%" stopColor="#a5f3fc" stopOpacity="0" />
+                </radialGradient>
             </defs>
 
             <rect x="0" y="0" width="420" height="300" fill="url(#citySky)" />
@@ -231,16 +246,27 @@ function CityVisualizer({
             <polygon points="282,194 346,198 320,226 262,222" fill={palette.districtLeisure} opacity={highlightDistrict === "leisure" ? 0.72 : 0.24} filter={highlightDistrict === "leisure" ? "url(#districtGlow)" : undefined} />
             <polygon points="176,220 246,218 224,250 158,252" fill={palette.districtFamily} opacity={highlightDistrict === "family" ? 0.72 : 0.24} filter={highlightDistrict === "family" ? "url(#districtGlow)" : undefined} />
 
+            {didRecordToday && (
+                <g className="mission-wave">
+                    <circle cx="210" cy="194" r="12" fill="url(#rewardWave)" />
+                    <circle cx="210" cy="194" r="20" fill="none" stroke="#7dd3fc" strokeOpacity="0.35" strokeWidth="1.2" />
+                </g>
+            )}
+
             <g className={isEnergized ? "city-float" : undefined} filter={isEnergized ? "url(#cityGlow)" : undefined}>
                 {cubes.map((cube, index) => {
                     const polygons = cubePolygons(cube);
                     const opacity = cube.opacity ?? 1;
                     const isHighlighted = cube.district === highlightDistrict;
+                    const style = {
+                        ["--rise-delay" as string]: `${index * 70}ms`,
+                    } as CSSProperties;
                     return (
                         <g
-                            key={`${cube.x}-${cube.y}-${index}`}
+                            key={`${stage}-${cube.x}-${cube.y}-${index}`}
                             opacity={opacity}
-                            className={isHighlighted ? "district-highlight" : undefined}
+                            className={`cube-rise ${isHighlighted ? "district-highlight" : ""}`.trim()}
+                            style={style}
                         >
                             <polygon
                                 points={polygons.left}
@@ -268,6 +294,21 @@ function CityVisualizer({
                 })}
             </g>
 
+            <g>
+                {lightPoints.map((light) => (
+                    <circle
+                        key={`${light.x}-${light.y}`}
+                        cx={light.x}
+                        cy={light.y}
+                        r={light.r}
+                        className={didRecordToday ? "city-light" : undefined}
+                        fill={didRecordToday ? "#fde68a" : "#94a3b8"}
+                        fillOpacity={didRecordToday ? 0.95 : 0.2}
+                        style={didRecordToday ? ({ ["--light-delay" as string]: light.delay } as CSSProperties) : undefined}
+                    />
+                ))}
+            </g>
+
             <style>{`
                 .city-float {
                     animation: cityFloat 4.6s ease-in-out infinite;
@@ -276,6 +317,19 @@ function CityVisualizer({
                 .district-highlight {
                     animation: districtPulse 2.2s ease-in-out infinite;
                 }
+                .cube-rise {
+                    animation: cubeRise 760ms cubic-bezier(0.2, 0.9, 0.28, 1) both;
+                    animation-delay: var(--rise-delay, 0ms);
+                    transform-origin: 210px 220px;
+                }
+                .city-light {
+                    animation: cityLightPulse 1.8s ease-in-out infinite;
+                    animation-delay: var(--light-delay, 0ms);
+                }
+                .mission-wave {
+                    animation: missionWave 1.8s ease-out infinite;
+                    transform-origin: 210px 194px;
+                }
                 @keyframes cityFloat {
                     0%, 100% { transform: translateY(0px); }
                     50% { transform: translateY(-3px); }
@@ -283,6 +337,18 @@ function CityVisualizer({
                 @keyframes districtPulse {
                     0%, 100% { opacity: 1; }
                     50% { opacity: 0.82; }
+                }
+                @keyframes cubeRise {
+                    0% { transform: translateY(18px) scale(0.93); opacity: 0; }
+                    100% { transform: translateY(0px) scale(1); opacity: 1; }
+                }
+                @keyframes cityLightPulse {
+                    0%, 100% { opacity: 0.45; filter: brightness(1); }
+                    50% { opacity: 1; filter: brightness(1.35); }
+                }
+                @keyframes missionWave {
+                    0% { opacity: 0.9; transform: scale(0.92); }
+                    100% { opacity: 0; transform: scale(1.28); }
                 }
             `}</style>
         </svg>
@@ -309,6 +375,7 @@ export function UserGamification({ metrics, membersCount, className = "" }: User
     const milestones = useMemo(() => progressMilestones(), []);
     const [selectedMilestoneIndex, setSelectedMilestoneIndex] = useState(0);
     const consistencyIndex = metrics.consistencyIndex || 0;
+    const didRecordToday = Boolean(metrics.lastActionTimestamp && (metrics.inactiveDays || 0) === 0);
     const progress = stageProgress(stage, consistencyIndex);
     const nextTarget = nextTargetDays(stage);
     const daysToNext = nextTarget ? Math.max(0, nextTarget - consistencyIndex) : 0;
@@ -319,7 +386,12 @@ export function UserGamification({ metrics, membersCount, className = "" }: User
         <section className={`card overflow-hidden ${className}`}>
             <div className="h-[460px] md:h-[560px] flex flex-col bg-slate-950">
                 <div className="relative basis-[70%] min-h-0">
-                    <CityVisualizer stage={stage} isEnergized={isEnergized} highlightDistrict={selectedDistrict} />
+                    <CityVisualizer
+                        stage={stage}
+                        isEnergized={isEnergized}
+                        didRecordToday={didRecordToday}
+                        highlightDistrict={selectedDistrict}
+                    />
                     <div className="pointer-events-none absolute inset-x-0 top-4 z-10 flex justify-center">
                         <div className="rounded-full border border-white/15 bg-slate-900/50 px-3 py-1 text-[11px] font-medium text-slate-100 backdrop-blur">
                             Estágio {stage} · {toStageLabel(stage)}
@@ -352,6 +424,17 @@ export function UserGamification({ metrics, membersCount, className = "" }: User
                 </div>
 
                 <footer className="basis-[30%] border-t border-slate-700 bg-slate-900 px-4 py-3 md:px-5 flex flex-col gap-3">
+                    <div className={`rounded-xl border px-3 py-2 text-[11px] ${didRecordToday ? "border-emerald-300/30 bg-emerald-500/10 text-emerald-100" : "border-slate-700 bg-slate-950/65 text-slate-300"}`}>
+                        {didRecordToday ? (
+                            <span className="inline-flex items-center gap-1.5 font-medium">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
+                                Missão diária concluída. A cidade recebeu energia extra hoje.
+                            </span>
+                        ) : (
+                            <span>Missão de hoje pendente. Registre pelo menos uma ação para energizar sua cidade.</span>
+                        )}
+                    </div>
+
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
                         <div>
                             <p className="uppercase tracking-wide text-[10px] text-slate-400">Nível</p>
