@@ -7,6 +7,7 @@ import { useBillPayments } from "@/hooks/useBills";
 import { useCardsLimitSummary } from "@/hooks/useCardLimits";
 import {
     Wallet,
+    Building2,
     CreditCard,
     TrendingUp,
     TrendingDown,
@@ -25,20 +26,10 @@ import type { Account, CreditCard as CardType, RecurringBill } from "@/types";
 import { Header } from "@/components/Navigation";
 import { DonutChart } from "@/components/Charts";
 import { OnboardingGuide } from "@/components/OnboardingGuide";
-import { BehavioralCityCard } from "@/components/BehavioralCityCard";
-import { normalizeBehavioralMetrics } from "@/lib/behavioralMetrics";
 import { getClientDevAdminAllowlist, hasDevAdminAccess } from "@/lib/devAdmin";
+import { getClientBehavioralRolloutMode, hasBehavioralRolloutAccess } from "@/lib/behavioralRollout";
 
 const clientDevAllowlist = getClientDevAdminAllowlist();
-
-type BehavioralRolloutMode = "off" | "dev_admin" | "all";
-
-function getBehavioralRolloutMode(): BehavioralRolloutMode {
-    const raw = (process.env.NEXT_PUBLIC_BEHAVIORAL_CITY_ROLLOUT || "dev_admin").trim().toLowerCase();
-    if (raw === "all") return "all";
-    if (raw === "off") return "off";
-    return "dev_admin";
-}
 
 export default function DashboardPage() {
     const { user } = useAuth();
@@ -112,17 +103,15 @@ export default function DashboardPage() {
         new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
     const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    const behavioralMetrics = normalizeBehavioralMetrics(workspace?.behavioralMetrics, {
-        members: workspace?.members || [],
-    });
-    const behavioralRolloutMode = getBehavioralRolloutMode();
     const isDeveloperAdmin = hasDevAdminAccess({
         uid: user?.uid,
         email: user?.email,
         allowlist: clientDevAllowlist,
     });
-    const showBehavioralCityCard = behavioralRolloutMode === "all"
-        || (behavioralRolloutMode === "dev_admin" && isDeveloperAdmin);
+    const showBehavioralCityButton = hasBehavioralRolloutAccess({
+        mode: getClientBehavioralRolloutMode(),
+        isDeveloperAdmin,
+    });
 
     const defaultCategories = [
         { id: 'alimentacao', name: 'Alimentação', icon: '🍔', color: '#f59e0b' },
@@ -180,11 +169,16 @@ export default function DashboardPage() {
                 recurringBillsCount={recurringBills.filter((bill) => bill.isActive).length}
             />
 
-            {showBehavioralCityCard && (
-                <BehavioralCityCard
-                    metrics={behavioralMetrics}
-                    membersCount={workspace?.members?.length || 1}
-                />
+            {showBehavioralCityButton && (
+                <div className="mb-6 flex justify-end">
+                    <Link
+                        href="/dashboard/cidade"
+                        className="btn-secondary inline-flex items-center gap-2"
+                    >
+                        <Building2 className="w-4 h-4" />
+                        Abrir Cidade Financeira
+                    </Link>
+                </div>
             )}
 
             {/* Stats Grid */}

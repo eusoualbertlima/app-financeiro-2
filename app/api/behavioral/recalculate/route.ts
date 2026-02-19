@@ -3,6 +3,7 @@ import { getAdminDb } from "@/lib/firebaseAdmin";
 import { requireUserFromRequest } from "@/lib/serverAuth";
 import { applyBehavioralAction } from "@/lib/behavioralMetrics";
 import { getServerDevAdminAllowlist, hasDevAdminAccess } from "@/lib/devAdmin";
+import { getServerBehavioralRolloutMode, hasBehavioralRolloutAccess } from "@/lib/behavioralRollout";
 import { sendOpsAlert, serializeError } from "@/lib/opsAlerts";
 import type { Workspace } from "@/types";
 
@@ -14,15 +15,6 @@ type RecalculateBody = {
     actionAt?: number;
     source?: string;
 };
-
-type BehavioralRolloutMode = "off" | "dev_admin" | "all";
-
-function getBehavioralRolloutMode(): BehavioralRolloutMode {
-    const raw = (process.env.BEHAVIORAL_CITY_ROLLOUT || "dev_admin").trim().toLowerCase();
-    if (raw === "all") return "all";
-    if (raw === "off") return "off";
-    return "dev_admin";
-}
 
 function normalizeTimestamp(value: unknown) {
     if (typeof value !== "number" || !Number.isFinite(value)) return Date.now();
@@ -55,7 +47,7 @@ export async function POST(request: NextRequest) {
     try {
         const decoded = await requireUserFromRequest(request);
         const uid = decoded.uid;
-        const rolloutMode = getBehavioralRolloutMode();
+        const rolloutMode = getServerBehavioralRolloutMode();
         const body = (await request.json().catch(() => ({}))) as RecalculateBody;
         const workspaceId = body.workspaceId?.trim();
 
@@ -76,12 +68,16 @@ export async function POST(request: NextRequest) {
 
         if (rolloutMode === "dev_admin") {
             const allowlist = getServerDevAdminAllowlist();
-            const isDevAdmin = hasDevAdminAccess({
+            const isDeveloperAdmin = hasDevAdminAccess({
                 uid,
                 email: decoded.email || null,
                 allowlist,
             });
-            if (!isDevAdmin) {
+            const hasRolloutAccess = hasBehavioralRolloutAccess({
+                mode: rolloutMode,
+                isDeveloperAdmin,
+            });
+            if (!hasRolloutAccess) {
                 return NextResponse.json({
                     ok: true,
                     ignored: true,

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
     LayoutDashboard,
+    Building2,
     Wallet,
     CreditCard,
     Receipt,
@@ -21,6 +22,7 @@ import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/hooks/useFirestore";
 import { getClientDevAdminAllowlist, hasDevAdminAccess } from "@/lib/devAdmin";
+import { getClientBehavioralRolloutMode, hasBehavioralRolloutAccess } from "@/lib/behavioralRollout";
 
 type MenuItem = {
     href: string;
@@ -28,10 +30,12 @@ type MenuItem = {
     label: string;
     adminOnly?: boolean;
     developerOnly?: boolean;
+    behavioralOnly?: boolean;
 };
 
 const menuItems: MenuItem[] = [
     { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+    { href: "/dashboard/cidade", icon: Building2, label: "Cidade", behavioralOnly: true },
     { href: "/dashboard/contas", icon: Wallet, label: "Contas" },
     { href: "/dashboard/cartoes", icon: CreditCard, label: "Cartões" },
     { href: "/dashboard/lancamentos", icon: Receipt, label: "Lançamentos" },
@@ -46,17 +50,19 @@ const clientDevAdminAllowlist = getClientDevAdminAllowlist();
 
 function getVisibleMenuItems(
     items: MenuItem[],
-    flags: { isAdmin: boolean; isDeveloperAdmin: boolean }
+    flags: { isAdmin: boolean; isDeveloperAdmin: boolean; hasBehavioralFeatureAccess: boolean }
 ) {
     return items.filter((item) => {
         if (item.adminOnly && !flags.isAdmin) return false;
         if (item.developerOnly && !flags.isDeveloperAdmin) return false;
+        if (item.behavioralOnly && !flags.hasBehavioralFeatureAccess) return false;
         return true;
     });
 }
 
 const mobileMenuOrder = [
     "/dashboard",
+    "/dashboard/cidade",
     "/dashboard/contas",
     "/dashboard/cartoes",
     "/dashboard/lancamentos",
@@ -74,7 +80,11 @@ export function Sidebar() {
         email: user?.email,
         allowlist: clientDevAdminAllowlist,
     });
-    const visibleMenuItems = getVisibleMenuItems(menuItems, { isAdmin, isDeveloperAdmin });
+    const hasBehavioralFeatureAccess = hasBehavioralRolloutAccess({
+        mode: getClientBehavioralRolloutMode(),
+        isDeveloperAdmin,
+    });
+    const visibleMenuItems = getVisibleMenuItems(menuItems, { isAdmin, isDeveloperAdmin, hasBehavioralFeatureAccess });
 
     return (
         <aside className="sidebar hidden lg:flex flex-col z-50">
@@ -153,7 +163,11 @@ export function MobileNav() {
         email: user?.email,
         allowlist: clientDevAdminAllowlist,
     });
-    const visibleMenuItems = getVisibleMenuItems(menuItems, { isAdmin, isDeveloperAdmin });
+    const hasBehavioralFeatureAccess = hasBehavioralRolloutAccess({
+        mode: getClientBehavioralRolloutMode(),
+        isDeveloperAdmin,
+    });
+    const visibleMenuItems = getVisibleMenuItems(menuItems, { isAdmin, isDeveloperAdmin, hasBehavioralFeatureAccess });
     const mobileMenuItems = mobileMenuOrder
         .map((href) => visibleMenuItems.find(item => item.href === href))
         .filter((item): item is MenuItem => Boolean(item));

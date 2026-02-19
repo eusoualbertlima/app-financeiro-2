@@ -7,6 +7,7 @@ import {
     hasConfiguredDevAdminAllowlist,
     hasDevAdminAccess,
 } from "@/lib/devAdmin";
+import { getServerBehavioralRolloutMode } from "@/lib/behavioralRollout";
 import { sendOpsAlert, serializeError } from "@/lib/opsAlerts";
 import type { Workspace } from "@/types";
 
@@ -18,15 +19,6 @@ type AgingRequest = {
     dryRun?: boolean;
     limit?: number;
 };
-
-type BehavioralRolloutMode = "off" | "dev_admin" | "all";
-
-function getBehavioralRolloutMode(): BehavioralRolloutMode {
-    const raw = (process.env.BEHAVIORAL_CITY_ROLLOUT || "dev_admin").trim().toLowerCase();
-    if (raw === "all") return "all";
-    if (raw === "off") return "off";
-    return "dev_admin";
-}
 
 function parseBoolean(value: string | null | undefined) {
     if (!value) return false;
@@ -135,7 +127,7 @@ async function handleAging(request: NextRequest) {
     const dryRun = Boolean(body.dryRun) || parseBoolean(query.get("dryRun"));
     const limit = parseLimit(body.limit ?? query.get("limit"), 200);
     const now = Date.now();
-    const rolloutMode = getBehavioralRolloutMode();
+    const rolloutMode = getServerBehavioralRolloutMode();
 
     if (rolloutMode === "off") {
         return NextResponse.json({
