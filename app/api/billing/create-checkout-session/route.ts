@@ -9,17 +9,87 @@ import type { Workspace } from "@/types";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+type BillingPlan = "monthly" | "yearly";
+
 type CheckoutBody = {
     workspaceId?: string;
-    plan?: "monthly" | "yearly";
+    plan?: BillingPlan;
     acceptedLegal?: boolean;
 };
 
-function getPriceId(plan: "monthly" | "yearly") {
+function getConfiguredStripePriceToken(plan: BillingPlan) {
     if (plan === "yearly") {
         return process.env.STRIPE_PRICE_ID_YEARLY;
     }
     return process.env.STRIPE_PRICE_ID_MONTHLY;
+}
+
+function getPriceEnvLabel(plan: BillingPlan) {
+    return plan === "yearly" ? "STRIPE_PRICE_ID_YEARLY" : "STRIPE_PRICE_ID_MONTHLY";
+}
+
+function expectedRecurringInterval(plan: BillingPlan) {
+    return plan === "yearly" ? "year" : "month";
+}
+
+function normalizeConfiguredToken(value?: string) {
+    const normalized = value?.trim();
+    return normalized || null;
+}
+
+async function resolveCheckoutPriceId(
+    stripe: ReturnType<typeof getStripe>,
+    plan: BillingPlan
+) {
+    const configuredToken = normalizeConfiguredToken(getConfiguredStripePriceToken(plan));
+    if (!configuredToken) {
+        return {
+            priceId: null,
+            warning: null as string | null,
+            error: `Missing Stripe price env for ${plan}.`,
+        };
+    }
+
+    if (configuredToken.startsWith("price_")) {
+        return {
+            priceId: configuredToken,
+            warning: null as string | null,
+            error: null as string | null,
+        };
+    }
+
+    if (!configuredToken.startsWith("prod_")) {
+        return {
+            priceId: null,
+            warning: null as string | null,
+            error: `${getPriceEnvLabel(plan)} must be a Stripe price id (price_...).`,
+        };
+    }
+
+    const desiredInterval = expectedRecurringInterval(plan);
+    const prices = await stripe.prices.list({
+        product: configuredToken,
+        active: true,
+        type: "recurring",
+        limit: 100,
+    });
+    const matchedPrice = prices.data.find(
+        (price) => price.recurring?.interval === desiredInterval
+    );
+
+    if (!matchedPrice) {
+        return {
+            priceId: null,
+            warning: null as string | null,
+            error: `Product ${configuredToken} has no active recurring price for interval "${desiredInterval}". Configure ${getPriceEnvLabel(plan)} with a valid price_ id.`,
+        };
+    }
+
+    return {
+        priceId: matchedPrice.id,
+        warning: `${getPriceEnvLabel(plan)} is configured with product id (${configuredToken}). Resolved fallback price ${matchedPrice.id}.`,
+        error: null as string | null,
+    };
 }
 
 export async function POST(request: NextRequest) {
@@ -31,7 +101,7 @@ export async function POST(request: NextRequest) {
         const userEmail = decodedUser.email;
         const body = (await request.json()) as CheckoutBody;
         const workspaceId = body.workspaceId;
-        const plan: "monthly" | "yearly" = body.plan === "yearly" ? "yearly" : "monthly";
+        const plan: BillingPlan = body.plan === "yearly" ? "yearly" : "monthly";
         const acceptedLegal = body.acceptedLegal === true;
         alertContext = {
             uid,
@@ -44,19 +114,33 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "workspaceId is required." }, { status: 400 });
         }
 
-        const priceId = getPriceId(plan);
-        if (!priceId) {
+        const stripe = getStripe();
+        const priceResolution = await resolveCheckoutPriceId(stripe, plan);
+        if (!priceResolution.priceId) {
             await sendOpsAlert({
                 source: "api/billing/create-checkout-session",
-                message: `Missing Stripe price env for ${plan}.`,
+                message: priceResolution.error || `Missing Stripe price env for ${plan}.`,
                 level: "error",
                 workspaceId: workspaceId || undefined,
                 context: alertContext,
             });
             return NextResponse.json(
-                { error: `Missing Stripe price env for ${plan}.` },
+                { error: priceResolution.error || `Missing Stripe price env for ${plan}.` },
                 { status: 500 }
             );
+        }
+        const priceId = priceResolution.priceId;
+        if (priceResolution.warning) {
+            await sendOpsAlert({
+                source: "api/billing/create-checkout-session",
+                message: priceResolution.warning,
+                level: "warning",
+                workspaceId: workspaceId || undefined,
+                context: {
+                    ...alertContext,
+                    resolvedPriceId: priceId,
+                },
+            });
         }
 
         const db = getAdminDb();
@@ -82,7 +166,6 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const stripe = getStripe();
         const billing = workspaceData.billing || {
             status: "inactive",
             trialEndsAt: getDefaultTrialEndsAt(workspaceData.createdAt || Date.now()),
