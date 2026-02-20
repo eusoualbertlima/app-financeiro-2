@@ -249,6 +249,7 @@ export interface UserProfile {
     email: string;
     displayName: string;
     photoURL?: string;
+    primaryWorkspaceId?: string;
     subscriptionStatus: 'active' | 'inactive' | 'trial' | 'trialing' | 'past_due' | 'canceled';
     subscriptionPlan?: 'monthly' | 'yearly';
     createdAt: number;

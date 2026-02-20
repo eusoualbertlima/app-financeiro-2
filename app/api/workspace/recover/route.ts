@@ -13,6 +13,14 @@ type RecoverRequestBody = {
 };
 
 type WorkspaceRecord = Omit<Workspace, "id">;
+type UserProfileRecord = {
+    uid?: string;
+    email?: string;
+    createdAt?: number;
+    updatedAt?: number;
+    lastSeenAt?: number;
+    primaryWorkspaceId?: string;
+};
 const DATA_COLLECTIONS = [
     "accounts",
     "credit_cards",
@@ -218,11 +226,41 @@ function toWorkspaceRecord(raw: Partial<WorkspaceRecord> | undefined, uid: strin
     };
 }
 
+function isWorkspaceLinkedToIdentity(params: {
+    workspace: WorkspaceRecord;
+    uid: string;
+    normalizedEmail: string;
+    knownUidSet: Set<string>;
+}) {
+    const { workspace, uid, normalizedEmail, knownUidSet } = params;
+    const members = Array.isArray(workspace.members)
+        ? workspace.members.filter((member): member is string => typeof member === "string" && Boolean(member))
+        : [];
+    const ownerId = typeof workspace.ownerId === "string" ? workspace.ownerId : "";
+    const ownerEmail = normalizeEmail(workspace.ownerEmail);
+    const pendingInvites = Array.isArray(workspace.pendingInvites)
+        ? workspace.pendingInvites.map((inviteEmail) => normalizeEmail(inviteEmail))
+        : [];
+
+    const uidLinked = ownerId === uid
+        || knownUidSet.has(ownerId)
+        || members.includes(uid)
+        || members.some((memberUid) => knownUidSet.has(memberUid));
+
+    const emailLinked = Boolean(
+        normalizedEmail
+        && (ownerEmail === normalizedEmail || pendingInvites.includes(normalizedEmail))
+    );
+
+    return uidLinked || emailLinked;
+}
+
 function pickPreferredWorkspace(
     candidates: Array<{ id: string; data: WorkspaceRecord }>,
     uid: string,
     normalizedEmail: string,
-    dataCollectionsByWorkspaceId?: Map<string, number>
+    dataCollectionsByWorkspaceId?: Map<string, number>,
+    preferredWorkspaceId?: string | null
 ) {
     if (candidates.length === 0) return null;
 
@@ -243,6 +281,18 @@ function pickPreferredWorkspace(
         const bCollectionsWithData = dataCollectionsByWorkspaceId?.get(b.id) || 0;
         const aBillingPriority = getBillingPriority(a);
         const bBillingPriority = getBillingPriority(b);
+        const aPreferred = preferredWorkspaceId && a.id === preferredWorkspaceId ? 1 : 0;
+        const bPreferred = preferredWorkspaceId && b.id === preferredWorkspaceId ? 1 : 0;
+        const aIsOwner = a.data.ownerId === uid ? 1 : 0;
+        const bIsOwner = b.data.ownerId === uid ? 1 : 0;
+        const aOwnerEmailMatch = normalizedEmail && normalizeEmail(a.data.ownerEmail) === normalizedEmail ? 1 : 0;
+        const bOwnerEmailMatch = normalizedEmail && normalizeEmail(b.data.ownerEmail) === normalizedEmail ? 1 : 0;
+
+        if (aPreferred !== bPreferred) return bPreferred - aPreferred;
+
+        if (aIsOwner !== bIsOwner) return bIsOwner - aIsOwner;
+
+        if (aOwnerEmailMatch !== bOwnerEmailMatch) return bOwnerEmailMatch - aOwnerEmailMatch;
 
         if (aCollectionsWithData !== bCollectionsWithData) {
             return bCollectionsWithData - aCollectionsWithData;
@@ -253,14 +303,6 @@ function pickPreferredWorkspace(
         const aIsMember = aMembers.includes(uid) ? 1 : 0;
         const bIsMember = bMembers.includes(uid) ? 1 : 0;
         if (aIsMember !== bIsMember) return bIsMember - aIsMember;
-
-        const aIsOwner = a.data.ownerId === uid ? 1 : 0;
-        const bIsOwner = b.data.ownerId === uid ? 1 : 0;
-        if (aIsOwner !== bIsOwner) return bIsOwner - aIsOwner;
-
-        const aOwnerEmailMatch = normalizedEmail && normalizeEmail(a.data.ownerEmail) === normalizedEmail ? 1 : 0;
-        const bOwnerEmailMatch = normalizedEmail && normalizeEmail(b.data.ownerEmail) === normalizedEmail ? 1 : 0;
-        if (aOwnerEmailMatch !== bOwnerEmailMatch) return bOwnerEmailMatch - aOwnerEmailMatch;
 
         const aLegacyOwnerMatch = aOwnerEmailMatch && a.data.ownerId !== uid ? 1 : 0;
         const bLegacyOwnerMatch = bOwnerEmailMatch && b.data.ownerId !== uid ? 1 : 0;
@@ -341,6 +383,34 @@ async function cleanupOwnedDuplicateWorkspaces(params: {
     return deletedCount;
 }
 
+function getPrimaryWorkspaceIdFromProfile(data: UserProfileRecord | undefined) {
+    return typeof data?.primaryWorkspaceId === "string" && data.primaryWorkspaceId
+        ? data.primaryWorkspaceId
+        : null;
+}
+
+async function ensureUserPrimaryWorkspace(params: {
+    db: FirebaseFirestore.Firestore;
+    uid: string;
+    normalizedEmail: string;
+    selectedWorkspaceId: string;
+}) {
+    const { db, uid, normalizedEmail, selectedWorkspaceId } = params;
+    const userRef = db.collection("users").doc(uid);
+    const now = Date.now();
+
+    await userRef.set(
+        {
+            uid,
+            ...(normalizedEmail ? { email: normalizedEmail } : {}),
+            primaryWorkspaceId: selectedWorkspaceId,
+            updatedAt: now,
+            lastSeenAt: now,
+        },
+        { merge: true }
+    );
+}
+
 export async function POST(request: NextRequest) {
     try {
         const decoded = await requireUserFromRequest(request);
@@ -358,6 +428,10 @@ export async function POST(request: NextRequest) {
 
         const db = getAdminDb();
         const workspacesRef = db.collection("workspaces");
+        const userRef = db.collection("users").doc(uid);
+        const userProfileSnap = await userRef.get();
+        const userProfileData = (userProfileSnap.exists ? userProfileSnap.data() : undefined) as UserProfileRecord | undefined;
+        const preferredWorkspaceId = getPrimaryWorkspaceIdFromProfile(userProfileData);
         const historicalUids = await lookupHistoricalUidsByEmail({
             db,
             normalizedEmail,
@@ -365,6 +439,7 @@ export async function POST(request: NextRequest) {
         });
         const lookupUids = unique([uid, ...historicalUids]).slice(0, 20);
         const historicalUidSet = new Set(historicalUids);
+        const knownUidSet = new Set(lookupUids);
 
         const lookupPromises: Array<Promise<FirebaseFirestore.QuerySnapshot>> = [];
         lookupUids.forEach((lookupUid) => {
@@ -387,6 +462,30 @@ export async function POST(request: NextRequest) {
             snapshot.docs.forEach((docSnap) => {
                 byId.set(docSnap.id, toWorkspaceRecord(docSnap.data() as Partial<WorkspaceRecord>, uid));
             });
+        }
+
+        if (preferredWorkspaceId && !byId.has(preferredWorkspaceId)) {
+            try {
+                const preferredWorkspaceSnap = await workspacesRef.doc(preferredWorkspaceId).get();
+                if (preferredWorkspaceSnap.exists) {
+                    const preferredWorkspace = toWorkspaceRecord(
+                        preferredWorkspaceSnap.data() as Partial<WorkspaceRecord>,
+                        uid
+                    );
+                    if (
+                        isWorkspaceLinkedToIdentity({
+                            workspace: preferredWorkspace,
+                            uid,
+                            normalizedEmail,
+                            knownUidSet,
+                        })
+                    ) {
+                        byId.set(preferredWorkspaceSnap.id, preferredWorkspace);
+                    }
+                }
+            } catch (preferredWorkspaceError) {
+                console.warn("workspace recover preferred workspace lookup warning:", preferredWorkspaceError);
+            }
         }
 
         let dataCollectionsByWorkspaceId = new Map<string, number>();
@@ -435,7 +534,8 @@ export async function POST(request: NextRequest) {
             Array.from(byId.entries()).map(([id, data]) => ({ id, data })),
             uid,
             normalizedEmail,
-            dataCollectionsByWorkspaceId
+            dataCollectionsByWorkspaceId,
+            preferredWorkspaceId
         );
         let created = false;
 
@@ -538,6 +638,17 @@ export async function POST(request: NextRequest) {
             members: nextMembers,
             pendingInvites: nextPendingInvites,
         };
+
+        try {
+            await ensureUserPrimaryWorkspace({
+                db,
+                uid,
+                normalizedEmail,
+                selectedWorkspaceId: selected.id,
+            });
+        } catch (primaryWorkspaceError) {
+            console.warn("workspace recover primary workspace update warning:", primaryWorkspaceError);
+        }
 
         let deletedDuplicates = 0;
         try {
