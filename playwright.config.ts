@@ -1,12 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const baseURL = process.env.E2E_BASE_URL || "http://127.0.0.1:3000";
+const baseURL = process.env.E2E_BASE_URL || "http://localhost:3000";
 const useExternalBaseUrl = Boolean(process.env.E2E_BASE_URL);
 const storageState = process.env.E2E_STORAGE_STATE;
-const devServerCommand =
-    process.platform === "win32"
-        ? "C:\\Progra~1\\nodejs\\npm.cmd run dev"
-        : "npm run dev";
+const devServerCommand = `"${process.execPath}" node_modules/next/dist/bin/next dev -p 3000`;
 
 export default defineConfig({
     testDir: "./e2e",

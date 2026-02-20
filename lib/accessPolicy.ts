@@ -4,8 +4,8 @@ import type { Workspace } from "@/types";
 
 export type ProductionAccessMode = "workspace_internal_bypass" | "billing_only";
 
-// Fixed production mode to avoid ambiguous access behavior across releases.
-export const PRODUCTION_ACCESS_MODE: ProductionAccessMode = "workspace_internal_bypass";
+// Billing is the only source of truth for production access control.
+export const PRODUCTION_ACCESS_MODE: ProductionAccessMode = "billing_only";
 
 type AccessReason = "billing" | "dev_admin" | "workspace_internal_bypass" | "blocked";
 

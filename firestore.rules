@@ -21,6 +21,34 @@ service cloud.firestore {
       return signedIn() && workspaceData(workspaceId).ownerId == request.auth.uid;
     }
 
+    function workspaceBilling(workspaceId) {
+      return workspaceData(workspaceId).billing is map
+        ? workspaceData(workspaceId).billing
+        : null;
+    }
+
+    function workspaceTrialDeadlineMs(workspaceId) {
+      return workspaceBilling(workspaceId) != null && workspaceBilling(workspaceId).trialEndsAt is int
+        ? workspaceBilling(workspaceId).trialEndsAt
+        : (
+          workspaceData(workspaceId).createdAt is int
+            ? workspaceData(workspaceId).createdAt + 604800000
+            : 0
+        );
+    }
+
+    function hasWorkspaceDataAccess(workspaceId) {
+      return signedIn()
+        && (
+          (workspaceBilling(workspaceId) != null && workspaceBilling(workspaceId).status == "active")
+          || (
+            workspaceBilling(workspaceId) != null
+            && workspaceBilling(workspaceId).status == "trialing"
+            && request.time.toMillis() <= workspaceTrialDeadlineMs(workspaceId)
+          )
+        );
+    }
+
     function isInvitedByEmail(workspaceId) {
       return signedIn()
         && request.auth.token.email is string
@@ -44,6 +72,16 @@ service cloud.firestore {
         && request.resource.data.pendingInvites.size() <= resource.data.pendingInvites.size();
     }
 
+    function isOwnerWorkspaceMetaUpdate(workspaceId) {
+      return isWorkspaceOwner(workspaceId)
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.ownerEmail == resource.data.ownerEmail
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.billing == resource.data.billing
+        && request.resource.data.legal == resource.data.legal
+        && request.resource.data.behavioralMetrics == resource.data.behavioralMetrics;
+    }
+
     match /users/{uid} {
       allow read, create, update: if signedIn() && request.auth.uid == uid;
       allow delete: if false;
@@ -59,36 +97,36 @@ service cloud.firestore {
 
       // Owner has full control; members can only read.
       // Exception: invited user can accept invite and join workspace.
-      allow update: if isWorkspaceOwner(workspaceId) || isInviteAcceptanceUpdate(workspaceId);
+      allow update: if isOwnerWorkspaceMetaUpdate(workspaceId) || isInviteAcceptanceUpdate(workspaceId);
 
       allow delete: if isWorkspaceOwner(workspaceId);
 
       match /accounts/{docId} {
-        allow read, create, update, delete: if isWorkspaceMember(workspaceId);
+        allow read, create, update, delete: if isWorkspaceMember(workspaceId) && hasWorkspaceDataAccess(workspaceId);
       }
 
       match /credit_cards/{docId} {
-        allow read, create, update, delete: if isWorkspaceMember(workspaceId);
+        allow read, create, update, delete: if isWorkspaceMember(workspaceId) && hasWorkspaceDataAccess(workspaceId);
       }
 
       match /transactions/{docId} {
-        allow read, create, update, delete: if isWorkspaceMember(workspaceId);
+        allow read, create, update, delete: if isWorkspaceMember(workspaceId) && hasWorkspaceDataAccess(workspaceId);
       }
 
       match /financial_notes/{docId} {
-        allow read, create, update, delete: if isWorkspaceMember(workspaceId);
+        allow read, create, update, delete: if isWorkspaceMember(workspaceId) && hasWorkspaceDataAccess(workspaceId);
       }
 
       match /recurring_bills/{docId} {
-        allow read, create, update, delete: if isWorkspaceMember(workspaceId);
+        allow read, create, update, delete: if isWorkspaceMember(workspaceId) && hasWorkspaceDataAccess(workspaceId);
       }
 
       match /bill_payments/{docId} {
-        allow read, create, update, delete: if isWorkspaceMember(workspaceId);
+        allow read, create, update, delete: if isWorkspaceMember(workspaceId) && hasWorkspaceDataAccess(workspaceId);
       }
 
       match /card_statements/{docId} {
-        allow read, create, update, delete: if isWorkspaceMember(workspaceId);
+        allow read, create, update, delete: if isWorkspaceMember(workspaceId) && hasWorkspaceDataAccess(workspaceId);
       }
 
       match /ops_alerts/{docId} {
@@ -99,7 +137,7 @@ service cloud.firestore {
 
       match /audit_logs/{docId} {
         allow read: if isWorkspaceOwner(workspaceId);
-        allow create: if isWorkspaceMember(workspaceId);
+        allow create: if isWorkspaceMember(workspaceId) && hasWorkspaceDataAccess(workspaceId);
         allow update, delete: if false;
       }
     }

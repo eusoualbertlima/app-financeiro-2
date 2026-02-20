@@ -45,6 +45,30 @@ module.exports = {
                 'card': '0 2px 8px rgba(0, 0, 0, 0.08)',
                 'card-hover': '0 8px 24px rgba(0, 0, 0, 0.12)',
             },
+            keyframes: {
+                'fade-in-up': {
+                    '0%': { opacity: '0', transform: 'translateY(20px)' },
+                    '100%': { opacity: '1', transform: 'translateY(0)' },
+                },
+                marquee: {
+                    '0%': { transform: 'translateX(0%)' },
+                    '100%': { transform: 'translateX(-100%)' },
+                },
+                'spin-slow': {
+                    '0%': { transform: 'rotate(0deg)' },
+                    '100%': { transform: 'rotate(360deg)' },
+                },
+                aurora: {
+                    '0%, 100%': { transform: 'translateY(0) scale(1)' },
+                    '50%': { transform: 'translateY(-20px) scale(1.05)' },
+                }
+            },
+            animation: {
+                'fade-in-up': 'fade-in-up 0.8s ease-out forwards',
+                'marquee': 'marquee 25s linear infinite',
+                'spin-slow': 'spin-slow 8s linear infinite',
+                'aurora': 'aurora 15s ease-in-out infinite',
+            }
         },
     },
     plugins: [],

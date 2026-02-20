@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 
 export const metadata: Metadata = {
     title: "App Financeiro 2.0",
@@ -14,9 +15,11 @@ export default function RootLayout({
 }>) {
     return (
         <html lang="pt-BR">
-            <body className="antialiased bg-gray-50">
+            <body className="antialiased bg-[#050505] text-slate-50">
                 <AuthProvider>
-                    {children}
+                    <WorkspaceProvider>
+                        {children}
+                    </WorkspaceProvider>
                 </AuthProvider>
             </body>
         </html>

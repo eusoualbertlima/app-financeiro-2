@@ -3,8 +3,6 @@ type AdminAllowlist = {
     uids: string[];
 };
 
-const DEFAULT_DEV_ADMIN_EMAILS = ["limaalberth20@gmail.com"];
-
 function parseCsv(input?: string, lowercase = false) {
     return (input || "")
         .split(",")
@@ -19,7 +17,7 @@ function unique(values: string[]) {
 export function getServerDevAdminAllowlist(): AdminAllowlist {
     const configuredEmails = parseCsv(process.env.DEV_ADMIN_EMAILS, true);
     return {
-        emails: unique(configuredEmails.length > 0 ? configuredEmails : DEFAULT_DEV_ADMIN_EMAILS),
+        emails: unique(configuredEmails),
         uids: parseCsv(process.env.DEV_ADMIN_UIDS),
     };
 }
@@ -27,7 +25,7 @@ export function getServerDevAdminAllowlist(): AdminAllowlist {
 export function getClientDevAdminAllowlist(): AdminAllowlist {
     const configuredEmails = parseCsv(process.env.NEXT_PUBLIC_DEV_ADMIN_EMAILS, true);
     return {
-        emails: unique(configuredEmails.length > 0 ? configuredEmails : DEFAULT_DEV_ADMIN_EMAILS),
+        emails: unique(configuredEmails),
         uids: parseCsv(process.env.NEXT_PUBLIC_DEV_ADMIN_UIDS),
     };
 }

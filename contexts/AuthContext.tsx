@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import {
     User,
     onAuthStateChanged,
+    signInWithEmailAndPassword,
     signInWithPopup,
     signOut as firebaseSignOut
 } from "firebase/auth";
@@ -16,6 +17,7 @@ interface AuthContextType {
     userProfile: UserProfile | null;
     loading: boolean;
     signInWithGoogle: () => Promise<void>;
+    signInWithEmail: (email: string, password: string) => Promise<void>;
     signOut: () => Promise<void>;
 }
 
@@ -29,6 +31,36 @@ async function syncUserPresence(user: User) {
             Authorization: `Bearer ${token}`,
         },
     });
+}
+
+function getAuthErrorCode(error: unknown) {
+    if (typeof error !== "object" || error === null) return "";
+    if (!("code" in error)) return "";
+    const code = (error as { code?: unknown }).code;
+    return typeof code === "string" ? code : "";
+}
+
+function mapAuthErrorMessage(error: unknown) {
+    const code = getAuthErrorCode(error);
+
+    if (
+        code === "auth/invalid-login-credentials"
+        || code === "auth/invalid-credential"
+        || code === "auth/user-not-found"
+        || code === "auth/wrong-password"
+    ) {
+        return "Email ou senha inválidos.";
+    }
+    if (code === "auth/invalid-email") {
+        return "Email inválido.";
+    }
+    if (code === "auth/operation-not-allowed") {
+        return "Login por email/senha desativado. Ative no Firebase Authentication.";
+    }
+    if (code === "auth/too-many-requests") {
+        return "Muitas tentativas de login. Tente novamente em alguns minutos.";
+    }
+    return "Não foi possível concluir o login agora.";
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -70,7 +102,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             await signInWithPopup(auth, googleProvider);
         } catch (error) {
             console.error("Erro ao fazer login:", error);
-            throw error;
+            throw new Error(mapAuthErrorMessage(error));
+        }
+    };
+
+    const signInWithEmail = async (email: string, password: string) => {
+        try {
+            await signInWithEmailAndPassword(auth, email.trim(), password);
+        } catch (error) {
+            console.error("Erro ao fazer login com email:", error);
+            throw new Error(mapAuthErrorMessage(error));
         }
     };
 
@@ -85,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     return (
-        <AuthContext.Provider value={{ user, userProfile, loading, signInWithGoogle, signOut }}>
+        <AuthContext.Provider value={{ user, userProfile, loading, signInWithGoogle, signInWithEmail, signOut }}>
             {children}
         </AuthContext.Provider>
     );

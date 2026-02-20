@@ -6,39 +6,39 @@
 
 @layer base {
   :root {
-    --background: 250 250 250;
-    --foreground: 15 23 42;
-    --card: 255 255 255;
-    --card-foreground: 15 23 42;
-    --primary: 14 165 233;
-    --primary-foreground: 255 255 255;
-    --secondary: 168 85 247;
-    --muted: 100 116 139;
-    --border: 226 232 240;
-    --success: 34 197 94;
-    --danger: 239 68 68;
-  }
-
-  .dark {
-    --background: 15 23 42;
+    --background: 5 5 5; /* Very dark grayish black */
     --foreground: 248 250 252;
-    --card: 30 41 59;
+    --card: 15 23 42;
     --card-foreground: 248 250 252;
     --primary: 56 189 248;
     --primary-foreground: 15 23 42;
     --secondary: 192 132 252;
     --muted: 148 163 184;
-    --border: 51 65 85;
+    --border: 30 40 50;
+    --success: 34 197 94;
+    --danger: 239 68 68;
+  }
+
+  .dark {
+    --background: 5 5 5;
+    --foreground: 248 250 252;
+    --card: 15 23 42;
+    --card-foreground: 248 250 252;
+    --primary: 56 189 248;
+    --primary-foreground: 15 23 42;
+    --secondary: 192 132 252;
+    --muted: 148 163 184;
+    --border: 30 40 50;
   }
 
   * {
-    border-color: rgb(var(--border));
+    border-color: rgb(var(--border) / 0.5);
   }
 
   body {
     font-family: 'Inter', system-ui, sans-serif;
-    background: rgb(var(--background));
-    color: rgb(var(--foreground));
+    background-color: #050505;
+    color: #f8fafc;
     -webkit-font-smoothing: antialiased;
   }
 }
