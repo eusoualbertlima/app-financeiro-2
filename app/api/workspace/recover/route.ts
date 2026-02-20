@@ -31,6 +31,14 @@ function unique(values: string[]) {
     return Array.from(new Set(values.filter(Boolean)));
 }
 
+function chunkArray<T>(items: T[], size: number) {
+    const chunks: T[][] = [];
+    for (let i = 0; i < items.length; i += size) {
+        chunks.push(items.slice(i, i + size));
+    }
+    return chunks;
+}
+
 async function lookupHistoricalUidsByEmail(params: {
     db: FirebaseFirestore.Firestore;
     normalizedEmail: string;
@@ -68,6 +76,122 @@ async function lookupHistoricalUidsByEmail(params: {
     return Array.from(uids);
 }
 
+async function countWorkspaceDataCollections(workspaceRef: FirebaseFirestore.DocumentReference) {
+    let collectionsWithData = 0;
+
+    for (const collectionName of DATA_COLLECTIONS) {
+        const snapshot = await workspaceRef.collection(collectionName).limit(1).get();
+        if (!snapshot.empty) {
+            collectionsWithData += 1;
+        }
+    }
+
+    return collectionsWithData;
+}
+
+async function buildWorkspaceDataCollectionsMap(params: {
+    workspacesRef: FirebaseFirestore.CollectionReference;
+    workspaceIds: string[];
+}) {
+    const { workspacesRef, workspaceIds } = params;
+    const entries = await Promise.all(
+        workspaceIds.map(async (workspaceId) => {
+            const collectionsWithData = await countWorkspaceDataCollections(workspacesRef.doc(workspaceId));
+            return [workspaceId, collectionsWithData] as const;
+        })
+    );
+
+    return new Map(entries);
+}
+
+function getMaxWorkspaceDataCollections(values: Iterable<number>) {
+    let max = 0;
+    for (const value of values) {
+        if (value > max) max = value;
+    }
+    return max;
+}
+
+async function lookupEmailLinkedWorkspacesByIdentity(params: {
+    db: FirebaseFirestore.Firestore;
+    uid: string;
+    normalizedEmail: string;
+}) {
+    const { db, uid, normalizedEmail } = params;
+    if (!normalizedEmail) return new Map<string, WorkspaceRecord>();
+
+    const workspacesSnapshot = await db.collection("workspaces").limit(500).get();
+    if (workspacesSnapshot.empty) {
+        return new Map<string, WorkspaceRecord>();
+    }
+
+    const rawWorkspaceDocs = workspacesSnapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        raw: docSnap.data() as Partial<WorkspaceRecord>,
+    }));
+
+    const allUids = unique(
+        rawWorkspaceDocs.flatMap(({ raw }) => {
+            const owner = typeof raw.ownerId === "string" && raw.ownerId ? [raw.ownerId] : [];
+            const members = Array.isArray(raw.members)
+                ? raw.members.filter((member): member is string => typeof member === "string" && Boolean(member))
+                : [];
+            return [...owner, ...members];
+        })
+    );
+
+    const matchedUids = new Set<string>();
+
+    if (allUids.length > 0) {
+        const userRefs = allUids.map((candidateUid) => db.collection("users").doc(candidateUid));
+        const userSnapshots = await db.getAll(...userRefs);
+
+        userSnapshots.forEach((userSnapshot) => {
+            if (!userSnapshot.exists) return;
+            const data = userSnapshot.data() as { email?: unknown };
+            const email = normalizeEmail(typeof data.email === "string" ? data.email : "");
+            if (email === normalizedEmail) {
+                matchedUids.add(userSnapshot.id);
+            }
+        });
+
+        const auth = getAdminAuth();
+        const chunks = chunkArray(allUids, 100);
+        for (const chunk of chunks) {
+            const authLookup = await auth.getUsers(chunk.map((candidateUid) => ({ uid: candidateUid })));
+            authLookup.users.forEach((record) => {
+                if (normalizeEmail(record.email) === normalizedEmail) {
+                    matchedUids.add(record.uid);
+                }
+            });
+        }
+    }
+
+    const byId = new Map<string, WorkspaceRecord>();
+
+    rawWorkspaceDocs.forEach(({ id, raw }) => {
+        const ownerEmail = normalizeEmail(raw.ownerEmail);
+        const pendingInvites = Array.isArray(raw.pendingInvites)
+            ? raw.pendingInvites.map((email) => normalizeEmail(email))
+            : [];
+        const ownerId = typeof raw.ownerId === "string" ? raw.ownerId : "";
+        const members = Array.isArray(raw.members)
+            ? raw.members.filter((member): member is string => typeof member === "string" && Boolean(member))
+            : [];
+
+        const directEmailMatch = ownerEmail === normalizedEmail || pendingInvites.includes(normalizedEmail);
+        const uidEmailMatch = matchedUids.has(ownerId) || members.some((memberUid) => matchedUids.has(memberUid));
+
+        if (!directEmailMatch && !uidEmailMatch) {
+            return;
+        }
+
+        byId.set(id, toWorkspaceRecord(raw, uid));
+    });
+
+    return byId;
+}
+
 function toWorkspaceRecord(raw: Partial<WorkspaceRecord> | undefined, uid: string): WorkspaceRecord {
     const createdAt = typeof raw?.createdAt === "number" ? raw.createdAt : Date.now();
     const billing = raw?.billing || {
@@ -97,7 +221,8 @@ function toWorkspaceRecord(raw: Partial<WorkspaceRecord> | undefined, uid: strin
 function pickPreferredWorkspace(
     candidates: Array<{ id: string; data: WorkspaceRecord }>,
     uid: string,
-    normalizedEmail: string
+    normalizedEmail: string,
+    dataCollectionsByWorkspaceId?: Map<string, number>
 ) {
     if (candidates.length === 0) return null;
 
@@ -114,8 +239,14 @@ function pickPreferredWorkspace(
     const ranked = [...candidates].sort((a, b) => {
         const aMembers = Array.isArray(a.data.members) ? a.data.members : [];
         const bMembers = Array.isArray(b.data.members) ? b.data.members : [];
+        const aCollectionsWithData = dataCollectionsByWorkspaceId?.get(a.id) || 0;
+        const bCollectionsWithData = dataCollectionsByWorkspaceId?.get(b.id) || 0;
         const aBillingPriority = getBillingPriority(a);
         const bBillingPriority = getBillingPriority(b);
+
+        if (aCollectionsWithData !== bCollectionsWithData) {
+            return bCollectionsWithData - aCollectionsWithData;
+        }
 
         if (aBillingPriority !== bBillingPriority) return bBillingPriority - aBillingPriority;
 
@@ -258,10 +389,53 @@ export async function POST(request: NextRequest) {
             });
         }
 
+        let dataCollectionsByWorkspaceId = new Map<string, number>();
+
+        if (byId.size > 1) {
+            dataCollectionsByWorkspaceId = await buildWorkspaceDataCollectionsMap({
+                workspacesRef,
+                workspaceIds: Array.from(byId.keys()),
+            });
+        } else if (byId.size === 1 && normalizedEmail) {
+            const [singleWorkspaceId] = Array.from(byId.keys());
+            const singleWorkspaceCollections = await countWorkspaceDataCollections(
+                workspacesRef.doc(singleWorkspaceId)
+            );
+            dataCollectionsByWorkspaceId.set(singleWorkspaceId, singleWorkspaceCollections);
+        }
+
+        const maxCollectionsWithData = getMaxWorkspaceDataCollections(dataCollectionsByWorkspaceId.values());
+        const shouldRunEmailIdentityFallback = Boolean(
+            normalizedEmail
+            && (byId.size === 0 || maxCollectionsWithData === 0)
+        );
+
+        if (shouldRunEmailIdentityFallback) {
+            const emailLinkedCandidates = await lookupEmailLinkedWorkspacesByIdentity({
+                db,
+                uid,
+                normalizedEmail,
+            });
+
+            for (const [workspaceId, workspaceData] of emailLinkedCandidates.entries()) {
+                if (!byId.has(workspaceId)) {
+                    byId.set(workspaceId, workspaceData);
+                }
+            }
+
+            if (byId.size > 0) {
+                dataCollectionsByWorkspaceId = await buildWorkspaceDataCollectionsMap({
+                    workspacesRef,
+                    workspaceIds: Array.from(byId.keys()),
+                });
+            }
+        }
+
         let selected = pickPreferredWorkspace(
             Array.from(byId.entries()).map(([id, data]) => ({ id, data })),
             uid,
-            normalizedEmail
+            normalizedEmail,
+            dataCollectionsByWorkspaceId
         );
         let created = false;
 
