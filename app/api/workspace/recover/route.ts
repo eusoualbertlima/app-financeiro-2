@@ -31,6 +31,43 @@ function unique(values: string[]) {
     return Array.from(new Set(values.filter(Boolean)));
 }
 
+async function lookupHistoricalUidsByEmail(params: {
+    db: FirebaseFirestore.Firestore;
+    normalizedEmail: string;
+    rawEmail: string | null | undefined;
+}) {
+    const { db, normalizedEmail, rawEmail } = params;
+    if (!normalizedEmail) return [];
+
+    const emailCandidates = unique([
+        normalizedEmail,
+        typeof rawEmail === "string" ? rawEmail.trim() : "",
+    ]);
+
+    if (emailCandidates.length === 0) return [];
+
+    const snapshots = await Promise.all(
+        emailCandidates.map((email) => db.collection("users").where("email", "==", email).limit(100).get())
+    );
+
+    const uids = new Set<string>();
+
+    for (const snapshot of snapshots) {
+        snapshot.docs.forEach((docSnap) => {
+            const userData = docSnap.data() as { uid?: unknown; email?: unknown };
+            const candidateUid = typeof userData.uid === "string" && userData.uid ? userData.uid : docSnap.id;
+            const candidateEmail = normalizeEmail(typeof userData.email === "string" ? userData.email : "");
+
+            if (!candidateUid) return;
+            if (candidateEmail && candidateEmail !== normalizedEmail) return;
+
+            uids.add(candidateUid);
+        });
+    }
+
+    return Array.from(uids);
+}
+
 function toWorkspaceRecord(raw: Partial<WorkspaceRecord> | undefined, uid: string): WorkspaceRecord {
     const createdAt = typeof raw?.createdAt === "number" ? raw.createdAt : Date.now();
     const billing = raw?.billing || {
@@ -89,6 +126,14 @@ function pickPreferredWorkspace(
         const aIsOwner = a.data.ownerId === uid ? 1 : 0;
         const bIsOwner = b.data.ownerId === uid ? 1 : 0;
         if (aIsOwner !== bIsOwner) return bIsOwner - aIsOwner;
+
+        const aOwnerEmailMatch = normalizedEmail && normalizeEmail(a.data.ownerEmail) === normalizedEmail ? 1 : 0;
+        const bOwnerEmailMatch = normalizedEmail && normalizeEmail(b.data.ownerEmail) === normalizedEmail ? 1 : 0;
+        if (aOwnerEmailMatch !== bOwnerEmailMatch) return bOwnerEmailMatch - aOwnerEmailMatch;
+
+        const aLegacyOwnerMatch = aOwnerEmailMatch && a.data.ownerId !== uid ? 1 : 0;
+        const bLegacyOwnerMatch = bOwnerEmailMatch && b.data.ownerId !== uid ? 1 : 0;
+        if (aLegacyOwnerMatch !== bLegacyOwnerMatch) return bLegacyOwnerMatch - aLegacyOwnerMatch;
 
         const aInvite = normalizedEmail && (a.data.pendingInvites || []).map(normalizeEmail).includes(normalizedEmail) ? 1 : 0;
         const bInvite = normalizedEmail && (b.data.pendingInvites || []).map(normalizeEmail).includes(normalizedEmail) ? 1 : 0;
@@ -169,7 +214,8 @@ export async function POST(request: NextRequest) {
     try {
         const decoded = await requireUserFromRequest(request);
         const uid = decoded.uid;
-        const normalizedEmail = normalizeEmail(decoded.email || null);
+        const rawEmail = (decoded.email || "").trim();
+        const normalizedEmail = normalizeEmail(rawEmail);
 
         let body: RecoverRequestBody = {};
         try {
@@ -181,14 +227,26 @@ export async function POST(request: NextRequest) {
 
         const db = getAdminDb();
         const workspacesRef = db.collection("workspaces");
+        const historicalUids = await lookupHistoricalUidsByEmail({
+            db,
+            normalizedEmail,
+            rawEmail,
+        });
+        const lookupUids = unique([uid, ...historicalUids]).slice(0, 20);
+        const historicalUidSet = new Set(historicalUids);
 
-        const lookupPromises: Array<Promise<FirebaseFirestore.QuerySnapshot>> = [
-            workspacesRef.where("members", "array-contains", uid).limit(50).get(),
-            workspacesRef.where("ownerId", "==", uid).limit(50).get(),
-        ];
+        const lookupPromises: Array<Promise<FirebaseFirestore.QuerySnapshot>> = [];
+        lookupUids.forEach((lookupUid) => {
+            lookupPromises.push(workspacesRef.where("members", "array-contains", lookupUid).limit(50).get());
+            lookupPromises.push(workspacesRef.where("ownerId", "==", lookupUid).limit(50).get());
+        });
 
         if (normalizedEmail) {
             lookupPromises.push(workspacesRef.where("pendingInvites", "array-contains", normalizedEmail).limit(50).get());
+            lookupPromises.push(workspacesRef.where("ownerEmail", "==", normalizedEmail).limit(50).get());
+            if (rawEmail && rawEmail !== normalizedEmail) {
+                lookupPromises.push(workspacesRef.where("ownerEmail", "==", rawEmail).limit(50).get());
+            }
         }
 
         const lookupSnapshots = await Promise.all(lookupPromises);
@@ -260,17 +318,33 @@ export async function POST(request: NextRequest) {
             patch.pendingInvites = nextPendingInvites;
         }
 
+        let ownerId = selected.data.ownerId;
         let ownerEmail = normalizeEmail(selected.data.ownerEmail);
-        if (!ownerEmail && selected.data.ownerId === uid && normalizedEmail) {
+        if (!ownerEmail && ownerId === uid && normalizedEmail) {
             ownerEmail = normalizedEmail;
         }
 
-        if (!ownerEmail && selected.data.ownerId) {
+        if (!ownerEmail && ownerId) {
             try {
-                const ownerUser = await getAdminAuth().getUser(selected.data.ownerId);
+                const ownerUser = await getAdminAuth().getUser(ownerId);
                 ownerEmail = normalizeEmail(ownerUser.email);
             } catch (ownerEmailError) {
                 console.warn("workspace recover owner email lookup warning:", ownerEmailError);
+            }
+        }
+
+        const canMigrateLegacyOwner =
+            ownerId !== uid
+            && (
+                (ownerEmail && normalizedEmail && ownerEmail === normalizedEmail)
+                || historicalUidSet.has(ownerId)
+            );
+
+        if (canMigrateLegacyOwner) {
+            ownerId = uid;
+            patch.ownerId = uid;
+            if (!ownerEmail && normalizedEmail) {
+                ownerEmail = normalizedEmail;
             }
         }
 
@@ -285,6 +359,7 @@ export async function POST(request: NextRequest) {
         const workspace: Workspace = {
             id: selected.id,
             ...selected.data,
+            ownerId,
             ownerEmail: ownerEmail || selected.data.ownerEmail,
             members: nextMembers,
             pendingInvites: nextPendingInvites,
