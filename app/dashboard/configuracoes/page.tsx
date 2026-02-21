@@ -5,9 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/hooks/useFirestore";
 import { resolveWorkspaceAccessDecision } from "@/lib/accessPolicy";
 import { Header } from "@/components/Navigation";
-import { Settings, User, Shield, Bell, Palette, LogOut, ChevronRight, UserPlus, Users, Copy, Check, CreditCard, Loader2 } from "lucide-react";
-import { updateDoc, doc, arrayUnion } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { Settings, User, Shield, Bell, Palette, LogOut, ChevronRight, UserPlus, Users, Copy, Check, CreditCard, Loader2, UserMinus } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -41,6 +39,8 @@ export default function ConfiguracoesPage() {
     const [acceptedLegal, setAcceptedLegal] = useState(false);
     const [checkoutPlan, setCheckoutPlan] = useState<BillingPlan>("monthly");
     const [planHydrated, setPlanHydrated] = useState(false);
+    const [leaveStatus, setLeaveStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+    const [leaveMessage, setLeaveMessage] = useState("");
 
     useEffect(() => {
         if (!workspace) return;
@@ -72,6 +72,7 @@ export default function ConfiguracoesPage() {
         setCheckoutPlan(plan);
         setBillingMessage("");
     };
+    const isWorkspaceOwner = Boolean(workspace?.ownerId && user?.uid && workspace.ownerId === user.uid);
 
     const sections = [
         {
@@ -113,34 +114,83 @@ export default function ConfiguracoesPage() {
 
     const handleInvite = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!inviteEmail || !workspace?.id) return;
+        if (!inviteEmail || !workspace?.id || !user) return;
 
         setInviteStatus("loading");
+        setInviteMessage("");
 
         try {
-            // Search for user by email in Firebase Auth
-            // Since we can't query Auth directly from client, we'll use a simple approach:
-            // Look for workspaces owned by the email user
-            // For now, we'll add the email to a pending_invites collection
-            // and resolve it when the user logs in
-
-            if (!workspace?.id) {
-                setInviteStatus("error");
-                setInviteMessage("Workspace não encontrado");
-                return;
-            }
-
-            // Add invite to workspace
-            await updateDoc(doc(db, "workspaces", workspace.id), {
-                pendingInvites: arrayUnion(inviteEmail.toLowerCase()),
+            const token = await user.getIdToken();
+            const response = await fetch("/api/workspace/invite", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    workspaceId: workspace.id,
+                    email: inviteEmail,
+                }),
             });
 
+            const data = (await response.json()) as {
+                ok?: boolean;
+                message?: string;
+                error?: string;
+                code?: string;
+                inviteAdded?: boolean;
+            };
+
+            if (!response.ok) {
+                throw new Error(data.error || "Erro ao autorizar email.");
+            }
+
             setInviteStatus("success");
-            setInviteMessage(`✅ Email ${inviteEmail} autorizado! Nenhum email é enviado — basta a pessoa abrir o app e fazer login com a mesma conta Google. Ela verá automaticamente os seus dados.`);
+            setInviteMessage(data.message || `✅ Email ${inviteEmail} autorizado!`);
             setInviteEmail("");
-        } catch {
+        } catch (error) {
             setInviteStatus("error");
-            setInviteMessage("Erro ao enviar convite. Tente novamente.");
+            setInviteMessage(error instanceof Error ? error.message : "Nao foi possivel autorizar este email.");
+        }
+    };
+
+    const handleLeaveWorkspace = async () => {
+        if (!workspace?.id || !user || isWorkspaceOwner) return;
+
+        const confirmed = window.confirm(
+            "Deseja sair deste workspace? Você perderá acesso aos dados compartilhados."
+        );
+        if (!confirmed) return;
+
+        setLeaveStatus("loading");
+        setLeaveMessage("");
+
+        try {
+            const token = await user.getIdToken();
+            const response = await fetch("/api/workspace/leave", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    workspaceId: workspace.id,
+                }),
+            });
+
+            const data = (await response.json()) as { ok?: boolean; message?: string; error?: string };
+            if (!response.ok) {
+                throw new Error(data.error || "Nao foi possivel sair do workspace.");
+            }
+
+            setLeaveStatus("success");
+            setLeaveMessage(data.message || "Você saiu do workspace com sucesso.");
+            window.setTimeout(() => {
+                window.location.reload();
+            }, 800);
+        } catch (error) {
+            setLeaveStatus("error");
+            setLeaveMessage(error instanceof Error ? error.message : "Nao foi possivel sair do workspace.");
         }
     };
 
@@ -400,6 +450,11 @@ export default function ConfiguracoesPage() {
                                         <strong> Nenhum email será enviado</strong> — basta a pessoa abrir o app e fazer login com o Google.
                                         Ela será adicionada automaticamente.
                                     </p>
+                                    {!isWorkspaceOwner && (
+                                        <p className="text-xs text-amber-600 mb-4">
+                                            Apenas o dono do workspace pode autorizar novos membros.
+                                        </p>
+                                    )}
 
                                     <form onSubmit={handleInvite} className="flex gap-2 mb-4">
                                         <input
@@ -408,12 +463,13 @@ export default function ConfiguracoesPage() {
                                             onChange={e => setInviteEmail(e.target.value)}
                                             placeholder="email@gmail.com"
                                             className="input flex-1"
+                                            disabled={!isWorkspaceOwner}
                                             required
                                         />
                                         <button
                                             type="submit"
                                             className="btn-primary whitespace-nowrap"
-                                            disabled={inviteStatus === "loading"}
+                                            disabled={inviteStatus === "loading" || !isWorkspaceOwner}
                                         >
                                             {inviteStatus === "loading" ? "Salvando..." : "Autorizar"}
                                         </button>
@@ -449,6 +505,41 @@ export default function ConfiguracoesPage() {
                                             </p>
                                         )}
                                     </div>
+
+                                    {!isWorkspaceOwner && (
+                                        <div className="mt-4 pt-4 border-t border-slate-100">
+                                            <p className="text-xs text-slate-500 mb-3">
+                                                Você está como convidado neste workspace.
+                                            </p>
+                                            <button
+                                                type="button"
+                                                onClick={handleLeaveWorkspace}
+                                                disabled={leaveStatus === "loading"}
+                                                className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 transition-colors disabled:opacity-60"
+                                            >
+                                                {leaveStatus === "loading" ? (
+                                                    <>
+                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                        Saindo...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <UserMinus className="w-4 h-4" />
+                                                        Sair deste workspace
+                                                    </>
+                                                )}
+                                            </button>
+                                            {leaveMessage && (
+                                                <p
+                                                    className={`text-xs mt-2 ${
+                                                        leaveStatus === "success" ? "text-green-600" : "text-red-600"
+                                                    }`}
+                                                >
+                                                    {leaveMessage}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
