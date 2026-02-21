@@ -3,22 +3,15 @@
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 import { Check, ArrowRight } from "lucide-react";
 
 type BillingPlan = "monthly" | "yearly";
 
 export default function PricingPage() {
-    const { user, loading, signInWithGoogle } = useAuth();
+    const { user } = useAuth();
     const router = useRouter();
 
-    useEffect(() => {
-        if (!loading && user) {
-            router.push("/checkout");
-        }
-    }, [user, loading, router]);
-
-    const startCheckout = async (plan: BillingPlan) => {
+    const startCheckout = (plan: BillingPlan) => {
         if (typeof window !== "undefined") {
             window.localStorage.setItem("checkout:preferredPlan", plan);
         }
@@ -28,7 +21,7 @@ export default function PricingPage() {
             return;
         }
 
-        await signInWithGoogle();
+        router.push(`/login?next=${encodeURIComponent(`/checkout?plan=${plan}`)}`);
     };
 
     return (
@@ -56,7 +49,7 @@ export default function PricingPage() {
                             onClick={() => startCheckout("monthly")}
                             className="w-full mt-8 bg-white text-slate-900 py-3 rounded-xl font-semibold hover:bg-slate-100 transition-colors inline-flex items-center justify-center gap-2"
                         >
-                            Começar com Google <ArrowRight className="w-4 h-4" />
+                            Continuar <ArrowRight className="w-4 h-4" />
                         </button>
                     </div>
 
@@ -75,7 +68,7 @@ export default function PricingPage() {
                             onClick={() => startCheckout("yearly")}
                             className="w-full mt-8 bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-500 transition-colors inline-flex items-center justify-center gap-2"
                         >
-                            Começar com Google <ArrowRight className="w-4 h-4" />
+                            Continuar <ArrowRight className="w-4 h-4" />
                         </button>
                     </div>
                 </div>

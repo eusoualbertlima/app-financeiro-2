@@ -15,6 +15,12 @@ function normalizePlan(value: string | null | undefined): BillingPlan | null {
     return null;
 }
 
+function toSafeInternalPath(nextPath: string) {
+    if (!nextPath.startsWith("/")) return "/dashboard";
+    if (nextPath.startsWith("//")) return "/dashboard";
+    return nextPath;
+}
+
 function CheckoutContent() {
     const { user, loading: authLoading, signOut } = useAuth();
     const { workspace, loading: workspaceLoading } = useWorkspace();
@@ -41,14 +47,17 @@ function CheckoutContent() {
 
     useEffect(() => {
         if (!authLoading && !user) {
-            router.push("/");
+            const currentQuery = searchParams.toString();
+            const nextPath = currentQuery ? `/checkout?${currentQuery}` : "/checkout";
+            const safeNextPath = toSafeInternalPath(nextPath);
+            router.push(`/login?next=${encodeURIComponent(safeNextPath)}`);
             return;
         }
 
         if (!authLoading && !workspaceLoading && user && workspace && hasEffectiveAccess) {
             router.push("/dashboard");
         }
-    }, [user, workspace, hasEffectiveAccess, authLoading, workspaceLoading, router]);
+    }, [user, workspace, hasEffectiveAccess, authLoading, workspaceLoading, router, searchParams]);
 
     useEffect(() => {
         if (!workspace) return;

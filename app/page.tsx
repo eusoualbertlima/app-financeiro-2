@@ -2,21 +2,15 @@
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useRef, type FormEvent } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Loader2, ArrowRight, Shield, Users, TrendingUp, CheckCircle2, ChevronDown, Check, Columns, Sparkles, Lock, CreditCard, Activity } from "lucide-react";
 import Link from "next/link";
 
 type BillingPlan = "monthly" | "yearly";
 
 export default function ExperientialLandingPage() {
-    const { user, loading, signInWithGoogle, signInWithEmail } = useAuth();
+    const { user, loading } = useAuth();
     const router = useRouter();
-
-    // Auth States
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const [emailLoginLoading, setEmailLoginLoading] = useState(false);
-    const [emailLoginError, setEmailLoginError] = useState("");
 
     // UI States
     const [activeFaq, setActiveFaq] = useState<number | null>(null);
@@ -54,28 +48,15 @@ export default function ExperientialLandingPage() {
         );
     }
 
-    const handleEmailLogin = async (event: FormEvent) => {
-        event.preventDefault();
-        setEmailLoginError("");
-        if (!email.trim() || !password) {
-            setEmailLoginError("Preencha email e senha."); return;
-        }
-        setEmailLoginLoading(true);
-        try {
-            await signInWithEmail(email.trim(), password);
-        } catch (error) {
-            setEmailLoginError(error instanceof Error ? error.message : "Erro ao entrar.");
-        } finally {
-            setEmailLoginLoading(false);
-        }
-    };
-
-    const startCheckout = async (plan: BillingPlan) => {
+    const startCheckout = (plan: BillingPlan) => {
         if (typeof window !== "undefined") {
             window.localStorage.setItem("checkout:preferredPlan", plan);
         }
-        if (user) { router.push(`/checkout?plan=${plan}`); return; }
-        await signInWithGoogle();
+        if (user) {
+            router.push(`/checkout?plan=${plan}`);
+            return;
+        }
+        router.push(`/login?next=${encodeURIComponent(`/checkout?plan=${plan}`)}`);
     };
 
     const toggleFaq = (index: number) => {
@@ -110,7 +91,7 @@ export default function ExperientialLandingPage() {
                             Assinatura
                         </Link>
                         <button
-                            onClick={signInWithGoogle}
+                            onClick={() => router.push("/login")}
                             className="relative group px-5 py-2 rounded-full overflow-hidden"
                         >
                             <div className="absolute inset-0 bg-white/[0.08] group-hover:bg-white/[0.12] transition-colors" />
@@ -389,38 +370,14 @@ export default function ExperientialLandingPage() {
                 </div>
             </section>
 
-            {/* Developer Login Fallback - Super Clean */}
-            <section className="py-20 px-4 relative z-10 max-w-sm mx-auto">
-                <form
-                    onSubmit={handleEmailLogin}
-                    className="flex flex-col gap-4 text-center group"
+            <section className="py-20 px-4 relative z-10 text-center">
+                <p className="text-slate-500 text-sm mb-4">J&aacute; tem conta?</p>
+                <button
+                    onClick={() => router.push("/login")}
+                    className="px-6 py-3 rounded-xl border border-white/10 bg-white/[0.02] text-slate-200 hover:bg-white/[0.05] transition-colors"
                 >
-                    <span className="text-xs font-medium uppercase tracking-widest text-slate-600 mb-2">Já tem conta?</span>
-                    <input
-                        type="email"
-                        autoComplete="email"
-                        placeholder="E-mail"
-                        value={email}
-                        onChange={(event) => setEmail(event.target.value)}
-                        className="w-full bg-[#0a0a0c] border border-white/5 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50 transition-colors text-center"
-                    />
-                    <input
-                        type="password"
-                        autoComplete="current-password"
-                        placeholder="Senha"
-                        value={password}
-                        onChange={(event) => setPassword(event.target.value)}
-                        className="w-full bg-[#0a0a0c] border border-white/5 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50 transition-colors text-center"
-                    />
-                    <button
-                        type="submit"
-                        disabled={emailLoginLoading}
-                        className="mt-2 w-full flex items-center justify-center gap-2 text-slate-400 bg-white/[0.02] hover:bg-white/[0.05] hover:text-white border border-white/5 py-3 rounded-xl font-medium text-sm transition-colors disabled:opacity-50"
-                    >
-                        {emailLoginLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Fazer Login Rápido"}
-                    </button>
-                    {emailLoginError && <p className="mt-2 text-xs text-red-400">{emailLoginError}</p>}
-                </form>
+                    Ir para login
+                </button>
             </section>
 
             <footer className="border-t border-white/[0.05] bg-[#050505] py-12 px-4 relative z-10 text-center text-sm font-medium text-slate-600">
