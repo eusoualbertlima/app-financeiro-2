@@ -3,12 +3,13 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import {
     User,
+    GoogleAuthProvider,
     onAuthStateChanged,
     signInWithEmailAndPassword,
     signInWithPopup,
     signOut as firebaseSignOut
 } from "firebase/auth";
-import { auth, googleProvider } from "@/lib/firebase";
+import { auth } from "@/lib/firebase";
 import { UserProfile } from "@/types";
 import { SubscriptionService } from "@/services/subscriptionService";
 import { getClientDevAdminAllowlist, hasDevAdminAccess } from "@/lib/devAdmin";
@@ -145,7 +146,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const signInWithGoogle = async () => {
         try {
-            await signInWithPopup(auth, googleProvider);
+            const provider = new GoogleAuthProvider();
+            provider.setCustomParameters({ prompt: "select_account" });
+            await signInWithPopup(auth, provider);
         } catch (error) {
             console.error("Erro ao fazer login:", error);
             throw new Error(mapAuthErrorMessage(error));
