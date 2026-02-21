@@ -1,4 +1,10 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+async function expectDeveloperMenu(page: Page) {
+    await expect(page.getByRole("link", { name: "Cidade" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Admin" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Alertas" })).toBeVisible();
+}
 
 test.describe("Critical authenticated flows", () => {
     test.skip(
@@ -10,6 +16,40 @@ test.describe("Critical authenticated flows", () => {
         await page.goto("/dashboard");
         await expect(page).toHaveURL(/\/dashboard/);
         await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+    });
+
+    test("developer menu survives logout and re-login session", async ({ page, browser }) => {
+        await page.goto("/dashboard");
+        await expect(page).toHaveURL(/\/dashboard/);
+        await expectDeveloperMenu(page);
+
+        await page.getByRole("button", { name: /Sair da conta/i }).click();
+        await page.waitForURL((url) => !url.pathname.startsWith("/dashboard"), { timeout: 20_000 });
+
+        const email = (process.env.E2E_TEST_EMAIL || "").trim();
+        const password = process.env.E2E_TEST_PASSWORD || "";
+
+        if (email && password) {
+            await page.goto("/login?next=/dashboard", { waitUntil: "domcontentloaded" });
+            await page.getByPlaceholder("Seu email").fill(email);
+            await page.getByPlaceholder("Sua senha").fill(password);
+            await page.getByRole("button", { name: "Entrar com email" }).click();
+
+            await expect(page).toHaveURL(/\/dashboard/);
+            await expectDeveloperMenu(page);
+            return;
+        }
+
+        const storageStatePath = process.env.E2E_STORAGE_STATE as string;
+        const reloginContext = await browser.newContext({ storageState: storageStatePath });
+        const reloginPage = await reloginContext.newPage();
+        try {
+            await reloginPage.goto("/dashboard");
+            await expect(reloginPage).toHaveURL(/\/dashboard/);
+            await expectDeveloperMenu(reloginPage);
+        } finally {
+            await reloginContext.close();
+        }
     });
 
     test("transactions: create pending, mark paid and delete", async ({ page }) => {
