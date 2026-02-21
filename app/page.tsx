@@ -5,16 +5,19 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import { Loader2, ArrowRight, Shield, Users, CheckCircle2, ChevronDown, Check, Columns, Sparkles, Lock, Activity } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 
 type BillingPlan = "monthly" | "yearly";
 
 export default function ExperientialLandingPage() {
     const { user, loading } = useAuth();
     const router = useRouter();
+    const dashboardPreviewSrc = "/assets/dashboard-vendas.png";
 
     // UI States
     const [activeFaq, setActiveFaq] = useState<number | null>(null);
     const [scrolledState, setScrolledState] = useState(0); // 0 to 1 for generic scroll effects
+    const [dashboardPreviewError, setDashboardPreviewError] = useState(false);
 
     // Refs for Scrollytelling
     const containerRef = useRef<HTMLDivElement>(null);
@@ -143,30 +146,47 @@ export default function ExperientialLandingPage() {
                 </p>
             </section>
 
-            {/* Experiential Mockup / Scrollytelling Entry Point */}
+            {/* Dashboard Preview / Scrollytelling Entry Point */}
             <section className="relative z-20 w-full max-w-6xl mx-auto px-4 -mt-10 pb-32">
-                <div className="relative w-full aspect-[16/10] md:aspect-[21/9] rounded-2xl border border-white/10 bg-[#0a0a0c]/80 backdrop-blur-3xl p-4 shadow-2xl overflow-hidden group">
-                    {/* Inner Screen Faux UI */}
-                    <div className="w-full h-full bg-[#050505] rounded-xl border border-white/5 relative overflow-hidden flex flex-col">
-                        {/* Fake Header */}
-                        <div className="h-14 border-b border-white/5 flex items-center px-6 gap-4">
-                            <div className="w-8 h-8 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs font-bold ring-2 ring-indigo-500/30">H</div>
-                            <div className="w-8 h-8 rounded-full bg-fuchsia-500/20 text-fuchsia-400 flex items-center justify-center text-xs font-bold ring-2 ring-fuchsia-500/30 -ml-2">M</div>
-                            <span className="text-sm font-semibold text-slate-300 ml-2">Painel da Casa</span>
-                        </div>
-                        {/* Fake Content Area to represent the App */}
-                        <div className="flex-1 p-6 flex items-center justify-center">
-                            <div className="text-center opacity-40">
-                                <Activity className="w-16 h-16 mx-auto mb-4 text-indigo-400 animate-pulse" />
-                                <p className="text-slate-400 font-medium">Dashboard Real renderizado aqui</p>
-                                <p className="text-xs text-slate-500">Visão Individual e Compartilhada em tempo real.</p>
-                            </div>
+                <div className="relative" style={{ transform: `translateY(${scrolledState * -12}px)` }}>
+                    <div className="landing-preview-glow" />
+                    <div className="landing-preview-shell landing-preview-float">
+                        <div className="h-14 border-b border-white/5 flex items-center px-6 gap-4 bg-[#070709]/90">
+                            <div className="w-8 h-8 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs font-bold ring-2 ring-indigo-500/30">A</div>
+                            <div className="w-8 h-8 rounded-full bg-fuchsia-500/20 text-fuchsia-400 flex items-center justify-center text-xs font-bold ring-2 ring-fuchsia-500/30 -ml-2">F</div>
+                            <span className="text-sm font-semibold text-slate-300 ml-2">Dashboard real do App Financeiro</span>
                         </div>
 
-                        {/* Animated Gradient sweeps across screen on hover */}
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.03] to-transparent -translate-x-full group-hover:animate-[marquee_2s_ease-in-out_infinite] pointer-events-none" />
+                        <div className="landing-preview-screen">
+                            {!dashboardPreviewError ? (
+                                <Image
+                                    src={dashboardPreviewSrc}
+                                    alt="Preview real do dashboard financeiro"
+                                    fill
+                                    sizes="(max-width: 1024px) 100vw, 1200px"
+                                    className="object-cover"
+                                    priority
+                                    onError={() => setDashboardPreviewError(true)}
+                                />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-[#04050a] text-center px-6">
+                                    <div className="opacity-70">
+                                        <Activity className="w-14 h-14 mx-auto mb-4 text-indigo-400 animate-pulse" />
+                                        <p className="text-slate-300 font-medium mb-2">Adicione o print do dashboard</p>
+                                        <p className="text-xs text-slate-500">
+                                            Salve a imagem em <code>public/assets/dashboard-vendas.png</code>.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                            <div className="landing-preview-scan" />
+                            <div className="landing-preview-sheen" />
+                        </div>
                     </div>
                 </div>
+                <p className="text-center text-xs text-slate-500 mt-4">
+                    Preview com dados reais do produto. Use um print com valores fictícios para vendas.
+                </p>
             </section>
 
             {/* Social Proof Infinite Marquee */}
