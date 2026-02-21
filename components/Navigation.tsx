@@ -147,7 +147,7 @@ export function Sidebar() {
 
 export function MobileNav() {
     const pathname = usePathname();
-    const { user, isDeveloperAdmin } = useAuth();
+    const { user, signOut, isDeveloperAdmin } = useAuth();
     const { workspace } = useWorkspace();
     const isAdmin = workspace?.ownerId ? user?.uid === workspace.ownerId : false;
     const hasBehavioralFeatureAccess = hasBehavioralRolloutAccess({
@@ -159,8 +159,10 @@ export function MobileNav() {
         .map((href) => visibleMenuItems.find(item => item.href === href))
         .filter((item): item is MenuItem => Boolean(item));
 
+    const isSettingsActive = pathname.startsWith("/dashboard/configuracoes");
+
     return (
-        <nav className="mobile-nav lg:hidden">
+        <nav className="mobile-nav lg:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
             <div className="flex gap-1 overflow-x-auto py-2 px-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                 {mobileMenuItems.map((item) => {
                     const isActive = pathname === item.href ||
@@ -179,6 +181,26 @@ export function MobileNav() {
                         </Link>
                     );
                 })}
+            </div>
+            <div className="grid grid-cols-2 gap-2 px-2 pb-2 pt-1 border-t border-slate-200/70">
+                <Link
+                    href="/dashboard/configuracoes"
+                    className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                        isSettingsActive
+                            ? "bg-primary-50 text-primary-600"
+                            : "bg-slate-100 text-slate-600"
+                    }`}
+                >
+                    <Settings className="w-4 h-4" />
+                    <span>Configurações</span>
+                </Link>
+                <button
+                    onClick={() => void signOut()}
+                    className="flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                >
+                    <LogOut className="w-4 h-4" />
+                    <span>Sair da conta</span>
+                </button>
             </div>
         </nav>
     );

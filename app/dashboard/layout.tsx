@@ -88,7 +88,7 @@ export default function DashboardLayout({
         <div className="min-h-screen bg-slate-50">
             <Sidebar />
             <MobileNav />
-            <main className="lg:ml-72 pb-24 lg:pb-8 min-h-screen">
+            <main className="lg:ml-72 pb-36 lg:pb-8 min-h-screen">
                 {children}
             </main>
         </div>

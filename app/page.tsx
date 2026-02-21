@@ -12,11 +12,13 @@ type BillingPlan = "monthly" | "yearly";
 export default function ExperientialLandingPage() {
     const { user, loading } = useAuth();
     const router = useRouter();
-    const dashboardPreviewSrc = "/assets/dashboard-vendas.png";
+    const dashboardPreviewPrimarySrc = "/assets/dashboard-vendas.webp";
+    const dashboardPreviewFallbackSrc = "/assets/dashboard-vendas.png";
 
     // UI States
     const [activeFaq, setActiveFaq] = useState<number | null>(null);
     const [scrolledState, setScrolledState] = useState(0); // 0 to 1 for generic scroll effects
+    const [dashboardPreviewSrc, setDashboardPreviewSrc] = useState(dashboardPreviewPrimarySrc);
     const [dashboardPreviewError, setDashboardPreviewError] = useState(false);
 
     // Refs for Scrollytelling
@@ -66,8 +68,16 @@ export default function ExperientialLandingPage() {
         setActiveFaq(activeFaq === index ? null : index);
     };
 
+    const handleDashboardPreviewError = () => {
+        if (dashboardPreviewSrc !== dashboardPreviewFallbackSrc) {
+            setDashboardPreviewSrc(dashboardPreviewFallbackSrc);
+            return;
+        }
+        setDashboardPreviewError(true);
+    };
+
     return (
-        <div ref={containerRef} className="min-h-screen bg-[#070709] text-slate-100 font-sans overflow-x-hidden selection:bg-indigo-500/30">
+        <div ref={containerRef} className="min-h-screen bg-[#070709] text-slate-100 font-sans overflow-x-hidden selection:bg-indigo-500/30 pb-28 md:pb-0">
 
             {/* Ambient Animated Mesh/Aurora Backgrounds */}
             <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
@@ -129,6 +139,18 @@ export default function ExperientialLandingPage() {
                     Substituímos o estresse do fim do mês por um painel inteligente. Reúna as contas da casa, acompanhe o que é em conjunto e preserve os gastos individuais. Tudo numa única tela.
                 </p>
 
+                <div
+                    className="mb-8 flex flex-wrap items-center justify-center gap-3"
+                    style={{ opacity: 1 - scrolledState * 2 }}
+                >
+                    <span className="rounded-full border border-indigo-400/30 bg-indigo-500/10 px-4 py-2 text-xs font-semibold tracking-wide text-indigo-200">
+                        Teste por 7 dias
+                    </span>
+                    <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-xs font-semibold tracking-wide text-emerald-200">
+                        Oferta anual: R$ 497 (R$ 41,41/mês)
+                    </span>
+                </div>
+
                 <div className="relative group" style={{ opacity: 1 - scrolledState * 2 }}>
                     {/* Conic Gradient Glowing Border Effect */}
                     <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-indigo-500 rounded-[2rem] blur-md opacity-70 group-hover:opacity-100 transition duration-1000 group-hover:duration-200 animate-spin-slow" />
@@ -136,7 +158,7 @@ export default function ExperientialLandingPage() {
                         onClick={() => startCheckout("yearly")}
                         className="relative flex items-center justify-center gap-3 bg-[#0a0a0c] text-white px-10 py-5 rounded-[1.8rem] font-bold text-lg hover:bg-[#111115] transition-colors border border-white/10"
                     >
-                        Criar Conta da Casa
+                        Garantir plano anual
                         <ArrowRight className="w-5 h-5 text-indigo-400 group-hover:translate-x-1 transition-transform" />
                     </button>
                 </div>
@@ -166,7 +188,7 @@ export default function ExperientialLandingPage() {
                                     sizes="(max-width: 1024px) 100vw, 1200px"
                                     className="object-cover"
                                     priority
-                                    onError={() => setDashboardPreviewError(true)}
+                                    onError={handleDashboardPreviewError}
                                 />
                             ) : (
                                 <div className="w-full h-full flex items-center justify-center bg-[#04050a] text-center px-6">
@@ -174,7 +196,7 @@ export default function ExperientialLandingPage() {
                                         <Activity className="w-14 h-14 mx-auto mb-4 text-indigo-400 animate-pulse" />
                                         <p className="text-slate-300 font-medium mb-2">Adicione o print do dashboard</p>
                                         <p className="text-xs text-slate-500">
-                                            Salve a imagem em <code>public/assets/dashboard-vendas.png</code>.
+                                            Salve em <code>public/assets/dashboard-vendas.webp</code> (ou <code>.png</code> como fallback).
                                         </p>
                                     </div>
                                 </div>
@@ -399,6 +421,27 @@ export default function ExperientialLandingPage() {
                     Ir para login
                 </button>
             </section>
+
+            <div
+                className="fixed inset-x-0 bottom-0 z-40 px-4 pb-3 md:hidden pointer-events-none"
+                style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+            >
+                <div className="pointer-events-auto mx-auto max-w-md rounded-2xl border border-white/10 bg-[#070709]/95 backdrop-blur-xl shadow-[0_12px_48px_rgba(0,0,0,0.55)] p-3">
+                    <div className="flex items-center justify-between gap-3">
+                        <div>
+                            <p className="text-[11px] uppercase tracking-wide text-slate-400">Plano anual</p>
+                            <p className="text-sm font-semibold text-white">R$ 497 por ano</p>
+                        </div>
+                        <button
+                            onClick={() => startCheckout("yearly")}
+                            className="rounded-xl bg-white text-[#070709] px-4 py-2 text-sm font-semibold flex items-center gap-2"
+                        >
+                            Assinar
+                            <ArrowRight className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+            </div>
 
             <footer className="border-t border-white/[0.05] bg-[#050505] py-12 px-4 relative z-10 text-center text-sm font-medium text-slate-600">
                 <div className="max-w-7xl mx-auto flex flex-col items-center gap-6">
