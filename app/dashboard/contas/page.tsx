@@ -3,13 +3,19 @@
 import { useState } from "react";
 import { useCollection } from "@/hooks/useFirestore";
 import { useTransactions } from "@/hooks/useTransactions";
-import { Wallet, Plus, Trash2, X, Edit3, Eye, ArrowRightLeft, Download } from "lucide-react";
+import { Wallet, Plus, Trash2, X, Edit3, Eye, ArrowRightLeft, Download, FileText } from "lucide-react";
 import type { Account } from "@/types";
 import Link from "next/link";
 import { CurrencyInput } from "@/components/CurrencyInput";
 import { Header } from "@/components/Navigation";
 import { downloadCsv } from "@/lib/csv";
 import { nowDateInputValue, parseDateInputToTimestamp } from "@/lib/dateInput";
+
+function accountTypeLabel(type: Account["type"]) {
+    if (type === "checking") return "Conta Corrente";
+    if (type === "investment") return "Investimento";
+    return "Dinheiro";
+}
 
 export default function ContasPage() {
     const { data: contas, loading, add, remove, update } = useCollection<Account>("accounts");
@@ -39,7 +45,7 @@ export default function ContasPage() {
 
         const rows = contas.map((conta) => ({
             nome: conta.name,
-            tipo: conta.type === 'checking' ? 'Conta Corrente' : conta.type === 'investment' ? 'Investimento' : 'Dinheiro',
+            tipo: accountTypeLabel(conta.type),
             saldo_atual: conta.balance,
             saldo_inicial: conta.startingBalance ?? conta.balance,
             ultima_reconciliacao: conta.lastReconciledAt ? new Date(conta.lastReconciledAt).toISOString() : '',
@@ -58,6 +64,78 @@ export default function ContasPage() {
                 { header: 'Cor', key: 'cor' },
             ],
         });
+    };
+
+    const handleExportPdf = async () => {
+        if (!contas.length) return;
+
+        try {
+            const { jsPDF } = await import("jspdf");
+            const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+            const pageHeight = 842;
+            const marginX = 40;
+            let cursorY = 48;
+
+            const drawHeader = () => {
+                pdf.setFont("helvetica", "bold");
+                pdf.setFontSize(16);
+                pdf.text("App Financeiro - Relatorio de Contas", marginX, 40);
+
+                pdf.setFont("helvetica", "normal");
+                pdf.setFontSize(10);
+                pdf.setTextColor(100);
+                pdf.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, marginX, 58);
+                pdf.text(`Total de contas: ${contas.length}`, marginX, 72);
+                pdf.setTextColor(20);
+
+                cursorY = 100;
+            };
+
+            const ensurePageSpace = (requiredHeight: number) => {
+                if (cursorY + requiredHeight <= pageHeight - 40) return;
+                pdf.addPage();
+                drawHeader();
+            };
+
+            drawHeader();
+
+            contas.forEach((conta, index) => {
+                ensurePageSpace(118);
+
+                pdf.setDrawColor(230, 230, 230);
+                pdf.roundedRect(marginX, cursorY - 18, 515, 104, 10, 10, "S");
+
+                pdf.setFont("helvetica", "bold");
+                pdf.setFontSize(13);
+                pdf.text(`${index + 1}. ${conta.name}`, marginX + 14, cursorY + 4);
+
+                pdf.setFont("helvetica", "normal");
+                pdf.setFontSize(11);
+                pdf.text(`Tipo: ${accountTypeLabel(conta.type)}`, marginX + 14, cursorY + 24);
+                pdf.text(`Saldo atual: ${formatCurrency(conta.balance)}`, marginX + 14, cursorY + 42);
+                pdf.text(
+                    `Saldo inicial: ${formatCurrency(conta.startingBalance ?? conta.balance)}`,
+                    marginX + 14,
+                    cursorY + 60
+                );
+                pdf.text(`Cor: ${conta.color}`, marginX + 14, cursorY + 78);
+
+                if (conta.lastReconciledAt) {
+                    pdf.text(
+                        `Ultima reconciliacao: ${new Date(conta.lastReconciledAt).toLocaleString("pt-BR")}`,
+                        marginX + 220,
+                        cursorY + 24
+                    );
+                }
+
+                cursorY += 120;
+            });
+
+            pdf.save(`contas-${nowDateInputValue()}.pdf`);
+        } catch (error) {
+            console.error("Erro ao exportar PDF:", error);
+            alert("Nao foi possivel exportar para PDF agora.");
+        }
     };
 
     const openModal = (conta?: Account) => {
@@ -185,6 +263,14 @@ export default function ContasPage() {
                         Exportar CSV
                     </button>
                     <button
+                        onClick={() => void handleExportPdf()}
+                        disabled={contas.length === 0}
+                        className="btn-secondary flex items-center gap-2 w-full sm:w-auto justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <FileText className="w-5 h-5" />
+                        Exportar PDF
+                    </button>
+                    <button
                         onClick={openTransferModal}
                         disabled={contas.length < 2}
                         className="btn-secondary flex items-center gap-2 w-full sm:w-auto justify-center disabled:opacity-50 disabled:cursor-not-allowed"
@@ -232,7 +318,7 @@ export default function ContasPage() {
                                     </Link>
                                     <div className="flex items-center gap-2">
                                         <p className="text-sm text-slate-500 capitalize">
-                                            {conta.type === 'checking' ? 'Conta Corrente' : conta.type === 'investment' ? 'Investimento' : 'Dinheiro'}
+                                            {accountTypeLabel(conta.type)}
                                         </p>
                                         <Link href={`/dashboard/contas/${conta.id}`} className="text-xs text-slate-400 hover:text-primary-500 flex items-center gap-1">
                                             <Eye className="w-3 h-3" /> Detalhes

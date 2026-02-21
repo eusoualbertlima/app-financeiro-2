@@ -6,6 +6,9 @@ import { useWorkspace } from "@/hooks/useFirestore";
 import { resolveWorkspaceAccessDecision } from "@/lib/accessPolicy";
 import { Header } from "@/components/Navigation";
 import { Settings, User, Shield, Bell, Palette, LogOut, ChevronRight, UserPlus, Users, Copy, Check, CreditCard, Loader2, UserMinus } from "lucide-react";
+import { updateProfile } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -41,6 +44,12 @@ export default function ConfiguracoesPage() {
     const [planHydrated, setPlanHydrated] = useState(false);
     const [leaveStatus, setLeaveStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
     const [leaveMessage, setLeaveMessage] = useState("");
+    const [profileDisplayName, setProfileDisplayName] = useState("");
+    const [profilePhotoURL, setProfilePhotoURL] = useState("");
+    const [profilePreviewName, setProfilePreviewName] = useState("");
+    const [profilePreviewPhotoURL, setProfilePreviewPhotoURL] = useState("");
+    const [profileStatus, setProfileStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+    const [profileMessage, setProfileMessage] = useState("");
 
     useEffect(() => {
         if (!workspace) return;
@@ -67,6 +76,15 @@ export default function ConfiguracoesPage() {
         if (typeof window === "undefined") return;
         window.localStorage.setItem("checkout:preferredPlan", checkoutPlan);
     }, [checkoutPlan]);
+
+    useEffect(() => {
+        const nextName = (user?.displayName || "").trim();
+        const nextPhoto = (user?.photoURL || "").trim();
+        setProfileDisplayName(nextName);
+        setProfilePhotoURL(nextPhoto);
+        setProfilePreviewName(nextName);
+        setProfilePreviewPhotoURL(nextPhoto);
+    }, [user?.displayName, user?.photoURL]);
 
     const selectCheckoutPlan = (plan: BillingPlan) => {
         setCheckoutPlan(plan);
@@ -194,6 +212,52 @@ export default function ConfiguracoesPage() {
         }
     };
 
+    const handleProfileSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!user) return;
+
+        const nextDisplayName = profileDisplayName.trim();
+        const nextPhotoURL = profilePhotoURL.trim();
+
+        if (!nextDisplayName) {
+            setProfileStatus("error");
+            setProfileMessage("Informe um nickname/nome de exibição.");
+            return;
+        }
+
+        setProfileStatus("loading");
+        setProfileMessage("");
+
+        try {
+            await updateProfile(user, {
+                displayName: nextDisplayName,
+                photoURL: nextPhotoURL || null,
+            });
+
+            await setDoc(
+                doc(db, "users", user.uid),
+                {
+                    uid: user.uid,
+                    email: user.email || "",
+                    displayName: nextDisplayName,
+                    photoURL: nextPhotoURL || "",
+                    updatedAt: Date.now(),
+                    lastSeenAt: Date.now(),
+                },
+                { merge: true }
+            );
+
+            setProfilePreviewName(nextDisplayName);
+            setProfilePreviewPhotoURL(nextPhotoURL);
+            setProfileStatus("success");
+            setProfileMessage("Perfil atualizado com sucesso.");
+        } catch (error) {
+            console.error("Erro ao salvar perfil:", error);
+            setProfileStatus("error");
+            setProfileMessage("Nao foi possivel atualizar o perfil agora.");
+        }
+    };
+
     const copyWorkspaceId = () => {
         if (workspace?.id) {
             navigator.clipboard.writeText(workspace.id);
@@ -293,22 +357,22 @@ export default function ConfiguracoesPage() {
             {/* Perfil do Usuário */}
             <div className="card p-6 mb-6">
                 <div className="flex items-center gap-4">
-                    {user?.photoURL ? (
+                    {profilePreviewPhotoURL ? (
                         <Image
-                            src={user.photoURL}
-                            alt={user.displayName || "Usuário"}
+                            src={profilePreviewPhotoURL}
+                            alt={profilePreviewName || "Usuário"}
                             width={64}
                             height={64}
                             className="w-16 h-16 rounded-full ring-2 ring-primary-400/50"
                         />
                     ) : (
                         <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white text-2xl font-bold">
-                            {user?.displayName?.[0] || "?"}
+                            {(profilePreviewName || user?.displayName || "?")[0] || "?"}
                         </div>
                     )}
                     <div className="flex-1 min-w-0">
                         <h2 className="text-lg font-semibold text-slate-900 truncate">
-                            {user?.displayName || "Usuário"}
+                            {profilePreviewName || user?.displayName || "Usuário"}
                         </h2>
                         <p className="text-sm text-slate-500 truncate">{user?.email}</p>
                         <p className="text-xs text-slate-400 mt-1">
@@ -544,7 +608,62 @@ export default function ConfiguracoesPage() {
                             )}
 
                             {/* Other sections - placeholder */}
-                            {activeSection === section.id && section.id !== "compartilhar" && (
+                            {activeSection === section.id && section.id === "perfil" && (
+                                <div className="card p-6 mt-2 ml-4 border-l-4 border-blue-400">
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <User className="w-5 h-5 text-blue-500" />
+                                        <h3 className="font-semibold text-slate-900">Editar perfil</h3>
+                                    </div>
+                                    <form onSubmit={handleProfileSave} className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-2">
+                                                Nickname (nome de exibição)
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={profileDisplayName}
+                                                onChange={(event) => setProfileDisplayName(event.target.value)}
+                                                className="input"
+                                                placeholder="Ex: Albert Lima"
+                                                required
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-2">
+                                                URL da foto de perfil
+                                            </label>
+                                            <input
+                                                type="url"
+                                                value={profilePhotoURL}
+                                                onChange={(event) => setProfilePhotoURL(event.target.value)}
+                                                className="input"
+                                                placeholder="https://..."
+                                            />
+                                            <p className="text-xs text-slate-400 mt-2">
+                                                Dica: cole uma URL pública da imagem. Deixe vazio para usar inicial do nome.
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="submit"
+                                            disabled={profileStatus === "loading"}
+                                            className="btn-primary w-full sm:w-auto"
+                                        >
+                                            {profileStatus === "loading" ? "Salvando..." : "Salvar perfil"}
+                                        </button>
+                                        {profileMessage && (
+                                            <p
+                                                className={`text-sm ${
+                                                    profileStatus === "success" ? "text-green-600" : "text-red-600"
+                                                }`}
+                                            >
+                                                {profileMessage}
+                                            </p>
+                                        )}
+                                    </form>
+                                </div>
+                            )}
+
+                            {activeSection === section.id && section.id !== "compartilhar" && section.id !== "perfil" && (
                                 <div className="card p-6 mt-2 ml-4">
                                     <div className="flex items-center gap-2 mb-4">
                                         <Settings className="w-5 h-5 text-slate-400" />
