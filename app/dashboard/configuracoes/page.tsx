@@ -490,7 +490,7 @@ export default function ConfiguracoesPage() {
                                             </code>
                                             <button
                                                 onClick={copyWorkspaceId}
-                                                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                                                className="icon-hitbox p-2 hover:bg-slate-100 rounded-lg transition-colors"
                                                 title="Copiar"
                                             >
                                                 {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-slate-400" />}
@@ -578,3 +578,4 @@ export default function ConfiguracoesPage() {
         </div>
     );
 }
+

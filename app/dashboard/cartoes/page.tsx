@@ -169,13 +169,13 @@ export default function CartoesPage() {
                             <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button
                                     onClick={() => openModal(cartao)}
-                                    className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+                                    className="icon-hitbox p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
                                 >
                                     <Edit3 className="w-4 h-4" />
                                 </button>
                                 <button
                                     onClick={() => handleDelete(cartao)}
-                                    className="p-2 bg-white/20 hover:bg-red-500/50 rounded-lg transition-colors"
+                                    className="icon-hitbox p-2 bg-white/20 hover:bg-red-500/50 rounded-lg transition-colors"
                                 >
                                     <Trash2 className="w-4 h-4" />
                                 </button>
@@ -231,7 +231,7 @@ export default function CartoesPage() {
                             <h2 className="text-lg font-semibold text-slate-900">
                                 {editingId ? 'Editar Cartão' : 'Novo Cartão'}
                             </h2>
-                            <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-lg transition-colors">
+                            <button onClick={() => setIsModalOpen(false)} className="icon-hitbox p-2 hover:bg-slate-200 rounded-lg transition-colors">
                                 <X className="w-5 h-5 text-slate-500" />
                             </button>
                         </div>
@@ -331,3 +331,4 @@ export default function CartoesPage() {
         </div>
     );
 }
+

@@ -100,7 +100,7 @@ export function OnboardingGuide({
                         }
                         setDismissed(true);
                     }}
-                    className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                    className="icon-hitbox p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
                     title="Ocultar onboarding"
                 >
                     <X className="w-4 h-4" />
@@ -143,3 +143,4 @@ export function OnboardingGuide({
         </section>
     );
 }
+

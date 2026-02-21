@@ -214,13 +214,13 @@ export default function ContaDetalhePage() {
             </div>
 
             <div className="flex items-center justify-center gap-4 mb-6">
-                <button onClick={prevMonth} className="p-2 hover:bg-slate-100 rounded-lg">
+                <button onClick={prevMonth} className="icon-hitbox p-2 hover:bg-slate-100 rounded-lg">
                     <ChevronLeft className="w-5 h-5 text-slate-600" />
                 </button>
                 <h2 className="text-lg font-semibold text-slate-900 min-w-[140px] text-center">
                     {monthNames[month - 1]} {year}
                 </h2>
-                <button onClick={nextMonth} className="p-2 hover:bg-slate-100 rounded-lg">
+                <button onClick={nextMonth} className="icon-hitbox p-2 hover:bg-slate-100 rounded-lg">
                     <ChevronRight className="w-5 h-5 text-slate-600" />
                 </button>
             </div>

@@ -135,7 +135,7 @@ export function Sidebar() {
                 </div>
                 <button
                     onClick={signOut}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all duration-200"
+                    className="tap-target w-full flex items-center justify-center gap-2 px-4 py-2.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all duration-200"
                 >
                     <LogOut className="w-4 h-4" />
                     <span>Sair da conta</span>
@@ -171,7 +171,7 @@ export function MobileNav() {
                         <Link
                             key={item.href}
                             href={item.href}
-                            className={`flex min-w-[72px] shrink-0 flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all duration-200 ${isActive
+                            className={`tap-target flex min-w-[84px] shrink-0 flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-all duration-200 ${isActive
                                 ? "text-primary-500 bg-primary-50"
                                 : "text-slate-400 hover:text-slate-600"
                                 }`}
@@ -185,7 +185,7 @@ export function MobileNav() {
             <div className="grid grid-cols-2 gap-2 px-2 pb-2 pt-1 border-t border-slate-200/70">
                 <Link
                     href="/dashboard/configuracoes"
-                    className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                    className={`tap-target flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
                         isSettingsActive
                             ? "bg-primary-50 text-primary-600"
                             : "bg-slate-100 text-slate-600"
@@ -196,7 +196,7 @@ export function MobileNav() {
                 </Link>
                 <button
                     onClick={() => void signOut()}
-                    className="flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                    className="tap-target flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
                 >
                     <LogOut className="w-4 h-4" />
                     <span>Sair da conta</span>

@@ -274,13 +274,13 @@ export default function LancamentosPage() {
 
             {/* Navegação de Mês */}
             <div className="flex items-center justify-center gap-4 mb-6">
-                <button onClick={() => navigateMonth('prev')} className="p-2 hover:bg-slate-100 rounded-lg">
+                <button onClick={() => navigateMonth('prev')} className="icon-hitbox p-2 hover:bg-slate-100 rounded-lg">
                     <ChevronLeft className="w-5 h-5" />
                 </button>
                 <span className="font-semibold text-lg min-w-[120px] text-center">
                     {monthNames[month - 1]} {year}
                 </span>
-                <button onClick={() => navigateMonth('next')} className="p-2 hover:bg-slate-100 rounded-lg">
+                <button onClick={() => navigateMonth('next')} className="icon-hitbox p-2 hover:bg-slate-100 rounded-lg">
                     <ChevronRight className="w-5 h-5" />
                 </button>
             </div>
@@ -472,7 +472,7 @@ export default function LancamentosPage() {
                                         {!isTransfer && (
                                             <button
                                                 onClick={() => openModal(t)}
-                                                className="p-2 text-slate-400 hover:text-primary-500 hover:bg-primary-50 rounded-lg transition-colors"
+                                                className="icon-hitbox p-2 text-slate-400 hover:text-primary-500 hover:bg-primary-50 rounded-lg transition-colors"
                                                 title="Editar"
                                             >
                                                 <Edit3 className="w-4 h-4" />
@@ -480,7 +480,7 @@ export default function LancamentosPage() {
                                         )}
                                         <button
                                             onClick={() => handleDelete(t)}
-                                            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                            className="icon-hitbox p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                                             title={isTransfer ? "Excluir transferência completa" : "Excluir"}
                                         >
                                             <Trash2 className="w-4 h-4" />
@@ -499,7 +499,7 @@ export default function LancamentosPage() {
                     <div className="relative card p-0 w-full max-w-md overflow-hidden max-h-[92vh]">
                         <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                             <h2 className="text-lg font-semibold text-slate-900">{editingId ? 'Editar Lançamento' : 'Novo Lançamento'}</h2>
-                            <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-lg">
+                            <button onClick={() => setIsModalOpen(false)} className="icon-hitbox p-2 hover:bg-slate-200 rounded-lg">
                                 <X className="w-5 h-5 text-slate-500" />
                             </button>
                         </div>
@@ -652,3 +652,4 @@ export default function LancamentosPage() {
         </div>
     );
 }
+

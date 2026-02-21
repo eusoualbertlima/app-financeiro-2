@@ -132,6 +132,18 @@
     z-index: 30;
   }
 
+  .tap-target {
+    min-height: 2.75rem;
+    touch-action: manipulation;
+  }
+
+  .icon-hitbox {
+    @apply inline-flex items-center justify-center;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    touch-action: manipulation;
+  }
+
   .dashboard-shell {
     @apply min-h-screen bg-slate-50;
   }
@@ -148,6 +160,15 @@
 
     .dashboard-main {
       padding-bottom: 2rem;
+    }
+  }
+
+  @media (pointer: coarse) {
+    .mobile-nav a,
+    .mobile-nav button,
+    .sidebar-link,
+    .tap-target {
+      min-height: 2.75rem;
     }
   }
 

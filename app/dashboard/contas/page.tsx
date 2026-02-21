@@ -242,13 +242,13 @@ export default function ContasPage() {
                                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button
                                         onClick={() => openModal(conta)}
-                                        className="p-2 text-slate-400 hover:text-primary-500 hover:bg-primary-50 rounded-lg transition-colors"
+                                        className="icon-hitbox p-2 text-slate-400 hover:text-primary-500 hover:bg-primary-50 rounded-lg transition-colors"
                                     >
                                         <Edit3 className="w-4 h-4" />
                                     </button>
                                     <button
                                         onClick={() => handleDelete(conta)}
-                                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                        className="icon-hitbox p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                                     >
                                         <Trash2 className="w-4 h-4" />
                                     </button>
@@ -274,7 +274,7 @@ export default function ContasPage() {
                             <h2 className="text-lg font-semibold text-slate-900">
                                 {editingId ? 'Editar Conta' : 'Nova Conta'}
                             </h2>
-                            <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-lg transition-colors">
+                            <button onClick={() => setIsModalOpen(false)} className="icon-hitbox p-2 hover:bg-slate-200 rounded-lg transition-colors">
                                 <X className="w-5 h-5 text-slate-500" />
                             </button>
                         </div>
@@ -350,7 +350,7 @@ export default function ContasPage() {
                     <div className="card p-0 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                         <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                             <h2 className="text-lg font-semibold text-slate-900">Transferir entre Contas</h2>
-                            <button onClick={() => setIsTransferModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-lg transition-colors">
+                            <button onClick={() => setIsTransferModalOpen(false)} className="icon-hitbox p-2 hover:bg-slate-200 rounded-lg transition-colors">
                                 <X className="w-5 h-5 text-slate-500" />
                             </button>
                         </div>
@@ -438,3 +438,4 @@ export default function ContasPage() {
         </div>
     );
 }
+

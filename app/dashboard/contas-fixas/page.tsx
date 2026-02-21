@@ -165,13 +165,13 @@ export default function ContasFixasPage() {
 
             {/* Navegação de Mês */}
             <div className="flex items-center justify-center gap-4 mb-6">
-                <button onClick={() => navigateMonth('prev')} className="p-2 hover:bg-slate-100 rounded-lg">
+                <button onClick={() => navigateMonth('prev')} className="icon-hitbox p-2 hover:bg-slate-100 rounded-lg">
                     <ChevronLeft className="w-5 h-5" />
                 </button>
                 <span className="font-semibold text-lg min-w-[160px] text-center">
                     {monthNames[month - 1]} {year}
                 </span>
-                <button onClick={() => navigateMonth('next')} className="p-2 hover:bg-slate-100 rounded-lg">
+                <button onClick={() => navigateMonth('next')} className="icon-hitbox p-2 hover:bg-slate-100 rounded-lg">
                     <ChevronRight className="w-5 h-5" />
                 </button>
             </div>
@@ -234,7 +234,7 @@ export default function ContasFixasPage() {
                                         <>
                                             <button
                                                 onClick={() => handleSkip(payment.id, payment.billName)}
-                                                className="p-2 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"
+                                                className="icon-hitbox p-2 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"
                                                 title="Pular apenas este mês"
                                             >
                                                 <SkipForward className="w-4 h-4" />
@@ -246,7 +246,7 @@ export default function ContasFixasPage() {
                                                     setPayAmount(payment.amount);
                                                     setPayNote('');
                                                 }}
-                                                className="p-2 bg-green-100 text-green-600 hover:bg-green-200 rounded-lg transition-colors"
+                                                className="icon-hitbox p-2 bg-green-100 text-green-600 hover:bg-green-200 rounded-lg transition-colors"
                                                 title="Marcar como pago"
                                             >
                                                 <Check className="w-4 h-4" />
@@ -255,7 +255,7 @@ export default function ContasFixasPage() {
                                     ) : (
                                         <button
                                             onClick={() => markAsPending(payment.id)}
-                                            className="p-2 bg-slate-100 text-slate-500 hover:bg-slate-200 rounded-lg transition-colors"
+                                            className="icon-hitbox p-2 bg-slate-100 text-slate-500 hover:bg-slate-200 rounded-lg transition-colors"
                                             title={payment.status === 'paid' ? "Desfazer pagamento" : "Reativar cobrança"}
                                         >
                                             <Undo2 className="w-4 h-4" />
@@ -286,13 +286,13 @@ export default function ContasFixasPage() {
                                     </div>
                                     <button
                                         onClick={() => openModal(bill)}
-                                        className="p-2 text-slate-400 hover:text-primary-500 hover:bg-primary-50 rounded-lg"
+                                        className="icon-hitbox p-2 text-slate-400 hover:text-primary-500 hover:bg-primary-50 rounded-lg"
                                     >
                                         <Edit3 className="w-4 h-4" />
                                     </button>
                                     <button
                                         onClick={() => handleDelete(bill)}
-                                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg"
+                                        className="icon-hitbox p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg"
                                     >
                                         <Trash2 className="w-4 h-4" />
                                     </button>
@@ -311,7 +311,7 @@ export default function ContasFixasPage() {
                             <h2 className="text-lg font-semibold text-slate-900">
                                 {editingId ? 'Editar Conta Fixa' : 'Nova Conta Fixa'}
                             </h2>
-                            <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-lg">
+                            <button onClick={() => setIsModalOpen(false)} className="icon-hitbox p-2 hover:bg-slate-200 rounded-lg">
                                 <X className="w-5 h-5 text-slate-500" />
                             </button>
                         </div>
@@ -440,3 +440,4 @@ export default function ContasFixasPage() {
         </div>
     );
 }
+
