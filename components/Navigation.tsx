@@ -21,7 +21,6 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/hooks/useFirestore";
-import { getClientDevAdminAllowlist, hasDevAdminAccess } from "@/lib/devAdmin";
 import { getClientBehavioralRolloutMode, hasBehavioralRolloutAccess } from "@/lib/behavioralRollout";
 
 type MenuItem = {
@@ -45,8 +44,6 @@ const menuItems: MenuItem[] = [
     { href: "/dashboard/contas-fixas", icon: CalendarDays, label: "Contas Fixas" },
     { href: "/dashboard/configuracoes", icon: Settings, label: "Configurações" },
 ];
-
-const clientDevAdminAllowlist = getClientDevAdminAllowlist();
 
 function getVisibleMenuItems(
     items: MenuItem[],
@@ -72,14 +69,9 @@ const mobileMenuOrder = [
 
 export function Sidebar() {
     const pathname = usePathname();
-    const { user, signOut } = useAuth();
+    const { user, signOut, isDeveloperAdmin } = useAuth();
     const { workspace } = useWorkspace();
     const isAdmin = workspace?.ownerId ? user?.uid === workspace.ownerId : false;
-    const isDeveloperAdmin = hasDevAdminAccess({
-        uid: user?.uid,
-        email: user?.email,
-        allowlist: clientDevAdminAllowlist,
-    });
     const hasBehavioralFeatureAccess = hasBehavioralRolloutAccess({
         mode: getClientBehavioralRolloutMode(),
         isDeveloperAdmin,
@@ -155,14 +147,9 @@ export function Sidebar() {
 
 export function MobileNav() {
     const pathname = usePathname();
-    const { user } = useAuth();
+    const { user, isDeveloperAdmin } = useAuth();
     const { workspace } = useWorkspace();
     const isAdmin = workspace?.ownerId ? user?.uid === workspace.ownerId : false;
-    const isDeveloperAdmin = hasDevAdminAccess({
-        uid: user?.uid,
-        email: user?.email,
-        allowlist: clientDevAdminAllowlist,
-    });
     const hasBehavioralFeatureAccess = hasBehavioralRolloutAccess({
         mode: getClientBehavioralRolloutMode(),
         isDeveloperAdmin,

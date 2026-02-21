@@ -4,21 +4,25 @@ import { getClientBehavioralRolloutMode, hasBehavioralRolloutAccess } from "@/li
 
 const clientAllowlist = getClientDevAdminAllowlist();
 
-function isBehavioralEnabledForUser(user?: User | null) {
-    const isDeveloperAdmin = hasDevAdminAccess({
-        uid: user?.uid,
-        email: user?.email,
-        allowlist: clientAllowlist,
-    });
+function isBehavioralEnabledForUser(user?: User | null, isDeveloperAdmin?: boolean) {
+    const resolvedDeveloperAdmin = typeof isDeveloperAdmin === "boolean"
+        ? isDeveloperAdmin
+        : hasDevAdminAccess({
+            uid: user?.uid,
+            email: user?.email,
+            allowlist: clientAllowlist,
+        });
+
     return hasBehavioralRolloutAccess({
         mode: getClientBehavioralRolloutMode(),
-        isDeveloperAdmin,
+        isDeveloperAdmin: resolvedDeveloperAdmin,
     });
 }
 
 type ReportBehavioralActionInput = {
     workspaceId?: string | null;
     user?: User | null;
+    isDeveloperAdmin?: boolean;
     actionAt?: number;
     source: string;
 };
@@ -26,7 +30,7 @@ type ReportBehavioralActionInput = {
 export async function reportBehavioralAction(input: ReportBehavioralActionInput) {
     const workspaceId = input.workspaceId?.trim();
     if (!workspaceId || !input.user) return false;
-    if (!isBehavioralEnabledForUser(input.user)) return false;
+    if (!isBehavioralEnabledForUser(input.user, input.isDeveloperAdmin)) return false;
 
     try {
         const token = await input.user.getIdToken();

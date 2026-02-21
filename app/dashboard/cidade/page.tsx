@@ -6,21 +6,12 @@ import { UserGamification } from "@/components/UserGamification";
 import { useWorkspace } from "@/hooks/useFirestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { normalizeBehavioralMetrics } from "@/lib/behavioralMetrics";
-import { getClientDevAdminAllowlist, hasDevAdminAccess } from "@/lib/devAdmin";
 import { getClientBehavioralRolloutMode, hasBehavioralRolloutAccess } from "@/lib/behavioralRollout";
 import { ArrowLeft, CalendarCheck2, CreditCard, PlusCircle } from "lucide-react";
 
-const clientDevAllowlist = getClientDevAdminAllowlist();
-
 export default function CidadePage() {
-    const { user } = useAuth();
+    const { isDeveloperAdmin } = useAuth();
     const { workspace, loading } = useWorkspace();
-
-    const isDeveloperAdmin = hasDevAdminAccess({
-        uid: user?.uid,
-        email: user?.email,
-        allowlist: clientDevAllowlist,
-    });
     const canAccessCity = hasBehavioralRolloutAccess({
         mode: getClientBehavioralRolloutMode(),
         isDeveloperAdmin,

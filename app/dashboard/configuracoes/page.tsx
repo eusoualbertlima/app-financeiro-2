@@ -19,13 +19,14 @@ function normalizePlan(value: string | null | undefined): BillingPlan | null {
 }
 
 export default function ConfiguracoesPage() {
-    const { user, signOut } = useAuth();
+    const { user, isDeveloperAdmin, signOut } = useAuth();
     const { workspace } = useWorkspace();
     const accessDecision = resolveWorkspaceAccessDecision({
         workspace,
         user: {
             uid: user?.uid,
             email: user?.email,
+            isDeveloperAdmin,
         },
     });
     const access = accessDecision.accessState;

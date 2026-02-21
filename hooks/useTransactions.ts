@@ -89,7 +89,7 @@ async function resolveCardInvoiceMetadata(
 }
 
 export function useTransactions(month?: number, year?: number) {
-    const { user } = useAuth();
+    const { user, isDeveloperAdmin } = useAuth();
     const { workspace } = useWorkspace();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
@@ -98,6 +98,7 @@ export function useTransactions(month?: number, year?: number) {
         await reportBehavioralAction({
             workspaceId: workspace?.id,
             user,
+            isDeveloperAdmin,
             source,
         });
     };

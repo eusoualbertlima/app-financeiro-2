@@ -62,7 +62,7 @@ function canAutoDeleteDuplicate(payment: BillPayment) {
 // CRUD de Despesas Fixas
 export function useRecurringBills() {
     const { workspace } = useWorkspace();
-    const { user } = useAuth();
+    const { user, isDeveloperAdmin } = useAuth();
     const [bills, setBills] = useState<RecurringBill[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -70,6 +70,7 @@ export function useRecurringBills() {
         await reportBehavioralAction({
             workspaceId: workspace?.id,
             user,
+            isDeveloperAdmin,
             source,
         });
     };
@@ -169,7 +170,7 @@ export function useRecurringBills() {
 export function useBillPayments(month: number, year: number) {
     const { workspace } = useWorkspace();
     const { bills } = useRecurringBills();
-    const { user } = useAuth();
+    const { user, isDeveloperAdmin } = useAuth();
     const [payments, setPayments] = useState<BillPayment[]>([]);
     const [loading, setLoading] = useState(true);
     const cleaningIdsRef = useRef<Set<string>>(new Set());
@@ -178,6 +179,7 @@ export function useBillPayments(month: number, year: number) {
         await reportBehavioralAction({
             workspaceId: workspace?.id,
             user,
+            isDeveloperAdmin,
             source,
         });
     };

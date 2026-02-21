@@ -24,16 +24,19 @@ export function resolveWorkspaceAccessDecision(input: {
     user?: {
         uid?: string | null;
         email?: string | null;
+        isDeveloperAdmin?: boolean;
     } | null;
 }): AccessDecision {
     const accessState = getWorkspaceAccessState(input.workspace);
     const hasBillingAccess = Boolean(input.workspace) && accessState.hasAccess;
     const allowlist = getClientDevAdminAllowlist();
-    const isDevAdmin = hasDevAdminAccess({
-        uid: input.user?.uid,
-        email: input.user?.email,
-        allowlist,
-    });
+    const isDevAdmin = typeof input.user?.isDeveloperAdmin === "boolean"
+        ? input.user.isDeveloperAdmin
+        : hasDevAdminAccess({
+            uid: input.user?.uid,
+            email: input.user?.email,
+            allowlist,
+        });
     const ownerIsDevAdmin = hasDevAdminAccess({
         uid: input.workspace?.ownerId,
         email: input.workspace?.ownerEmail,

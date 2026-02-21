@@ -6,7 +6,6 @@ import { useOpsAlerts } from "@/hooks/useOpsAlerts";
 import { AlertTriangle, CheckCircle2, Info, ShieldAlert } from "lucide-react";
 import type { OpsAlert } from "@/types";
 import { useAuth } from "@/contexts/AuthContext";
-import { getClientDevAdminAllowlist, hasDevAdminAccess } from "@/lib/devAdmin";
 
 type AlertLevelFilter = "all" | "error" | "warning" | "info";
 
@@ -38,12 +37,7 @@ function formatDate(value?: number, timestamp?: string) {
 }
 
 export default function AlertasPage() {
-    const { user } = useAuth();
-    const isDeveloperAdmin = hasDevAdminAccess({
-        uid: user?.uid,
-        email: user?.email,
-        allowlist: getClientDevAdminAllowlist(),
-    });
+    const { isDeveloperAdmin } = useAuth();
     const { alerts, loading } = useOpsAlerts(150, isDeveloperAdmin);
     const [filter, setFilter] = useState<AlertLevelFilter>("all");
 

@@ -11,10 +11,12 @@ import {
 import { auth, googleProvider } from "@/lib/firebase";
 import { UserProfile } from "@/types";
 import { SubscriptionService } from "@/services/subscriptionService";
+import { getClientDevAdminAllowlist, hasDevAdminAccess } from "@/lib/devAdmin";
 
 interface AuthContextType {
     user: User | null;
     userProfile: UserProfile | null;
+    isDeveloperAdmin: boolean;
     loading: boolean;
     signInWithGoogle: () => Promise<void>;
     signInWithEmail: (email: string, password: string) => Promise<void>;
@@ -22,6 +24,7 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const clientDevAdminAllowlist = getClientDevAdminAllowlist();
 
 async function syncUserPresence(user: User) {
     const token = await user.getIdToken();
@@ -31,6 +34,33 @@ async function syncUserPresence(user: User) {
             Authorization: `Bearer ${token}`,
         },
     });
+}
+
+async function resolveDeveloperAdminAccess(user: User, fallbackAccess: boolean) {
+    try {
+        const token = await user.getIdToken();
+        const response = await fetch("/api/admin/access", {
+            method: "GET",
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+            cache: "no-store",
+        });
+
+        if (!response.ok) {
+            return fallbackAccess;
+        }
+
+        const payload = (await response.json()) as { isDeveloperAdmin?: boolean };
+        if (typeof payload.isDeveloperAdmin === "boolean") {
+            return payload.isDeveloperAdmin;
+        }
+
+        return fallbackAccess;
+    } catch (error) {
+        console.error("Erro ao validar acesso dev-admin no servidor:", error);
+        return fallbackAccess;
+    }
 }
 
 function getAuthErrorCode(error: unknown) {
@@ -66,6 +96,7 @@ function mapAuthErrorMessage(error: unknown) {
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+    const [isDeveloperAdmin, setIsDeveloperAdmin] = useState(false);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -73,22 +104,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(user);
 
             if (user) {
-                try {
-                    const profile = await SubscriptionService.checkSubscriptionStatus(user);
-                    setUserProfile(profile);
-                } catch (error) {
-                    console.error("Erro ao carregar perfil do usuário:", error);
-                    // Em caso de erro, define null ou um perfil fallback seguro
-                    setUserProfile(null);
-                }
+                const fallbackDevAdminAccess = hasDevAdminAccess({
+                    uid: user.uid,
+                    email: user.email,
+                    allowlist: clientDevAdminAllowlist,
+                });
+                setIsDeveloperAdmin(fallbackDevAdminAccess);
 
-                try {
-                    await syncUserPresence(user);
-                } catch (error) {
-                    console.error("Erro ao sincronizar presença do usuário:", error);
-                }
+                const profileTask = SubscriptionService.checkSubscriptionStatus(user)
+                    .then((profile) => {
+                        setUserProfile(profile);
+                    })
+                    .catch((error) => {
+                        console.error("Erro ao carregar perfil do usuário:", error);
+                        // Em caso de erro, define null ou um perfil fallback seguro
+                        setUserProfile(null);
+                    });
+
+                const presenceTask = syncUserPresence(user)
+                    .catch((error) => {
+                        console.error("Erro ao sincronizar presença do usuário:", error);
+                    });
+
+                const developerAccessTask = resolveDeveloperAdminAccess(user, fallbackDevAdminAccess)
+                    .then((hasAccess) => {
+                        setIsDeveloperAdmin(hasAccess);
+                    });
+
+                await Promise.allSettled([profileTask, presenceTask, developerAccessTask]);
             } else {
                 setUserProfile(null);
+                setIsDeveloperAdmin(false);
             }
 
             setLoading(false);
@@ -126,7 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     return (
-        <AuthContext.Provider value={{ user, userProfile, loading, signInWithGoogle, signInWithEmail, signOut }}>
+        <AuthContext.Provider value={{ user, userProfile, isDeveloperAdmin, loading, signInWithGoogle, signInWithEmail, signOut }}>
             {children}
         </AuthContext.Provider>
     );

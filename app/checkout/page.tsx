@@ -22,7 +22,7 @@ function toSafeInternalPath(nextPath: string) {
 }
 
 function CheckoutContent() {
-    const { user, loading: authLoading, signOut } = useAuth();
+    const { user, isDeveloperAdmin, loading: authLoading, signOut } = useAuth();
     const { workspace, loading: workspaceLoading } = useWorkspace();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -37,6 +37,7 @@ function CheckoutContent() {
         user: {
             uid: user?.uid,
             email: user?.email,
+            isDeveloperAdmin,
         },
     });
     const access = accessDecision.accessState;

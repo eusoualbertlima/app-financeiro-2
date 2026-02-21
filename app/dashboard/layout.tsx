@@ -12,7 +12,7 @@ export default function DashboardLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const { user, loading: authLoading } = useAuth();
+    const { user, isDeveloperAdmin, loading: authLoading } = useAuth();
     const { workspace, loading: workspaceLoading } = useWorkspace();
     const router = useRouter();
     const accessDecision = resolveWorkspaceAccessDecision({
@@ -20,6 +20,7 @@ export default function DashboardLayout({
         user: {
             uid: user?.uid,
             email: user?.email,
+            isDeveloperAdmin,
         },
     });
     const hasEffectiveAccess = accessDecision.hasEffectiveAccess;

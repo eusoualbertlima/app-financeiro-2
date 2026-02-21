@@ -26,13 +26,10 @@ import type { Account, CreditCard as CardType, RecurringBill } from "@/types";
 import { Header } from "@/components/Navigation";
 import { DonutChart } from "@/components/Charts";
 import { OnboardingGuide } from "@/components/OnboardingGuide";
-import { getClientDevAdminAllowlist, hasDevAdminAccess } from "@/lib/devAdmin";
 import { getClientBehavioralRolloutMode, hasBehavioralRolloutAccess } from "@/lib/behavioralRollout";
 
-const clientDevAllowlist = getClientDevAdminAllowlist();
-
 export default function DashboardPage() {
-    const { user } = useAuth();
+    const { isDeveloperAdmin } = useAuth();
     const { workspace, loading: workspaceLoading } = useWorkspace();
     const { data: contas } = useCollection<Account>("accounts");
     const { data: cartoes } = useCollection<CardType>("credit_cards");
@@ -103,11 +100,6 @@ export default function DashboardPage() {
         new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
     const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    const isDeveloperAdmin = hasDevAdminAccess({
-        uid: user?.uid,
-        email: user?.email,
-        allowlist: clientDevAllowlist,
-    });
     const showBehavioralCityButton = hasBehavioralRolloutAccess({
         mode: getClientBehavioralRolloutMode(),
         isDeveloperAdmin,
