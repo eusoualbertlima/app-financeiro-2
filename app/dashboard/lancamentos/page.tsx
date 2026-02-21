@@ -593,8 +593,8 @@ export default function LancamentosPage() {
                                             key={conta.id}
                                             type="button"
                                             onClick={() => setFormData({ ...formData, accountId: conta.id, cardId: '' })}
-                                            className={`p-3 rounded-xl text-left transition-all flex items-center gap-2 ${formData.accountId === conta.id
-                                                ? 'ring-2 ring-offset-2 ring-slate-400'
+                                            className={`p-3 rounded-xl text-left transition-all flex items-center gap-2 text-slate-700 ${formData.accountId === conta.id
+                                                ? 'ring-2 ring-offset-2 ring-slate-400 bg-slate-100'
                                                 : 'bg-slate-50 hover:bg-slate-100'
                                                 }`}
                                         >
@@ -603,7 +603,7 @@ export default function LancamentosPage() {
                                             >
                                                 {conta.name[0]}
                                             </div>
-                                            <span className="text-sm truncate">{conta.name}</span>
+                                            <span className="text-sm text-slate-700 truncate">{conta.name}</span>
                                         </button>
                                     ))}
                                     {formData.type === 'expense' && cartoes.map(cartao => (
@@ -611,13 +611,13 @@ export default function LancamentosPage() {
                                             key={cartao.id}
                                             type="button"
                                             onClick={() => setFormData({ ...formData, cardId: cartao.id, accountId: '' })}
-                                            className={`p-3 rounded-xl text-left transition-all flex items-center gap-2 ${formData.cardId === cartao.id
-                                                ? 'ring-2 ring-offset-2 ring-slate-400'
+                                            className={`p-3 rounded-xl text-left transition-all flex items-center gap-2 text-slate-700 ${formData.cardId === cartao.id
+                                                ? 'ring-2 ring-offset-2 ring-slate-400 bg-slate-100'
                                                 : 'bg-slate-50 hover:bg-slate-100'
                                                 }`}
                                         >
                                             <CreditCard className="w-5 h-5" style={{ color: cartao.color }} />
-                                            <span className="text-sm truncate">{cartao.name}</span>
+                                            <span className="text-sm text-slate-700 truncate">{cartao.name}</span>
                                         </button>
                                     ))}
                                 </div>
