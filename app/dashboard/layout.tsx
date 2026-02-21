@@ -85,10 +85,10 @@ export default function DashboardLayout({
     }
 
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="dashboard-shell">
             <Sidebar />
             <MobileNav />
-            <main className="lg:ml-72 pb-36 lg:pb-8 min-h-screen">
+            <main className="dashboard-main">
                 {children}
             </main>
         </div>

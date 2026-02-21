@@ -79,7 +79,7 @@ export function Sidebar() {
     const visibleMenuItems = getVisibleMenuItems(menuItems, { isAdmin, isDeveloperAdmin, hasBehavioralFeatureAccess });
 
     return (
-        <aside className="sidebar hidden lg:flex flex-col z-50">
+        <aside className="sidebar hidden lg:flex flex-col overflow-hidden">
             {/* Logo */}
             <div className="p-6 border-b border-white/10">
                 <div className="flex items-center gap-3">
@@ -94,7 +94,7 @@ export function Sidebar() {
             </div>
 
             {/* Menu */}
-            <nav className="flex-1 py-6 space-y-1">
+            <nav className="flex-1 py-6 space-y-1 overflow-y-auto">
                 {visibleMenuItems.map((item) => {
                     const isActive = pathname === item.href ||
                         (item.href !== "/dashboard" && pathname.startsWith(item.href));
