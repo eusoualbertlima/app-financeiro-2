@@ -116,47 +116,47 @@ export default function ExperientialLandingPage() {
             </nav>
 
             {/* Hero Section (Immersive, Scale-in on scroll) */}
-            <section className="relative min-h-[90vh] flex flex-col items-center justify-center px-4 z-10 pt-20">
+            <section className="relative min-h-[86vh] md:min-h-[90vh] flex flex-col items-center justify-center px-4 z-10 pt-24 md:pt-20">
 
-                <div className="inline-flex items-center gap-2 bg-white/[0.03] border border-white/[0.08] rounded-full px-4 py-1.5 mb-10 backdrop-blur-md animate-fade-in-up">
+                <div className="inline-flex items-center gap-2 bg-white/[0.03] border border-white/[0.08] rounded-full px-3 sm:px-4 py-1.5 mb-8 md:mb-10 backdrop-blur-md animate-fade-in-up">
                     <Sparkles className="w-4 h-4 text-indigo-400" />
-                    <span className="bg-gradient-to-r from-slate-200 to-slate-400 bg-clip-text text-transparent text-sm font-medium">
+                    <span className="bg-gradient-to-r from-slate-200 to-slate-400 bg-clip-text text-transparent text-xs sm:text-sm font-medium">
                         Finalmente. Finanças desenhadas para a Vida a Dois.
                     </span>
                 </div>
 
                 <h1
-                    className="text-6xl md:text-8xl font-black mb-6 tracking-tighter leading-[1.1] max-w-5xl mx-auto text-center"
+                    className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black mb-5 md:mb-6 tracking-tighter leading-[1.08] max-w-5xl mx-auto text-center px-1"
                     style={{ transform: `scale(${1 - scrolledState * 0.1})`, opacity: 1 - scrolledState * 1.5 }}
                 >
                     O fim das <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-fuchsia-400">brigas por dinheiro</span><br />no seu relacionamento.
                 </h1>
 
                 <p
-                    className="text-xl md:text-2xl text-slate-400/90 mb-12 max-w-3xl mx-auto leading-relaxed text-center font-light"
+                    className="text-base sm:text-lg md:text-2xl text-slate-400/90 mb-10 md:mb-12 max-w-3xl mx-auto leading-relaxed text-center font-light px-2"
                     style={{ opacity: 1 - scrolledState * 2 }}
                 >
                     Substituímos o estresse do fim do mês por um painel inteligente. Reúna as contas da casa, acompanhe o que é em conjunto e preserve os gastos individuais. Tudo numa única tela.
                 </p>
 
                 <div
-                    className="mb-8 flex flex-wrap items-center justify-center gap-3"
+                    className="mb-7 md:mb-8 flex flex-wrap items-center justify-center gap-2 sm:gap-3 px-2"
                     style={{ opacity: 1 - scrolledState * 2 }}
                 >
-                    <span className="rounded-full border border-indigo-400/30 bg-indigo-500/10 px-4 py-2 text-xs font-semibold tracking-wide text-indigo-200">
+                    <span className="rounded-full border border-indigo-400/30 bg-indigo-500/10 px-3 sm:px-4 py-2 text-[11px] sm:text-xs font-semibold tracking-wide text-indigo-200">
                         Teste por 7 dias
                     </span>
-                    <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-xs font-semibold tracking-wide text-emerald-200">
+                    <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 sm:px-4 py-2 text-[11px] sm:text-xs font-semibold tracking-wide text-emerald-200">
                         Oferta anual: R$ 497 (R$ 41,41/mês)
                     </span>
                 </div>
 
-                <div className="relative group" style={{ opacity: 1 - scrolledState * 2 }}>
+                <div className="relative group w-full max-w-sm sm:max-w-none" style={{ opacity: 1 - scrolledState * 2 }}>
                     {/* Conic Gradient Glowing Border Effect */}
                     <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-indigo-500 rounded-[2rem] blur-md opacity-70 group-hover:opacity-100 transition duration-1000 group-hover:duration-200 animate-spin-slow" />
                     <button
                         onClick={() => startCheckout("yearly")}
-                        className="relative flex items-center justify-center gap-3 bg-[#0a0a0c] text-white px-10 py-5 rounded-[1.8rem] font-bold text-lg hover:bg-[#111115] transition-colors border border-white/10"
+                        className="relative w-full sm:w-auto flex items-center justify-center gap-3 bg-[#0a0a0c] text-white px-7 sm:px-10 py-4 sm:py-5 rounded-[1.8rem] font-bold text-base sm:text-lg hover:bg-[#111115] transition-colors border border-white/10"
                     >
                         Garantir plano anual
                         <ArrowRight className="w-5 h-5 text-indigo-400 group-hover:translate-x-1 transition-transform" />
@@ -169,7 +169,7 @@ export default function ExperientialLandingPage() {
             </section>
 
             {/* Dashboard Preview / Scrollytelling Entry Point */}
-            <section className="relative z-20 w-full max-w-6xl mx-auto px-4 -mt-10 pb-32">
+            <section className="relative z-20 w-full max-w-6xl mx-auto px-4 mt-2 md:-mt-10 pb-20 md:pb-32">
                 <div className="relative" style={{ transform: `translateY(${scrolledState * -12}px)` }}>
                     <div className="landing-preview-glow" />
                     <div className="landing-preview-shell landing-preview-float">
@@ -206,7 +206,7 @@ export default function ExperientialLandingPage() {
                         </div>
                     </div>
                 </div>
-                <p className="text-center text-xs text-slate-500 mt-4">
+                <p className="text-center text-[11px] sm:text-xs text-slate-500 mt-4 px-2">
                     Preview com dados reais do produto. Use um print com valores fictícios para vendas.
                 </p>
             </section>
@@ -234,18 +234,18 @@ export default function ExperientialLandingPage() {
             </section>
 
             {/* Bento Grid Feature Section (Linear Style) */}
-            <section className="py-32 px-4 relative z-10">
+            <section className="py-16 md:py-32 px-4 relative z-10">
                 <div className="max-w-6xl mx-auto">
-                    <div className="mb-20">
-                        <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-6">Porque as planilhas pararam no tempo?</h2>
-                        <p className="text-xl text-slate-400 max-w-2xl leading-relaxed">
+                    <div className="mb-12 md:mb-20">
+                        <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-5 md:mb-6">Porque as planilhas pararam no tempo?</h2>
+                        <p className="text-base sm:text-lg md:text-xl text-slate-400 max-w-2xl leading-relaxed">
                             Porque elas exigem trabalho manual robótico. Nós automatizamos a organização do seu dinheiro e escalamos a infraestrutura perfeitamente para quando você for morar com alguém.
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
                         {/* Large Bento Card */}
-                        <div className="md:col-span-2 bg-gradient-to-br from-white/[0.05] to-white/[0.01] border border-white/[0.05] rounded-3xl p-10 relative overflow-hidden group hover:border-white/10 transition-colors">
+                        <div className="md:col-span-2 bg-gradient-to-br from-white/[0.05] to-white/[0.01] border border-white/[0.05] rounded-3xl p-6 md:p-10 relative overflow-hidden group hover:border-white/10 transition-colors">
                             <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2" />
                             <Users className="w-10 h-10 text-indigo-400 mb-6" />
                             <h3 className="text-2xl font-semibold mb-4 text-white">Autonomia Solo. Expansão para Casais.</h3>
@@ -260,7 +260,7 @@ export default function ExperientialLandingPage() {
                         </div>
 
                         {/* Standard Bento Card */}
-                        <div className="bg-gradient-to-br from-white/[0.05] to-white/[0.01] border border-white/[0.05] rounded-3xl p-10 relative overflow-hidden hover:border-white/10 transition-colors">
+                        <div className="bg-gradient-to-br from-white/[0.05] to-white/[0.01] border border-white/[0.05] rounded-3xl p-6 md:p-10 relative overflow-hidden hover:border-white/10 transition-colors">
                             <div className="absolute top-0 right-0 w-64 h-64 bg-fuchsia-500/10 rounded-full blur-[60px] translate-x-1/4 -translate-y-1/4" />
                             <Columns className="w-10 h-10 text-fuchsia-400 mb-6" />
                             <h3 className="text-2xl font-semibold mb-4 text-white">A Tese do &quot;Meu, Seu, Nosso&quot;</h3>
@@ -270,7 +270,7 @@ export default function ExperientialLandingPage() {
                         </div>
 
                         {/* Standard Bento Card */}
-                        <div className="bg-gradient-to-br from-white/[0.05] to-white/[0.01] border border-white/[0.05] rounded-3xl p-10 relative overflow-hidden hover:border-white/10 transition-colors">
+                        <div className="bg-gradient-to-br from-white/[0.05] to-white/[0.01] border border-white/[0.05] rounded-3xl p-6 md:p-10 relative overflow-hidden hover:border-white/10 transition-colors">
                             <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/10 rounded-full blur-[60px] -translate-x-1/4 translate-y-1/4" />
                             <Lock className="w-10 h-10 text-blue-400 mb-6" />
                             <h3 className="text-2xl font-semibold mb-4 text-white">Blindagem Total de Dados</h3>
@@ -280,7 +280,7 @@ export default function ExperientialLandingPage() {
                         </div>
 
                         {/* Wide Thin Fast Feature Card */}
-                        <div className="md:col-span-2 bg-[#050505] border border-white/[0.05] rounded-3xl p-8 flex items-center justify-between group hover:border-indigo-500/30 transition-all">
+                        <div className="md:col-span-2 bg-[#050505] border border-white/[0.05] rounded-3xl p-6 md:p-8 flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-0 justify-between group hover:border-indigo-500/30 transition-all">
                             <div>
                                 <h3 className="text-lg font-semibold text-white mb-1">Acesso Imediato Web</h3>
                                 <p className="text-sm text-slate-500">Sem instalar nada. Acesse via Safari, Chrome, PC ou Mac.</p>
@@ -294,29 +294,29 @@ export default function ExperientialLandingPage() {
             </section>
 
             {/* Immersive Pricing Section */}
-            <section id="pricing" className="py-32 px-4 relative z-10">
+            <section id="pricing" className="py-16 md:py-32 px-4 relative z-10">
                 {/* Radial gradient background to highlight pricing */}
                 <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-full w-full max-w-4xl mx-auto bg-indigo-500/5 blur-[120px] rounded-full pointer-events-none" />
 
                 <div className="max-w-5xl mx-auto relative">
-                    <div className="text-center mb-20 section-header">
-                        <h2 className="text-5xl md:text-6xl font-black mb-6 tracking-tight">Assinatura Única Para A Casa.</h2>
-                        <p className="text-xl text-slate-400">Só um paga. Os dois acessam. <br /> Comece agora com 7 dias cobertos pela nossa garantia de paz.</p>
+                    <div className="text-center mb-12 md:mb-20 section-header">
+                        <h2 className="text-3xl sm:text-4xl md:text-6xl font-black mb-5 md:mb-6 tracking-tight">Assinatura Única Para A Casa.</h2>
+                        <p className="text-base sm:text-lg md:text-xl text-slate-400">Só um paga. Os dois acessam. <br /> Comece agora com 7 dias cobertos pela nossa garantia de paz.</p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8 max-w-4xl mx-auto">
 
                         {/* Plano Mensal - Minimalist */}
-                        <div className="rounded-[2.5rem] border border-white/[0.05] bg-white/[0.01] p-10 flex flex-col hover:bg-white/[0.03] transition-colors">
+                        <div className="rounded-[2rem] md:rounded-[2.5rem] border border-white/[0.05] bg-white/[0.01] p-6 md:p-10 flex flex-col hover:bg-white/[0.03] transition-colors">
                             <h3 className="text-2xl font-semibold text-white">Casal Mensal</h3>
                             <p className="text-slate-400 mt-2 text-sm">Paz no relacionamento custa menos que um Ifood num fim de semana.</p>
 
-                            <div className="mt-12 mb-10">
-                                <span className="text-6xl font-black text-white tracking-tighter">R$ 49</span>
+                            <div className="mt-10 md:mt-12 mb-8 md:mb-10">
+                                <span className="text-5xl md:text-6xl font-black text-white tracking-tighter">R$ 49</span>
                                 <span className="text-slate-500 font-medium">/mês</span>
                             </div>
 
-                            <ul className="space-y-4 text-slate-300 mb-12 flex-grow text-sm font-medium">
+                            <ul className="space-y-3 md:space-y-4 text-slate-300 mb-10 md:mb-12 flex-grow text-sm font-medium">
                                 <li className="flex items-center gap-3"><Check className="w-5 h-5 text-slate-500 shrink-0" /> Inclusão de Parceiro(a) 100% Gratuita</li>
                                 <li className="flex items-center gap-3"><Check className="w-5 h-5 text-slate-500 shrink-0" /> Dashboard Completo e Compartilhado</li>
                                 <li className="flex items-center gap-3"><Check className="w-5 h-5 text-slate-500 shrink-0" /> Suporte Premium aos assinantes</li>
@@ -331,9 +331,9 @@ export default function ExperientialLandingPage() {
                         </div>
 
                         {/* Plano Anual - Premium Focus */}
-                        <div className="rounded-[2.5rem] border border-indigo-500/30 bg-gradient-to-b from-indigo-500/10 to-transparent p-1 relative shadow-2xl flex flex-col transform md:-translate-y-6">
+                        <div className="rounded-[2rem] md:rounded-[2.5rem] border border-indigo-500/30 bg-gradient-to-b from-indigo-500/10 to-transparent p-1 relative shadow-2xl flex flex-col transform md:-translate-y-6">
                             {/* Inner Box to create gradient border effect */}
-                            <div className="bg-[#0a0a0c] rounded-[2.4rem] p-10 h-full flex flex-col relative overflow-hidden">
+                            <div className="bg-[#0a0a0c] rounded-[1.9rem] md:rounded-[2.4rem] p-6 md:p-10 h-full flex flex-col relative overflow-hidden">
                                 <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 blur-[80px]" />
 
                                 <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-50" />
@@ -345,15 +345,15 @@ export default function ExperientialLandingPage() {
                                 <h3 className="text-2xl font-semibold text-white">Elite Anual</h3>
                                 <p className="text-slate-400 mt-2 text-sm">Organize a estrutura patrimonial da família garantindo proteção contra aumentos.</p>
 
-                                <div className="mt-12 mb-4">
-                                    <span className="text-6xl font-black text-white tracking-tighter">R$ 497</span>
+                                <div className="mt-10 md:mt-12 mb-4">
+                                    <span className="text-5xl md:text-6xl font-black text-white tracking-tighter">R$ 497</span>
                                     <span className="text-slate-500 font-medium">/ano</span>
                                 </div>
-                                <div className="text-sm font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-fuchsia-400 mb-10">
+                                <div className="text-sm font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-fuchsia-400 mb-8 md:mb-10">
                                     Equivale a R$ 41,41 por mês (Você zera o atrito do ano inteiro).
                                 </div>
 
-                                <ul className="space-y-4 text-slate-200 mb-12 flex-grow text-sm font-medium">
+                                <ul className="space-y-3 md:space-y-4 text-slate-200 mb-10 md:mb-12 flex-grow text-sm font-medium">
                                     <li className="flex items-center gap-3"><Check className="w-5 h-5 text-indigo-400 shrink-0" /> Tudo do plano mensal habilitado</li>
                                     <li className="flex items-center gap-3"><Check className="w-5 h-5 text-indigo-400 shrink-0" /> Desconto Matemático (2 meses gratuitos)</li>
                                     <li className="flex items-center gap-3"><Check className="w-5 h-5 text-indigo-400 shrink-0" /> Prioridade em Recursos Exclusivos B2C</li>
@@ -372,9 +372,9 @@ export default function ExperientialLandingPage() {
             </section>
 
             {/* Minimalist FAQ (Clean Accordion) */}
-            <section className="py-24 px-4 relative z-10 border-t border-white/[0.02] bg-gradient-to-b from-transparent to-[#050505]">
+            <section className="py-16 md:py-24 px-4 relative z-10 border-t border-white/[0.02] bg-gradient-to-b from-transparent to-[#050505]">
                 <div className="max-w-3xl mx-auto">
-                    <div className="text-center mb-16">
+                    <div className="text-center mb-10 md:mb-16">
                         <h2 className="text-3xl font-bold tracking-tight">Perguntas Rápidas</h2>
                     </div>
 
