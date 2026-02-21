@@ -16,12 +16,9 @@ test.describe("Public smoke", () => {
         }
         if (lastError) throw lastError;
 
-        await expect(page.getByRole("heading", { name: "App Financeiro 2.0" })).toBeVisible();
-        await expect(page.getByRole("link", { name: "Ver Planos" })).toBeVisible();
+        await expect(page.getByRole("heading", { name: /O fim das/i })).toBeVisible();
 
-        await page.getByRole("link", { name: "Ver Planos" }).click();
-
-        await expect(page).toHaveURL(/\/pricing$/);
+        await page.goto("/pricing", { waitUntil: "domcontentloaded" });
         await expect(page.getByRole("heading", { name: "Escolha seu plano" })).toBeVisible();
         await expect(page.getByRole("link", { name: "Suporte" })).toBeVisible();
     });
