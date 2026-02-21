@@ -3,7 +3,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
-import { Loader2, ArrowRight, Shield, Users, TrendingUp, CheckCircle2, ChevronDown, Check, Columns, Sparkles, Lock, CreditCard, Activity } from "lucide-react";
+import { Loader2, ArrowRight, Shield, Users, CheckCircle2, ChevronDown, Check, Columns, Sparkles, Lock, Activity } from "lucide-react";
 import Link from "next/link";
 
 type BillingPlan = "monthly" | "yearly";
@@ -208,7 +208,7 @@ export default function ExperientialLandingPage() {
                             <Users className="w-10 h-10 text-indigo-400 mb-6" />
                             <h3 className="text-2xl font-semibold mb-4 text-white">Autonomia Solo. Expansão para Casais.</h3>
                             <p className="text-slate-400 leading-relaxed mb-8 max-w-md">
-                                Como solteiro, você tem os gráficos e as projeções mais viscerais sobre o seu fluxo de caixa. Como casal, basta um clique para ativar a "Vida a Dois": cada um entra com seu e-mail e as despesas da casa sincronizam no celular de ambos.
+                                Como solteiro, você tem os gráficos e as projeções mais viscerais sobre o seu fluxo de caixa. Como casal, basta um clique para ativar a &quot;Vida a Dois&quot;: cada um entra com seu e-mail e as despesas da casa sincronizam no celular de ambos.
                             </p>
                             <div className="flex gap-4">
                                 <div className="bg-[#0a0a0c] border border-white/5 px-4 py-2 rounded-lg text-xs font-medium text-emerald-400 flex items-center gap-2 shadow-inner shadow-white/5">
@@ -221,9 +221,9 @@ export default function ExperientialLandingPage() {
                         <div className="bg-gradient-to-br from-white/[0.05] to-white/[0.01] border border-white/[0.05] rounded-3xl p-10 relative overflow-hidden hover:border-white/10 transition-colors">
                             <div className="absolute top-0 right-0 w-64 h-64 bg-fuchsia-500/10 rounded-full blur-[60px] translate-x-1/4 -translate-y-1/4" />
                             <Columns className="w-10 h-10 text-fuchsia-400 mb-6" />
-                            <h3 className="text-2xl font-semibold mb-4 text-white">A Tese do "Meu, Seu, Nosso"</h3>
+                            <h3 className="text-2xl font-semibold mb-4 text-white">A Tese do &quot;Meu, Seu, Nosso&quot;</h3>
                             <p className="text-slate-400 leading-relaxed text-sm">
-                                Fez o upgrade para Casal? O App separa automaticamente as contas de luz ou supermercado da "Casa" (Nosso) das faturas de Cartão de Crédito particulares (Meu/Seu).
+                                Fez o upgrade para Casal? O App separa automaticamente as contas de luz ou supermercado da &quot;Casa&quot; (Nosso) das faturas de Cartão de Crédito particulares (Meu/Seu).
                             </p>
                         </div>
 
