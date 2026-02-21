@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
     LayoutDashboard,
@@ -116,12 +115,11 @@ export function Sidebar() {
             <div className="p-4 border-t border-white/10">
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 mb-3">
                     {user?.photoURL ? (
-                        <Image
+                        <img
                             src={user.photoURL}
                             alt={user.displayName || "Usuário"}
-                            width={40}
-                            height={40}
-                            className="w-10 h-10 rounded-full ring-2 ring-primary-400/50"
+                            className="w-10 h-10 rounded-full ring-2 ring-primary-400/50 object-cover"
+                            referrerPolicy="no-referrer"
                         />
                     ) : (
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white font-bold">

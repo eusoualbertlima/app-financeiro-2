@@ -1,7 +1,6 @@
 "use client";
 
 import { useAuth } from "@/contexts/AuthContext";
-import Image from "next/image";
 
 export function LoginButton() {
     const { user, loading, signInWithGoogle, signOut } = useAuth();
@@ -22,12 +21,11 @@ export function LoginButton() {
             <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
                     {user.photoURL && (
-                        <Image
+                        <img
                             src={user.photoURL}
                             alt={user.displayName || "Usuário"}
-                            width={32}
-                            height={32}
-                            className="w-8 h-8 rounded-full"
+                            className="w-8 h-8 rounded-full object-cover"
+                            referrerPolicy="no-referrer"
                         />
                     )}
                     <span className="text-sm hidden sm:inline">{user.displayName?.split(" ")[0]}</span>

@@ -10,7 +10,6 @@ import { updateProfile } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import Link from "next/link";
-import Image from "next/image";
 
 type BillingPlan = "monthly" | "yearly";
 
@@ -358,12 +357,11 @@ export default function ConfiguracoesPage() {
             <div className="card p-6 mb-6">
                 <div className="flex items-center gap-4">
                     {profilePreviewPhotoURL ? (
-                        <Image
+                        <img
                             src={profilePreviewPhotoURL}
                             alt={profilePreviewName || "Usuário"}
-                            width={64}
-                            height={64}
-                            className="w-16 h-16 rounded-full ring-2 ring-primary-400/50"
+                            className="w-16 h-16 rounded-full ring-2 ring-primary-400/50 object-cover"
+                            referrerPolicy="no-referrer"
                         />
                     ) : (
                         <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white text-2xl font-bold">
