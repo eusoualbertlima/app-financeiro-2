@@ -166,9 +166,9 @@ export function LineChart({
 }) {
     if (points.length === 0) return null;
 
-    const width = 320;
-    const height = 120;
-    const padding = { top: 10, right: 10, bottom: 20, left: 10 };
+    const width = Math.min(1600, Math.max(760, points.length * 220));
+    const height = 140;
+    const padding = { top: 12, right: 18, bottom: 24, left: 18 };
     const chartW = width - padding.left - padding.right;
     const chartH = height - padding.top - padding.bottom;
 
@@ -197,7 +197,7 @@ export function LineChart({
             <svg
                 viewBox={`0 0 ${width} ${height}`}
                 className="w-full h-full"
-                preserveAspectRatio="none"
+                preserveAspectRatio="xMinYMid meet"
             >
                 <defs>
                     <linearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
