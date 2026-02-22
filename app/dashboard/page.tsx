@@ -321,7 +321,7 @@ export default function DashboardPage() {
     }
 
     return (
-        <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+        <div className="p-4 sm:p-6 lg:p-8 max-w-screen-2xl 2xl:max-w-[1680px] mx-auto">
             <Header title="Dashboard" subtitle={`${workspace?.name} • ${MONTH_NAMES[currentMonth - 1]} ${currentYear}`} />
 
             <OnboardingGuide
@@ -345,7 +345,7 @@ export default function DashboardPage() {
             )}
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 lg:gap-6 mb-8">
                 {/* Saldo Total */}
                 <div className="stat-card balance">
                     <div className="flex items-start justify-between">
@@ -558,7 +558,7 @@ export default function DashboardPage() {
                         <div className="w-8 h-8 border-4 border-primary-200 border-t-primary-500 rounded-full animate-spin"></div>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                         <div className="card p-5">
                             <h3 className="font-semibold text-slate-900 mb-4">Despesas por Categoria</h3>
                             <DonutChart segments={chartAnalytics.categorySegments} size={180} />
@@ -585,18 +585,16 @@ export default function DashboardPage() {
                             <BarChart data={chartAnalytics.barData} />
                         </div>
 
-                        <div className="card p-5 xl:col-span-3">
+                        <div className="card p-5 lg:p-6 lg:col-span-2 xl:col-span-3">
                             <h3 className="font-semibold text-slate-900 mb-1">Saldo Acumulado</h3>
                             <p className="text-sm text-slate-500 mb-4">
                                 Evolução do saldo dentro do período selecionado
                             </p>
-                            <div className="max-w-5xl mx-auto">
-                                <LineChart
-                                    points={chartAnalytics.linePoints}
-                                    color={chartAnalytics.balance >= 0 ? "#22c55e" : "#ef4444"}
-                                    heightClassName="h-32 sm:h-36 lg:h-40"
-                                />
-                            </div>
+                            <LineChart
+                                points={chartAnalytics.linePoints}
+                                color={chartAnalytics.balance >= 0 ? "#22c55e" : "#ef4444"}
+                                heightClassName="h-36 sm:h-40 lg:h-44 xl:h-52"
+                            />
                         </div>
                     </div>
                 )}
