@@ -590,10 +590,13 @@ export default function DashboardPage() {
                             <p className="text-sm text-slate-500 mb-4">
                                 Evolução do saldo dentro do período selecionado
                             </p>
-                            <LineChart
-                                points={chartAnalytics.linePoints}
-                                color={chartAnalytics.balance >= 0 ? "#22c55e" : "#ef4444"}
-                            />
+                            <div className="max-w-5xl mx-auto">
+                                <LineChart
+                                    points={chartAnalytics.linePoints}
+                                    color={chartAnalytics.balance >= 0 ? "#22c55e" : "#ef4444"}
+                                    heightClassName="h-32 sm:h-36 lg:h-40"
+                                />
+                            </div>
                         </div>
                     </div>
                 )}

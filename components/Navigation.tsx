@@ -62,6 +62,12 @@ function getVisibleMenuItems(
     });
 }
 
+function isPathActive(pathname: string, href: string) {
+    if (pathname === href) return true;
+    if (href === "/dashboard") return false;
+    return pathname.startsWith(`${href}/`);
+}
+
 export function Sidebar() {
     const pathname = usePathname();
     const { user, userProfile, signOut, isDeveloperAdmin } = useAuth();
@@ -99,8 +105,7 @@ export function Sidebar() {
             {/* Menu */}
             <nav className="flex-1 py-6 space-y-1 overflow-y-auto">
                 {visibleMenuItems.map((item) => {
-                    const isActive = pathname === item.href ||
-                        (item.href !== "/dashboard" && pathname.startsWith(item.href));
+                    const isActive = isPathActive(pathname, item.href);
                     return (
                         <Link
                             key={item.href}
@@ -153,7 +158,7 @@ export function MobileNav() {
     const visibleMenuItems = getVisibleMenuItems(menuItems, { isAdmin, isDeveloperAdmin, hasBehavioralFeatureAccess });
     const activeItem = useMemo(
         () =>
-            visibleMenuItems.find((item) => pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href))),
+            visibleMenuItems.find((item) => isPathActive(pathname, item.href)),
         [visibleMenuItems, pathname]
     );
     const avatarSrc =
@@ -251,7 +256,7 @@ export function MobileNav() {
 
                 <nav className="mobile-drawer-nav">
                     {visibleMenuItems.map((item) => {
-                        const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+                        const isActive = isPathActive(pathname, item.href);
                         return (
                             <Link
                                 key={item.href}

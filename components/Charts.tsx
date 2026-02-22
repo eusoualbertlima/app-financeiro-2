@@ -14,7 +14,7 @@ export function DonutChart({ segments, size = 200 }: { segments: DonutSegment[];
         return (
             <div className="flex flex-col items-center justify-center py-8 text-slate-400">
                 <svg width={size} height={size} viewBox="0 0 200 200">
-                    <circle cx="100" cy="100" r="70" fill="none" stroke="#e2e8f0" strokeWidth="24" />
+                    <circle cx="100" cy="100" r="70" fill="none" stroke="#e2e8f0" strokeWidth="20" />
                 </svg>
                 <p className="text-sm mt-2">Sem dados</p>
             </div>
@@ -23,9 +23,20 @@ export function DonutChart({ segments, size = 200 }: { segments: DonutSegment[];
 
     const radius = 70;
     const circumference = 2 * Math.PI * radius;
+    const strokeWidth = 20;
 
     const formatCurrency = (v: number) =>
         new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+
+    const formatCompactCurrency = (v: number) => {
+        if (v >= 1_000_000) {
+            return `R$ ${(v / 1_000_000).toFixed(1)} mi`;
+        }
+        if (v >= 1_000) {
+            return `R$ ${(v / 1_000).toFixed(1)}k`;
+        }
+        return formatCurrency(v);
+    };
 
     const chartSegments = segments.reduce<{
         offset: number;
@@ -57,7 +68,7 @@ export function DonutChart({ segments, size = 200 }: { segments: DonutSegment[];
                             r={radius}
                             fill="none"
                             stroke={seg.color}
-                            strokeWidth="24"
+                            strokeWidth={strokeWidth}
                             strokeDasharray={`${seg.dashLength} ${seg.gap}`}
                             strokeDashoffset={-seg.offset}
                             strokeLinecap="round"
@@ -66,16 +77,21 @@ export function DonutChart({ segments, size = 200 }: { segments: DonutSegment[];
                     ))}
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <p className="text-2xl font-bold text-slate-900">{formatCurrency(total)}</p>
+                    <p
+                        className="text-base sm:text-lg font-bold text-slate-900 leading-tight text-center max-w-[120px]"
+                        title={formatCurrency(total)}
+                    >
+                        {formatCompactCurrency(total)}
+                    </p>
                     <p className="text-xs text-slate-400">Total</p>
                 </div>
             </div>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-2 w-full max-w-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 w-full max-w-sm">
                 {segments.slice(0, 6).map((seg, i) => (
-                    <div key={i} className="flex items-center gap-2">
+                    <div key={i} className="flex items-center gap-2 min-w-0">
                         <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: seg.color }} />
-                        <span className="text-xs text-slate-600 truncate">{seg.icon} {seg.label}</span>
-                        <span className="text-xs text-slate-400 ml-auto">{Math.round((seg.value / total) * 100)}%</span>
+                        <span className="text-[11px] text-slate-600 truncate min-w-0 flex-1">{seg.icon} {seg.label}</span>
+                        <span className="text-[11px] text-slate-400 shrink-0">{Math.round((seg.value / total) * 100)}%</span>
                     </div>
                 ))}
             </div>
@@ -139,7 +155,15 @@ interface LinePoint {
     value: number;
 }
 
-export function LineChart({ points, color = "#6366f1" }: { points: LinePoint[]; color?: string }) {
+export function LineChart({
+    points,
+    color = "#6366f1",
+    heightClassName = "h-36 sm:h-40",
+}: {
+    points: LinePoint[];
+    color?: string;
+    heightClassName?: string;
+}) {
     if (points.length === 0) return null;
 
     const width = 320;
@@ -163,8 +187,8 @@ export function LineChart({ points, color = "#6366f1" }: { points: LinePoint[]; 
     const areaD = pathD + ` L ${getX(points.length - 1)} ${getY(minVal)} L ${getX(0)} ${getY(minVal)} Z`;
 
     return (
-        <div className="w-full">
-            <svg viewBox={`0 0 ${width} ${height}`} className="w-full">
+        <div className={`w-full ${heightClassName}`}>
+            <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full">
                 <defs>
                     <linearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor={color} stopOpacity="0.3" />
