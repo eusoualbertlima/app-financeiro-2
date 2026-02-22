@@ -5,7 +5,7 @@ import { useTransactions } from "@/hooks/useTransactions";
 import { useCollection } from "@/hooks/useFirestore";
 import { CurrencyInput } from "@/components/CurrencyInput";
 import {
-    Receipt, Plus, X, TrendingUp, TrendingDown,
+    Plus, X,
     CreditCard, Wallet, Check, Clock,
     Filter, ChevronLeft, ChevronRight, Edit3, Trash2, ArrowRightLeft, Download
 } from "lucide-react";
@@ -18,6 +18,11 @@ import {
     parseDateInputToTimestamp,
     timestampToDateInputValue,
 } from "@/lib/dateInput";
+import {
+    CoolTrendingDownIcon,
+    CoolTrendingUpIcon,
+    CoolTransactionsIcon
+} from "@/components/icons/CoolIcons";
 
 const defaultCategories = [
     { id: 'alimentacao', name: 'Alimentação', icon: '🍔', color: '#f59e0b' },
@@ -289,7 +294,7 @@ export default function LancamentosPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                 <div className="card p-4 flex items-center gap-4">
                     <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
-                        <TrendingUp className="w-6 h-6 text-green-600" />
+                        <CoolTrendingUpIcon className="w-6 h-6 text-green-600" />
                     </div>
                     <div>
                         <p className="text-sm text-slate-500">Receitas</p>
@@ -298,7 +303,7 @@ export default function LancamentosPage() {
                 </div>
                 <div className="card p-4 flex items-center gap-4">
                     <div className="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center">
-                        <TrendingDown className="w-6 h-6 text-red-600" />
+                        <CoolTrendingDownIcon className="w-6 h-6 text-red-600" />
                     </div>
                     <div>
                         <p className="text-sm text-slate-500">Despesas</p>
@@ -418,7 +423,7 @@ export default function LancamentosPage() {
             <div className="card overflow-hidden">
                 {filteredTransactions.length === 0 ? (
                     <div className="p-12 text-center">
-                        <Receipt className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                        <CoolTransactionsIcon className="w-12 h-12 text-slate-300 mx-auto mb-4" />
                         <p className="text-slate-500">Nenhum lançamento encontrado</p>
                     </div>
                 ) : (

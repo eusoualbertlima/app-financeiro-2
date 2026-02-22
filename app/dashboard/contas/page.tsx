@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { useCollection } from "@/hooks/useFirestore";
 import { useTransactions } from "@/hooks/useTransactions";
-import { Wallet, Plus, Trash2, X, Edit3, Eye, ArrowRightLeft, Download, FileText } from "lucide-react";
+import { Plus, Trash2, X, Edit3, Eye, ArrowRightLeft, Download, FileText } from "lucide-react";
 import type { Account } from "@/types";
 import Link from "next/link";
 import { CurrencyInput } from "@/components/CurrencyInput";
 import { Header } from "@/components/Navigation";
 import { downloadCsv } from "@/lib/csv";
 import { nowDateInputValue, parseDateInputToTimestamp } from "@/lib/dateInput";
+import { CoolAccountsIcon } from "@/components/icons/CoolIcons";
 
 function accountTypeLabel(type: Account["type"]) {
     if (type === "checking") return "Conta Corrente";
@@ -292,7 +293,7 @@ export default function ContasPage() {
             {contas.length === 0 ? (
                 <div className="card p-12 text-center">
                     <div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-6">
-                        <Wallet className="w-10 h-10 text-slate-400" />
+                        <CoolAccountsIcon className="w-10 h-10 text-slate-400" />
                     </div>
                     <h3 className="text-xl font-semibold text-slate-900 mb-2">Nenhuma conta cadastrada</h3>
                     <p className="text-slate-500 mb-6">Adicione suas contas bancárias para começar a organizar suas finanças.</p>

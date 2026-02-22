@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { useCollection } from "@/hooks/useFirestore";
 import { useCardsLimitSummary } from "@/hooks/useCardLimits";
-import { CreditCard as CardIcon, Plus, Trash2, X, Edit3, Eye } from "lucide-react";
+import { Plus, Trash2, X, Edit3, Eye } from "lucide-react";
 import type { CreditCard } from "@/types";
 import { Header } from "@/components/Navigation";
 import Link from "next/link";
 import { CurrencyInput } from "@/components/CurrencyInput";
+import { CoolCreditCardIcon } from "@/components/icons/CoolIcons";
 
 // Componente para mostrar gastos de cada cartão
 function CardSpent({ limit, outstanding, loading }: { limit: number; outstanding: number; loading: boolean }) {
@@ -142,7 +143,7 @@ export default function CartoesPage() {
             {cartoes.length === 0 ? (
                 <div className="card p-12 text-center">
                     <div className="w-20 h-20 rounded-full bg-accent-100 flex items-center justify-center mx-auto mb-6">
-                        <CardIcon className="w-10 h-10 text-accent-500" />
+                        <CoolCreditCardIcon className="w-10 h-10 text-accent-500" />
                     </div>
                     <h3 className="text-xl font-semibold text-slate-900 mb-2">Nenhum cartão cadastrado</h3>
                     <p className="text-slate-500 mb-6">Adicione seus cartões de crédito para controlar suas faturas.</p>
@@ -185,7 +186,7 @@ export default function CartoesPage() {
                             <div className="relative z-10">
                                 <div className="flex items-center justify-between mb-8">
                                     <div className="text-2xl">{brandLogos[cartao.brand] || brandLogos.other}</div>
-                                    <CardIcon className="w-8 h-8 opacity-50" />
+                                    <CoolCreditCardIcon className="w-8 h-8 opacity-50" />
                                 </div>
 
                                 <Link href={`/dashboard/cartoes/${cartao.id}`} className="hover:underline">
