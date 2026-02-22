@@ -6,11 +6,25 @@ import { useWorkspace } from "@/hooks/useFirestore";
 import { resolveWorkspaceAccessDecision } from "@/lib/accessPolicy";
 import { PROFILE_ICON_OPTIONS, getDefaultProfileIconSrc, normalizeProfileIcon } from "@/lib/profileIcons";
 import { Header } from "@/components/Navigation";
-import { Settings, User, Shield, Bell, Palette, LogOut, ChevronRight, UserPlus, Users, Copy, Check, CreditCard, Loader2, UserMinus } from "lucide-react";
+import { ChevronRight, Loader2 } from "lucide-react";
 import { updateProfile } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import Link from "next/link";
+import {
+    CoolBellIcon,
+    CoolCheckIcon,
+    CoolCopyIcon,
+    CoolCreditCardIcon,
+    CoolLogOutIcon,
+    CoolPaletteIcon,
+    CoolSettingsIcon,
+    CoolShieldIcon,
+    CoolUserAddIcon,
+    CoolUserIcon,
+    CoolUserRemoveIcon,
+    CoolUsersIcon
+} from "@/components/icons/CoolIcons";
 
 type BillingPlan = "monthly" | "yearly";
 const GOOGLE_PHOTO_CHOICE = "__google_photo__";
@@ -121,35 +135,35 @@ export default function ConfiguracoesPage() {
     const sections = [
         {
             id: "compartilhar",
-            icon: Users,
+            icon: CoolUsersIcon,
             title: "Compartilhar Finanças",
             description: "Convide alguém para compartilhar seus dados",
             color: "bg-primary-100 text-primary-600",
         },
         {
             id: "perfil",
-            icon: User,
+            icon: CoolUserIcon,
             title: "Perfil",
             description: "Informações da sua conta",
             color: "bg-blue-100 text-blue-600",
         },
         {
             id: "seguranca",
-            icon: Shield,
+            icon: CoolShieldIcon,
             title: "Segurança",
             description: "Senha e autenticação",
             color: "bg-green-100 text-green-600",
         },
         {
             id: "notificacoes",
-            icon: Bell,
+            icon: CoolBellIcon,
             title: "Notificações",
             description: "Alertas e lembretes",
             color: "bg-amber-100 text-amber-600",
         },
         {
             id: "aparencia",
-            icon: Palette,
+            icon: CoolPaletteIcon,
             title: "Aparência",
             description: "Tema e personalização",
             color: "bg-purple-100 text-purple-600",
@@ -439,7 +453,7 @@ export default function ConfiguracoesPage() {
             <div className="card p-6 mb-6">
                 <div className="flex items-center justify-between gap-4 mb-3">
                     <div className="flex items-center gap-2">
-                        <CreditCard className="w-5 h-5 text-primary-600" />
+                        <CoolCreditCardIcon className="w-5 h-5 text-primary-600" />
                         <h3 className="font-semibold text-slate-900">Assinatura</h3>
                     </div>
                     <span className={`text-xs font-bold px-2 py-1 rounded-full ${hasEffectiveAccess ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
@@ -559,7 +573,7 @@ export default function ConfiguracoesPage() {
                             {activeSection === section.id && section.id === "compartilhar" && (
                                 <div className="card p-6 mt-2 ml-4 border-l-4 border-primary-400">
                                     <div className="flex items-center gap-2 mb-4">
-                                        <UserPlus className="w-5 h-5 text-primary-500" />
+                                        <CoolUserAddIcon className="w-5 h-5 text-primary-500" />
                                         <h3 className="font-semibold text-slate-900">Compartilhar com outra pessoa</h3>
                                     </div>
                                     <p className="text-sm text-slate-500 mb-4">
@@ -610,7 +624,7 @@ export default function ConfiguracoesPage() {
                                                 className="icon-hitbox p-2 hover:bg-slate-100 rounded-lg transition-colors"
                                                 title="Copiar"
                                             >
-                                                {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-slate-400" />}
+                                                {copied ? <CoolCheckIcon className="w-4 h-4 text-green-500" /> : <CoolCopyIcon className="w-4 h-4 text-slate-400" />}
                                             </button>
                                         </div>
                                         {workspace && (
@@ -641,7 +655,7 @@ export default function ConfiguracoesPage() {
                                                     </>
                                                 ) : (
                                                     <>
-                                                        <UserMinus className="w-4 h-4" />
+                                                        <CoolUserRemoveIcon className="w-4 h-4" />
                                                         Sair deste workspace
                                                     </>
                                                 )}
@@ -664,7 +678,7 @@ export default function ConfiguracoesPage() {
                             {activeSection === section.id && section.id === "perfil" && (
                                 <div className="card p-6 mt-2 ml-4 border-l-4 border-blue-400">
                                     <div className="flex items-center gap-2 mb-4">
-                                        <User className="w-5 h-5 text-blue-500" />
+                                        <CoolUserIcon className="w-5 h-5 text-blue-500" />
                                         <h3 className="font-semibold text-slate-900">Editar perfil</h3>
                                     </div>
                                     <form onSubmit={handleProfileSave} className="space-y-4">
@@ -790,7 +804,7 @@ export default function ConfiguracoesPage() {
                             {activeSection === section.id && section.id !== "compartilhar" && section.id !== "perfil" && (
                                 <div className="card p-6 mt-2 ml-4">
                                     <div className="flex items-center gap-2 mb-4">
-                                        <Settings className="w-5 h-5 text-slate-400" />
+                                        <CoolSettingsIcon className="w-5 h-5 text-slate-400" />
                                         <h3 className="font-semibold text-slate-900">{section.title}</h3>
                                     </div>
                                     <div className="bg-slate-50 rounded-xl p-8 text-center">
@@ -810,7 +824,7 @@ export default function ConfiguracoesPage() {
                 onClick={signOut}
                 className="w-full flex items-center justify-center gap-2 px-6 py-4 text-red-600 bg-red-50 hover:bg-red-100 rounded-2xl font-medium transition-all duration-200"
             >
-                <LogOut className="w-5 h-5" />
+                <CoolLogOutIcon className="w-5 h-5" />
                 Sair da Conta
             </button>
 

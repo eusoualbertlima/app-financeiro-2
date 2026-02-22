@@ -4,19 +4,21 @@ import { Header } from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useMemo, useState } from "react";
 import {
-    BadgeCheck,
-    Building2,
     CircleX,
     Loader2,
-    Mail,
     Plus,
     RefreshCw,
-    Search,
-    ShieldCheck,
-    UserMinus,
-    Users,
-    Wrench,
 } from "lucide-react";
+import {
+    CoolBuildingIcon,
+    CoolCheckCircleIcon,
+    CoolMailIcon,
+    CoolSearchIcon,
+    CoolSettingsIcon,
+    CoolShieldIcon,
+    CoolUserRemoveIcon,
+    CoolUsersIcon
+} from "@/components/icons/CoolIcons";
 
 type UserSummary = {
     uid: string;
@@ -434,7 +436,7 @@ export default function AdminDashboardPage() {
 
             <div className="card p-4 mb-6 flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
                 <div className="relative flex-1">
-                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <CoolSearchIcon className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                         value={search}
                         onChange={(event) => setSearch(event.target.value)}
@@ -451,7 +453,7 @@ export default function AdminDashboardPage() {
                         {updatingKey === "reconcile-dry-run" ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
-                            <Wrench className="w-4 h-4" />
+                            <CoolSettingsIcon className="w-4 h-4" />
                         )}
                         Reconciliar saldos (simular)
                     </button>
@@ -463,7 +465,7 @@ export default function AdminDashboardPage() {
                         {updatingKey === "reconcile-apply" ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
-                            <Wrench className="w-4 h-4" />
+                            <CoolSettingsIcon className="w-4 h-4" />
                         )}
                         Reconciliar saldos (aplicar)
                     </button>
@@ -475,7 +477,7 @@ export default function AdminDashboardPage() {
                         {updatingKey === "backfill-profiles" ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
-                            <Wrench className="w-4 h-4" />
+                            <CoolSettingsIcon className="w-4 h-4" />
                         )}
                         Corrigir perfis ausentes
                     </button>
@@ -525,7 +527,7 @@ export default function AdminDashboardPage() {
                             <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 mb-4">
                                 <div className="min-w-0">
                                     <div className="flex items-center gap-2 mb-1">
-                                        <Building2 className="w-4 h-4 text-primary-600" />
+                                        <CoolBuildingIcon className="w-4 h-4 text-primary-600" />
                                         <h2 className="font-semibold text-slate-900 truncate">{client.name}</h2>
                                         <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${statusClasses(client.billing.status)}`}>
                                             {formatLabel(client.billing.status, "unknown")}
@@ -571,7 +573,7 @@ export default function AdminDashboardPage() {
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                 <div className="bg-slate-50 rounded-xl p-4">
                                     <div className="flex items-center gap-2 mb-2">
-                                        <ShieldCheck className="w-4 h-4 text-slate-500" />
+                                        <CoolShieldIcon className="w-4 h-4 text-slate-500" />
                                         <p className="text-sm font-semibold text-slate-800">Dono do workspace</p>
                                     </div>
                                     <p className="text-sm text-slate-900">
@@ -606,7 +608,7 @@ export default function AdminDashboardPage() {
 
                                 <div className="bg-slate-50 rounded-xl p-4">
                                     <div className="flex items-center gap-2 mb-2">
-                                        <Users className="w-4 h-4 text-slate-500" />
+                                        <CoolUsersIcon className="w-4 h-4 text-slate-500" />
                                         <p className="text-sm font-semibold text-slate-800">Membros ({client.members.length})</p>
                                     </div>
                                     <div className="space-y-2 max-h-52 overflow-auto pr-1">
@@ -664,7 +666,7 @@ export default function AdminDashboardPage() {
                                                                 title="Remover acesso"
                                                             >
                                                                 <span className="inline-flex items-center gap-1">
-                                                                    <UserMinus className="w-3 h-3" />
+                                                                    <CoolUserRemoveIcon className="w-3 h-3" />
                                                                     Remover
                                                                 </span>
                                                             </button>
@@ -678,7 +680,7 @@ export default function AdminDashboardPage() {
 
                                 <div className="bg-slate-50 rounded-xl p-4">
                                     <div className="flex items-center gap-2 mb-2">
-                                        <BadgeCheck className="w-4 h-4 text-slate-500" />
+                                        <CoolCheckCircleIcon className="w-4 h-4 text-slate-500" />
                                         <p className="text-sm font-semibold text-slate-800">Aceite legal</p>
                                     </div>
                                     <p className="text-xs text-slate-600">Termos: {formatDate(client.legal.acceptedTermsAt)}</p>
@@ -693,7 +695,7 @@ export default function AdminDashboardPage() {
 
                                 <div className="bg-slate-50 rounded-xl p-4">
                                     <div className="flex items-center gap-2 mb-2">
-                                        <Mail className="w-4 h-4 text-slate-500" />
+                                        <CoolMailIcon className="w-4 h-4 text-slate-500" />
                                         <p className="text-sm font-semibold text-slate-800">Billing e convites</p>
                                     </div>
                                     <p className="text-xs text-slate-600">Trial até: {formatDate(client.billing.trialEndsAt)}</p>

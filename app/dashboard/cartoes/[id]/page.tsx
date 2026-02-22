@@ -9,10 +9,10 @@ import { useCardsLimitSummary } from "@/hooks/useCardLimits";
 import { CurrencyInput } from "@/components/CurrencyInput";
 import { DonutChart } from "@/components/Charts";
 import {
-    CreditCard, ChevronLeft, ChevronRight, ArrowLeft,
-    Check, Clock, Edit3, TrendingDown, AlertCircle
+    ChevronLeft, ChevronRight, ArrowLeft, Clock, Edit3
 } from "lucide-react";
 import type { CreditCard as CardType, Account, CardStatementAdjustment } from "@/types";
+import { CoolCheckIcon, CoolCreditCardIcon, CoolTrendingDownIcon, CoolWarningIcon } from "@/components/icons/CoolIcons";
 
 const defaultCategories = [
     { id: 'alimentacao', name: 'Alimentação', icon: '🍔', color: '#f59e0b' },
@@ -178,7 +178,7 @@ export default function CartaoDetalhePage() {
                         <h1 className="text-2xl font-bold">{cartao.name}</h1>
                         <p className="text-white/70 capitalize">{cartao.brand}</p>
                     </div>
-                    <CreditCard className="w-10 h-10 text-white/50" />
+                    <CoolCreditCardIcon className="w-10 h-10 text-white/50" />
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                     <div>
@@ -228,9 +228,9 @@ export default function CartaoDetalhePage() {
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${faturaStatus === 'paid' ? 'bg-green-100' : faturaStatus === 'closed' ? 'bg-amber-100' : 'bg-blue-100'
                             }`}>
                             {faturaStatus === 'paid'
-                                ? <Check className="w-5 h-5 text-green-600" />
+                                ? <CoolCheckIcon className="w-5 h-5 text-green-600" />
                                 : faturaStatus === 'closed'
-                                    ? <AlertCircle className="w-5 h-5 text-amber-600" />
+                                    ? <CoolWarningIcon className="w-5 h-5 text-amber-600" />
                                     : <Clock className="w-5 h-5 text-blue-600" />
                             }
                         </div>
@@ -253,7 +253,7 @@ export default function CartaoDetalhePage() {
                             onClick={() => setShowPayModal(true)}
                             className="btn-primary flex items-center gap-2 flex-1"
                         >
-                            <Check className="w-4 h-4" /> Pagar Fatura
+                            <CoolCheckIcon className="w-4 h-4" /> Pagar Fatura
                         </button>
                     )}
                     {faturaStatus !== 'paid' && (
@@ -322,7 +322,7 @@ export default function CartaoDetalhePage() {
                         <div className="p-8 text-center text-slate-400">Carregando...</div>
                     ) : transactions.length === 0 ? (
                         <div className="p-8 text-center text-slate-400">
-                            <TrendingDown className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                            <CoolTrendingDownIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
                             <p>Nenhuma transação neste mês</p>
                         </div>
                     ) : (

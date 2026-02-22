@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Header } from "@/components/Navigation";
 import { useOpsAlerts } from "@/hooks/useOpsAlerts";
-import { AlertTriangle, CheckCircle2, Info, ShieldAlert } from "lucide-react";
+import { CoolCheckCircleIcon, CoolInfoIcon, CoolShieldIcon, CoolWarningIcon } from "@/components/icons/CoolIcons";
 import type { OpsAlert } from "@/types";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -12,19 +12,19 @@ type AlertLevelFilter = "all" | "error" | "warning" | "info";
 const levelMeta = {
     error: {
         label: "Erro",
-        icon: ShieldAlert,
+        icon: CoolShieldIcon,
         badge: "bg-red-100 text-red-700",
         row: "border-l-red-500",
     },
     warning: {
         label: "Aviso",
-        icon: AlertTriangle,
+        icon: CoolWarningIcon,
         badge: "bg-amber-100 text-amber-700",
         row: "border-l-amber-500",
     },
     info: {
         label: "Info",
-        icon: Info,
+        icon: CoolInfoIcon,
         badge: "bg-blue-100 text-blue-700",
         row: "border-l-blue-500",
     },
@@ -95,7 +95,7 @@ export default function AlertasPage() {
                     <div className="p-12 text-center text-slate-500">Carregando alertas...</div>
                 ) : filteredAlerts.length === 0 ? (
                     <div className="p-12 text-center">
-                        <CheckCircle2 className="w-12 h-12 text-green-400 mx-auto mb-3" />
+                        <CoolCheckCircleIcon className="w-12 h-12 text-green-400 mx-auto mb-3" />
                         <p className="text-slate-600">Nenhum alerta encontrado.</p>
                     </div>
                 ) : (

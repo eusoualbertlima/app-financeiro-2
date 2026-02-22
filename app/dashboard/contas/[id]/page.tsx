@@ -6,10 +6,10 @@ import { useCollection } from "@/hooks/useFirestore";
 import { useTransactions } from "@/hooks/useTransactions";
 import { LineChart } from "@/components/Charts";
 import {
-    Wallet, ChevronLeft, ChevronRight, ArrowLeft,
-    TrendingUp, TrendingDown, Clock
+    ChevronLeft, ChevronRight, ArrowLeft, Clock
 } from "lucide-react";
 import type { Account, Transaction } from "@/types";
+import { CoolAccountsIcon, CoolTrendingDownIcon, CoolTrendingUpIcon } from "@/components/icons/CoolIcons";
 
 const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
@@ -191,17 +191,17 @@ export default function ContaDetalhePage() {
 
                 <div className="grid grid-cols-3 gap-3">
                     <div className="bg-green-50 rounded-xl p-3 text-center">
-                        <TrendingUp className="w-5 h-5 text-green-500 mx-auto mb-1" />
+                        <CoolTrendingUpIcon className="w-5 h-5 text-green-500 mx-auto mb-1" />
                         <p className="text-sm font-bold text-green-600">{formatCurrency(income)}</p>
                         <p className="text-xs text-green-500">Entradas do mês</p>
                     </div>
                     <div className="bg-red-50 rounded-xl p-3 text-center">
-                        <TrendingDown className="w-5 h-5 text-red-500 mx-auto mb-1" />
+                        <CoolTrendingDownIcon className="w-5 h-5 text-red-500 mx-auto mb-1" />
                         <p className="text-sm font-bold text-red-600">{formatCurrency(expense)}</p>
                         <p className="text-xs text-red-500">Saídas do mês</p>
                     </div>
                     <div className="bg-slate-50 rounded-xl p-3 text-center">
-                        <Wallet className="w-5 h-5 text-slate-500 mx-auto mb-1" />
+                        <CoolAccountsIcon className="w-5 h-5 text-slate-500 mx-auto mb-1" />
                         <p className="text-sm font-bold text-slate-700">{formatCurrency(monthBalance)}</p>
                         <p className="text-xs text-slate-500">Balanço do mês</p>
                     </div>
@@ -234,7 +234,7 @@ export default function ContaDetalhePage() {
                         <div className="p-8 text-center text-slate-400">Carregando...</div>
                     ) : monthTransactions.length === 0 ? (
                         <div className="p-8 text-center text-slate-400">
-                            <Wallet className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                            <CoolAccountsIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
                             <p>Nenhuma movimentação neste mês</p>
                         </div>
                     ) : (
@@ -243,8 +243,8 @@ export default function ContaDetalhePage() {
                                 <div key={transaction.id} className="px-5 py-3 flex items-center gap-3 hover:bg-slate-50">
                                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${transaction.type === 'income' ? 'bg-green-100' : 'bg-red-100'}`}>
                                         {transaction.type === 'income'
-                                            ? <TrendingUp className="w-4 h-4 text-green-600" />
-                                            : <TrendingDown className="w-4 h-4 text-red-600" />
+                                            ? <CoolTrendingUpIcon className="w-4 h-4 text-green-600" />
+                                            : <CoolTrendingDownIcon className="w-4 h-4 text-red-600" />
                                         }
                                     </div>
                                     <div className="flex-1 min-w-0">
