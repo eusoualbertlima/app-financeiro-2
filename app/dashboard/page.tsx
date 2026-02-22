@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { useWorkspace, useCollection } from "@/hooks/useFirestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTransactions } from "@/hooks/useTransactions";
@@ -24,9 +25,133 @@ import {
 import Link from "next/link";
 import type { Account, CreditCard as CardType, RecurringBill } from "@/types";
 import { Header } from "@/components/Navigation";
-import { DonutChart } from "@/components/Charts";
+import { BarChart, DonutChart, LineChart } from "@/components/Charts";
 import { OnboardingGuide } from "@/components/OnboardingGuide";
 import { getClientBehavioralRolloutMode, hasBehavioralRolloutAccess } from "@/lib/behavioralRollout";
+
+type ChartPeriod = "daily" | "weekly" | "monthly" | "yearly";
+
+type TimeBucket = {
+    label: string;
+    start: number;
+    end: number;
+};
+
+const PERIOD_OPTIONS: Array<{ value: ChartPeriod; shortLabel: string; label: string }> = [
+    { value: "daily", shortLabel: "D", label: "Diário" },
+    { value: "weekly", shortLabel: "S", label: "Semanal" },
+    { value: "monthly", shortLabel: "M", label: "Mensal" },
+    { value: "yearly", shortLabel: "A", label: "Anual" },
+];
+
+const MONTH_NAMES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+const WEEKDAY_NAMES = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sab", "Dom"];
+
+const DEFAULT_CATEGORIES = [
+    { id: "alimentacao", name: "Alimentação", icon: "🍔", color: "#f59e0b" },
+    { id: "transporte", name: "Transporte", icon: "🚗", color: "#3b82f6" },
+    { id: "moradia", name: "Moradia", icon: "🏠", color: "#8b5cf6" },
+    { id: "saude", name: "Saúde", icon: "💊", color: "#ef4444" },
+    { id: "lazer", name: "Lazer", icon: "🎮", color: "#ec4899" },
+    { id: "educacao", name: "Educação", icon: "📚", color: "#14b8a6" },
+    { id: "salario", name: "Salário", icon: "💰", color: "#22c55e" },
+    { id: "outros", name: "Outros", icon: "📦", color: "#6b7280" },
+];
+
+function formatPeriodRangeLabel(period: ChartPeriod, start: number, endExclusive: number) {
+    const startDate = new Date(start);
+    const endDate = new Date(endExclusive - 1);
+
+    if (period === "daily") {
+        return startDate.toLocaleDateString("pt-BR");
+    }
+    if (period === "weekly") {
+        return `${startDate.toLocaleDateString("pt-BR")} - ${endDate.toLocaleDateString("pt-BR")}`;
+    }
+    if (period === "monthly") {
+        return `${MONTH_NAMES[startDate.getMonth()]} ${startDate.getFullYear()}`;
+    }
+    return `${startDate.getFullYear()}`;
+}
+
+function getPeriodRange(period: ChartPeriod, baseDate: Date) {
+    const reference = new Date(baseDate);
+    reference.setHours(0, 0, 0, 0);
+
+    if (period === "daily") {
+        const start = reference.getTime();
+        const end = start + 24 * 60 * 60 * 1000;
+        return { start, end };
+    }
+
+    if (period === "weekly") {
+        const weekStart = new Date(reference);
+        const day = weekStart.getDay();
+        const diffToMonday = day === 0 ? -6 : 1 - day;
+        weekStart.setDate(weekStart.getDate() + diffToMonday);
+        const start = weekStart.getTime();
+        const end = start + 7 * 24 * 60 * 60 * 1000;
+        return { start, end };
+    }
+
+    if (period === "monthly") {
+        const monthStart = new Date(reference.getFullYear(), reference.getMonth(), 1).getTime();
+        const monthEnd = new Date(reference.getFullYear(), reference.getMonth() + 1, 1).getTime();
+        return { start: monthStart, end: monthEnd };
+    }
+
+    const yearStart = new Date(reference.getFullYear(), 0, 1).getTime();
+    const yearEnd = new Date(reference.getFullYear() + 1, 0, 1).getTime();
+    return { start: yearStart, end: yearEnd };
+}
+
+function createTimeBuckets(period: ChartPeriod, start: number, end: number): TimeBucket[] {
+    if (period === "daily") {
+        const buckets: TimeBucket[] = [];
+        for (let hour = 0; hour < 24; hour += 4) {
+            const bucketStart = start + hour * 60 * 60 * 1000;
+            const bucketEnd = Math.min(end, bucketStart + 4 * 60 * 60 * 1000);
+            buckets.push({
+                label: `${String(hour).padStart(2, "0")}h`,
+                start: bucketStart,
+                end: bucketEnd,
+            });
+        }
+        return buckets;
+    }
+
+    if (period === "weekly") {
+        return WEEKDAY_NAMES.map((weekday, index) => {
+            const bucketStart = start + index * 24 * 60 * 60 * 1000;
+            const bucketEnd = Math.min(end, bucketStart + 24 * 60 * 60 * 1000);
+            return { label: weekday, start: bucketStart, end: bucketEnd };
+        });
+    }
+
+    if (period === "monthly") {
+        const buckets: TimeBucket[] = [];
+        let cursor = start;
+        let week = 1;
+        while (cursor < end) {
+            const bucketEnd = Math.min(end, cursor + 7 * 24 * 60 * 60 * 1000);
+            buckets.push({
+                label: `S${week}`,
+                start: cursor,
+                end: bucketEnd,
+            });
+            cursor = bucketEnd;
+            week += 1;
+        }
+        return buckets;
+    }
+
+    return MONTH_NAMES.map((month, index) => {
+        const year = new Date(start).getFullYear();
+        const bucketStart = new Date(year, index, 1).getTime();
+        const bucketEnd = new Date(year, index + 1, 1).getTime();
+        return { label: month, start: bucketStart, end: bucketEnd };
+    }).filter((bucket) => bucket.start < end && bucket.end > start);
+}
 
 export default function DashboardPage() {
     const { isDeveloperAdmin } = useAuth();
@@ -36,12 +161,15 @@ export default function DashboardPage() {
     const { data: recurringBills } = useCollection<RecurringBill>("recurring_bills");
     const { summaryByCard, totals: cardTotals, loading: cardLimitsLoading } = useCardsLimitSummary(cartoes);
 
-    // Dados do mês atual
+    // Dados do mês atual para cards/listas.
     const now = new Date();
     const currentMonth = now.getMonth() + 1;
     const currentYear = now.getFullYear();
+    const todayKey = `${currentYear}-${currentMonth}-${now.getDate()}`;
+    const [chartPeriod, setChartPeriod] = useState<ChartPeriod>("monthly");
 
     const { transactions, totals } = useTransactions(currentMonth, currentYear);
+    const { transactions: allTransactions, loading: allTransactionsLoading } = useTransactions();
     const { payments, summary: billSummary } = useBillPayments(currentMonth, currentYear);
 
     const saldoTotal = contas.reduce((acc, conta) => acc + conta.balance, 0);
@@ -99,36 +227,79 @@ export default function DashboardPage() {
     const formatCurrency = (value: number) =>
         new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
-    const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
     const showBehavioralCityButton = hasBehavioralRolloutAccess({
         mode: getClientBehavioralRolloutMode(),
         isDeveloperAdmin,
     });
 
-    const defaultCategories = [
-        { id: 'alimentacao', name: 'Alimentação', icon: '🍔', color: '#f59e0b' },
-        { id: 'transporte', name: 'Transporte', icon: '🚗', color: '#3b82f6' },
-        { id: 'moradia', name: 'Moradia', icon: '🏠', color: '#8b5cf6' },
-        { id: 'saude', name: 'Saúde', icon: '💊', color: '#ef4444' },
-        { id: 'lazer', name: 'Lazer', icon: '🎮', color: '#ec4899' },
-        { id: 'educacao', name: 'Educação', icon: '📚', color: '#14b8a6' },
-        { id: 'salario', name: 'Salário', icon: '💰', color: '#22c55e' },
-        { id: 'outros', name: 'Outros', icon: '📦', color: '#6b7280' },
-    ];
+    const chartAnalytics = useMemo(() => {
+        const periodRange = getPeriodRange(chartPeriod, now);
+        const buckets = createTimeBuckets(chartPeriod, periodRange.start, periodRange.end);
 
-    // Data for category donut chart
-    const categorySegments = defaultCategories.map(cat => ({
-        label: cat.name,
-        icon: cat.icon,
-        value: transactions.filter(t =>
-            t.type === 'expense'
-            && (t.categoryId || 'outros') === cat.id
-            && t.status === 'paid'
-            && t.source !== 'transfer'
-        )
-            .reduce((s, t) => s + t.amount, 0),
-        color: cat.color,
-    })).filter(c => c.value > 0);
+        const inRangePaidTransactions = allTransactions.filter(
+            (transaction) =>
+                transaction.status === "paid"
+                && transaction.source !== "transfer"
+                && transaction.date >= periodRange.start
+                && transaction.date < periodRange.end
+        );
+
+        const income = inRangePaidTransactions
+            .filter((transaction) => transaction.type === "income")
+            .reduce((acc, transaction) => acc + transaction.amount, 0);
+        const expense = inRangePaidTransactions
+            .filter((transaction) => transaction.type === "expense")
+            .reduce((acc, transaction) => acc + transaction.amount, 0);
+
+        const categorySegments = DEFAULT_CATEGORIES.map((category) => ({
+            label: category.name,
+            icon: category.icon,
+            value: inRangePaidTransactions
+                .filter(
+                    (transaction) =>
+                        transaction.type === "expense"
+                        && (transaction.categoryId || "outros") === category.id
+                )
+                .reduce((sum, transaction) => sum + transaction.amount, 0),
+            color: category.color,
+        })).filter((category) => category.value > 0);
+
+        const barData = buckets.map((bucket) => {
+            const periodTransactions = inRangePaidTransactions.filter(
+                (transaction) => transaction.date >= bucket.start && transaction.date < bucket.end
+            );
+
+            return {
+                label: bucket.label,
+                income: periodTransactions
+                    .filter((transaction) => transaction.type === "income")
+                    .reduce((acc, transaction) => acc + transaction.amount, 0),
+                expense: periodTransactions
+                    .filter((transaction) => transaction.type === "expense")
+                    .reduce((acc, transaction) => acc + transaction.amount, 0),
+            };
+        });
+
+        let runningBalance = 0;
+        const linePoints = barData.map((point) => {
+            runningBalance += point.income - point.expense;
+            return {
+                label: point.label,
+                value: runningBalance,
+            };
+        });
+
+        return {
+            periodLabel: formatPeriodRangeLabel(chartPeriod, periodRange.start, periodRange.end),
+            transactionsCount: inRangePaidTransactions.length,
+            income,
+            expense,
+            balance: income - expense,
+            categorySegments,
+            barData,
+            linePoints,
+        };
+    }, [chartPeriod, allTransactions, todayKey]);
 
     const getStatusInfo = (status: string) => {
         switch (status) {
@@ -151,7 +322,7 @@ export default function DashboardPage() {
 
     return (
         <div className="p-6 lg:p-8 max-w-7xl mx-auto">
-            <Header title="Dashboard" subtitle={`${workspace?.name} • ${monthNames[currentMonth - 1]} ${currentYear}`} />
+            <Header title="Dashboard" subtitle={`${workspace?.name} • ${MONTH_NAMES[currentMonth - 1]} ${currentYear}`} />
 
             <OnboardingGuide
                 workspaceId={workspace?.id}
@@ -349,46 +520,83 @@ export default function DashboardPage() {
                 </div>
             )}
 
-            {/* Gráficos */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                {/* Donut: Despesas por Categoria */}
-                <div className="card p-5">
-                    <h3 className="font-semibold text-slate-900 mb-4">Despesas por Categoria</h3>
-                    <DonutChart segments={categorySegments} size={180} />
-                </div>
-
-                {/* Resumo Receitas vs Despesas */}
-                <div className="card p-5">
-                    <h3 className="font-semibold text-slate-900 mb-4">Receitas vs Despesas</h3>
-                    <div className="space-y-4">
+            {/* Gráficos por Período (R002) */}
+            <div className="mb-6">
+                <div className="card p-4 sm:p-5 mb-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                            <div className="flex justify-between text-sm mb-1">
-                                <span className="text-slate-500">Receitas</span>
-                                <span className="font-bold text-green-600">{formatCurrency(totalReceitasMes)}</span>
-                            </div>
-                            <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
-                                <div className="h-full bg-green-400 rounded-full transition-all" style={{ width: `${totalReceitasMes + totalDespesasMes > 0 ? (totalReceitasMes / (totalReceitasMes + totalDespesasMes)) * 100 : 50}%` }} />
-                            </div>
+                            <h3 className="font-semibold text-slate-900">Análises por Período</h3>
+                            <p className="text-sm text-slate-500">
+                                {chartAnalytics.periodLabel} • {chartAnalytics.transactionsCount} lançamento(s) pago(s)
+                            </p>
                         </div>
-                        <div>
-                            <div className="flex justify-between text-sm mb-1">
-                                <span className="text-slate-500">Despesas</span>
-                                <span className="font-bold text-red-600">{formatCurrency(totalDespesasMes)}</span>
-                            </div>
-                            <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
-                                <div className="h-full bg-red-400 rounded-full transition-all" style={{ width: `${totalReceitasMes + totalDespesasMes > 0 ? (totalDespesasMes / (totalReceitasMes + totalDespesasMes)) * 100 : 50}%` }} />
-                            </div>
-                        </div>
-                        <div className="pt-3 border-t border-slate-100">
-                            <div className="flex justify-between">
-                                <span className="text-sm font-medium text-slate-500">Balanço do Mês</span>
-                                <span className={`text-lg font-bold ${totalReceitasMes - totalDespesasMes >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                    {formatCurrency(totalReceitasMes - totalDespesasMes)}
-                                </span>
-                            </div>
+                        <div className="inline-flex w-full sm:w-auto items-center rounded-xl bg-slate-100 p-1">
+                            {PERIOD_OPTIONS.map((option) => {
+                                const isActive = chartPeriod === option.value;
+                                return (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        onClick={() => setChartPeriod(option.value)}
+                                        className={`flex-1 sm:flex-none px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive
+                                            ? "bg-white text-primary-700 shadow-sm"
+                                            : "text-slate-500 hover:text-slate-700"
+                                            }`}
+                                        aria-pressed={isActive}
+                                    >
+                                        <span className="sm:hidden">{option.shortLabel}</span>
+                                        <span className="hidden sm:inline">{option.label}</span>
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
                 </div>
+
+                {allTransactionsLoading ? (
+                    <div className="card p-8 flex items-center justify-center">
+                        <div className="w-8 h-8 border-4 border-primary-200 border-t-primary-500 rounded-full animate-spin"></div>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                        <div className="card p-5">
+                            <h3 className="font-semibold text-slate-900 mb-4">Despesas por Categoria</h3>
+                            <DonutChart segments={chartAnalytics.categorySegments} size={180} />
+                        </div>
+
+                        <div className="card p-5">
+                            <h3 className="font-semibold text-slate-900 mb-4">Receitas vs Despesas</h3>
+                            <div className="grid grid-cols-3 gap-2 mb-4">
+                                <div className="rounded-xl bg-green-50 p-2.5">
+                                    <p className="text-[11px] text-slate-500 mb-1">Receitas</p>
+                                    <p className="text-sm sm:text-base font-bold text-green-600">{formatCurrency(chartAnalytics.income)}</p>
+                                </div>
+                                <div className="rounded-xl bg-red-50 p-2.5">
+                                    <p className="text-[11px] text-slate-500 mb-1">Despesas</p>
+                                    <p className="text-sm sm:text-base font-bold text-red-600">{formatCurrency(chartAnalytics.expense)}</p>
+                                </div>
+                                <div className={`rounded-xl p-2.5 ${chartAnalytics.balance >= 0 ? "bg-emerald-50" : "bg-rose-50"}`}>
+                                    <p className="text-[11px] text-slate-500 mb-1">Balanço</p>
+                                    <p className={`text-sm sm:text-base font-bold ${chartAnalytics.balance >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                                        {formatCurrency(chartAnalytics.balance)}
+                                    </p>
+                                </div>
+                            </div>
+                            <BarChart data={chartAnalytics.barData} />
+                        </div>
+
+                        <div className="card p-5 xl:col-span-3">
+                            <h3 className="font-semibold text-slate-900 mb-1">Saldo Acumulado</h3>
+                            <p className="text-sm text-slate-500 mb-4">
+                                Evolução do saldo dentro do período selecionado
+                            </p>
+                            <LineChart
+                                points={chartAnalytics.linePoints}
+                                color={chartAnalytics.balance >= 0 ? "#22c55e" : "#ef4444"}
+                            />
+                        </div>
+                    </div>
+                )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
