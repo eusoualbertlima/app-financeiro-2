@@ -173,8 +173,14 @@ export function LineChart({
     const chartH = height - padding.top - padding.bottom;
 
     const values = points.map((p) => p.value);
-    const minVal = Math.min(...values, 0);
-    const maxVal = Math.max(...values, 1);
+    const rawMin = Math.min(...values);
+    const rawMax = Math.max(...values);
+    const rawRange = rawMax - rawMin;
+    const autoPadding = rawRange > 0
+        ? rawRange * 0.12
+        : Math.max(Math.abs(rawMax) * 0.12, 1);
+    const minVal = rawMin - autoPadding;
+    const maxVal = rawMax + autoPadding;
     const range = maxVal - minVal || 1;
 
     const getX = (i: number) => padding.left + (i / Math.max(points.length - 1, 1)) * chartW;
@@ -188,7 +194,11 @@ export function LineChart({
 
     return (
         <div className={`w-full ${heightClassName}`}>
-            <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full">
+            <svg
+                viewBox={`0 0 ${width} ${height}`}
+                className="w-full h-full"
+                preserveAspectRatio="xMinYMid meet"
+            >
                 <defs>
                     <linearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor={color} stopOpacity="0.3" />

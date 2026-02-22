@@ -593,7 +593,7 @@ export default function DashboardPage() {
                             <LineChart
                                 points={chartAnalytics.linePoints}
                                 color={chartAnalytics.balance >= 0 ? "#22c55e" : "#ef4444"}
-                                heightClassName="h-36 sm:h-40 lg:h-44 xl:h-52"
+                                heightClassName="h-32 sm:h-36 lg:h-40 xl:h-44"
                             />
                         </div>
                     </div>
