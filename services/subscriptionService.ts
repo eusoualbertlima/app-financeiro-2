@@ -3,6 +3,7 @@ import { collection, doc, getDoc, getDocs, query, setDoc, where } from "firebase
 import { UserProfile, Workspace } from "@/types";
 import { User } from "firebase/auth";
 import { normalizeWorkspaceBilling, toUserSubscriptionStatus } from "@/lib/billing";
+import { normalizeProfileIcon } from "@/lib/profileIcons";
 
 function pickPreferredWorkspaceDoc(
     docs: Array<{ id: string; data: () => Record<string, unknown> }>
@@ -68,11 +69,19 @@ export const SubscriptionService = {
             : ({ id: preferredWorkspaceDoc!.id, ...preferredWorkspaceDoc!.data() } as Workspace);
 
         const normalizedBilling = normalizeWorkspaceBilling(workspaceDoc);
+        const managedFromExisting = normalizeProfileIcon(existingProfile?.photoURL);
+        const managedFromAuth = normalizeProfileIcon(user.photoURL);
+        const resolvedPhotoURL =
+            managedFromExisting
+            || existingProfile?.photoURL
+            || managedFromAuth
+            || user.photoURL
+            || undefined;
         const profile: UserProfile = {
             uid: user.uid,
             email: user.email || existingProfile?.email || "",
             displayName: user.displayName || existingProfile?.displayName || "Usuário",
-            photoURL: user.photoURL || existingProfile?.photoURL,
+            photoURL: resolvedPhotoURL,
             subscriptionStatus: toUserSubscriptionStatus(normalizedBilling.status),
             subscriptionPlan: normalizedBilling.plan || existingProfile?.subscriptionPlan,
             createdAt: existingProfile?.createdAt || Date.now(),

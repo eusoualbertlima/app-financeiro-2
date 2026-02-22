@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
+import { normalizeProfileIcon } from "@/lib/profileIcons";
 import { requireUserFromRequest } from "@/lib/serverAuth";
 
 export const dynamic = "force-dynamic";
@@ -19,13 +20,17 @@ export async function POST(request: NextRequest) {
         const now = Date.now();
         const existingSnap = await userRef.get();
         const existing = existingSnap.exists ? existingSnap.data() : null;
+        const existingPhoto = typeof existing?.photoURL === "string" ? existing.photoURL : "";
+        const managedExistingIcon = normalizeProfileIcon(existingPhoto);
+        const managedTokenIcon = normalizeProfileIcon(decodedUser.picture);
+        const nextPhotoURL = managedExistingIcon || existingPhoto || managedTokenIcon || decodedUser.picture || "";
 
         await userRef.set(
             {
                 uid: decodedUser.uid,
                 email: decodedUser.email || existing?.email || "",
                 displayName: decodedUser.name || existing?.displayName || "Usuário",
-                photoURL: decodedUser.picture || existing?.photoURL,
+                photoURL: nextPhotoURL,
                 createdAt: existing?.createdAt || now,
                 updatedAt: now,
                 lastSeenAt: now,

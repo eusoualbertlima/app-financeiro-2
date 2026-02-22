@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -15,12 +16,15 @@ import {
     TrendingUp,
     ChevronRight,
     CalendarDays,
-    Shield
+    Shield,
+    Menu,
+    X
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/hooks/useFirestore";
 import { getClientBehavioralRolloutMode, hasBehavioralRolloutAccess } from "@/lib/behavioralRollout";
+import { getDefaultProfileIconSrc, normalizeProfileIcon } from "@/lib/profileIcons";
 
 type MenuItem = {
     href: string;
@@ -56,19 +60,9 @@ function getVisibleMenuItems(
     });
 }
 
-const mobileMenuOrder = [
-    "/dashboard",
-    "/dashboard/cidade",
-    "/dashboard/contas",
-    "/dashboard/cartoes",
-    "/dashboard/lancamentos",
-    "/dashboard/notas",
-    "/dashboard/contas-fixas",
-];
-
 export function Sidebar() {
     const pathname = usePathname();
-    const { user, signOut, isDeveloperAdmin } = useAuth();
+    const { user, userProfile, signOut, isDeveloperAdmin } = useAuth();
     const { workspace } = useWorkspace();
     const isAdmin = workspace?.ownerId ? user?.uid === workspace.ownerId : false;
     const hasBehavioralFeatureAccess = hasBehavioralRolloutAccess({
@@ -76,6 +70,14 @@ export function Sidebar() {
         isDeveloperAdmin,
     });
     const visibleMenuItems = getVisibleMenuItems(menuItems, { isAdmin, isDeveloperAdmin, hasBehavioralFeatureAccess });
+    const avatarSrc =
+        normalizeProfileIcon(user?.photoURL)
+        || normalizeProfileIcon(userProfile?.photoURL)
+        || (user?.photoURL || "").trim()
+        || (userProfile?.photoURL || "").trim()
+        || getDefaultProfileIconSrc();
+    const displayName = user?.displayName || userProfile?.displayName || "Usuário";
+    const email = user?.email || userProfile?.email || "";
 
     return (
         <aside className="sidebar hidden lg:flex flex-col overflow-hidden">
@@ -114,21 +116,14 @@ export function Sidebar() {
             {/* User */}
             <div className="p-4 border-t border-white/10">
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 mb-3">
-                    {user?.photoURL ? (
-                        <img
-                            src={user.photoURL}
-                            alt={user.displayName || "Usuário"}
-                            className="w-10 h-10 rounded-full ring-2 ring-primary-400/50 object-cover"
-                            referrerPolicy="no-referrer"
-                        />
-                    ) : (
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white font-bold">
-                            {user?.displayName?.[0]}
-                        </div>
-                    )}
+                    <img
+                        src={avatarSrc}
+                        alt={displayName}
+                        className="w-10 h-10 rounded-full ring-2 ring-primary-400/50 object-cover"
+                    />
                     <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-white truncate">{user?.displayName}</p>
-                        <p className="text-xs text-slate-400 truncate">{user?.email}</p>
+                        <p className="text-sm font-medium text-white truncate">{displayName}</p>
+                        <p className="text-xs text-slate-400 truncate">{email}</p>
                     </div>
                 </div>
                 <button
@@ -145,62 +140,153 @@ export function Sidebar() {
 
 export function MobileNav() {
     const pathname = usePathname();
-    const { user, signOut, isDeveloperAdmin } = useAuth();
+    const { user, userProfile, signOut, isDeveloperAdmin } = useAuth();
     const { workspace } = useWorkspace();
+    const [isOpen, setIsOpen] = useState(false);
     const isAdmin = workspace?.ownerId ? user?.uid === workspace.ownerId : false;
     const hasBehavioralFeatureAccess = hasBehavioralRolloutAccess({
         mode: getClientBehavioralRolloutMode(),
         isDeveloperAdmin,
     });
     const visibleMenuItems = getVisibleMenuItems(menuItems, { isAdmin, isDeveloperAdmin, hasBehavioralFeatureAccess });
-    const mobileMenuItems = mobileMenuOrder
-        .map((href) => visibleMenuItems.find(item => item.href === href))
-        .filter((item): item is MenuItem => Boolean(item));
+    const activeItem = useMemo(
+        () =>
+            visibleMenuItems.find((item) => pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href))),
+        [visibleMenuItems, pathname]
+    );
+    const avatarSrc =
+        normalizeProfileIcon(user?.photoURL)
+        || normalizeProfileIcon(userProfile?.photoURL)
+        || (user?.photoURL || "").trim()
+        || (userProfile?.photoURL || "").trim()
+        || getDefaultProfileIconSrc();
+    const displayName = user?.displayName || userProfile?.displayName || "Usuário";
+    const email = user?.email || userProfile?.email || "";
 
-    const isSettingsActive = pathname.startsWith("/dashboard/configuracoes");
+    useEffect(() => {
+        setIsOpen(false);
+    }, [pathname]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                setIsOpen(false);
+            }
+        };
+
+        const originalOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        window.addEventListener("keydown", onKeyDown);
+
+        return () => {
+            document.body.style.overflow = originalOverflow;
+            window.removeEventListener("keydown", onKeyDown);
+        };
+    }, [isOpen]);
 
     return (
-        <nav className="mobile-nav lg:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-            <div className="flex gap-1 overflow-x-auto py-2 px-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                {mobileMenuItems.map((item) => {
-                    const isActive = pathname === item.href ||
-                        (item.href !== "/dashboard" && pathname.startsWith(item.href));
-                    return (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            className={`tap-target flex min-w-[84px] shrink-0 flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl transition-all duration-200 ${isActive
-                                ? "text-primary-500 bg-primary-50"
-                                : "text-slate-400 hover:text-slate-600"
-                                }`}
-                        >
-                            <item.icon className={`w-5 h-5 ${isActive ? 'scale-110' : ''} transition-transform`} />
-                            <span className="text-xs font-medium">{item.label}</span>
-                        </Link>
-                    );
-                })}
-            </div>
-            <div className="grid grid-cols-2 gap-2 px-2 pb-2 pt-1 border-t border-slate-200/70">
-                <Link
-                    href="/dashboard/configuracoes"
-                    className={`tap-target flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-                        isSettingsActive
-                            ? "bg-primary-50 text-primary-600"
-                            : "bg-slate-100 text-slate-600"
-                    }`}
-                >
-                    <Settings className="w-4 h-4" />
-                    <span>Configurações</span>
-                </Link>
-                <button
-                    onClick={() => void signOut()}
-                    className="tap-target flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
-                >
-                    <LogOut className="w-4 h-4" />
-                    <span>Sair da conta</span>
-                </button>
-            </div>
-        </nav>
+        <>
+            <header className="mobile-topbar lg:hidden" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+                <div className="mobile-topbar-inner">
+                    <button
+                        type="button"
+                        onClick={() => setIsOpen(true)}
+                        className="tap-target rounded-xl border border-slate-200 bg-white text-slate-700 px-3 inline-flex items-center justify-center"
+                        aria-label="Abrir menu"
+                        aria-expanded={isOpen}
+                    >
+                        <Menu className="w-5 h-5" />
+                    </button>
+
+                    <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-8 h-8 bg-gradient-to-br from-primary-400 to-accent-500 rounded-lg flex items-center justify-center shrink-0">
+                            <TrendingUp className="w-4 h-4 text-white" />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-xs uppercase tracking-wide text-slate-400">Financeiro</p>
+                            <p className="text-sm font-semibold text-slate-900 truncate">{activeItem?.label || "Dashboard"}</p>
+                        </div>
+                    </div>
+
+                    <Link
+                        href="/dashboard/configuracoes"
+                        className="tap-target rounded-xl border border-slate-200 bg-white text-slate-700 px-3 inline-flex items-center justify-center"
+                        aria-label="Abrir configurações"
+                    >
+                        <Settings className="w-5 h-5" />
+                    </Link>
+                </div>
+            </header>
+
+            <div
+                className={`mobile-drawer-overlay lg:hidden ${isOpen ? "open" : ""}`}
+                onClick={() => setIsOpen(false)}
+                aria-hidden={!isOpen}
+            />
+
+            <aside className={`mobile-drawer lg:hidden ${isOpen ? "open" : ""}`} aria-hidden={!isOpen}>
+                <div className="mobile-drawer-head">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-primary-400 to-accent-500 rounded-xl flex items-center justify-center">
+                            <TrendingUp className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                            <h2 className="text-base font-semibold text-white">App Financeiro</h2>
+                            <p className="text-xs text-slate-400">Gestão Inteligente</p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setIsOpen(false)}
+                        className="tap-target rounded-xl bg-white/10 text-slate-300 hover:text-white hover:bg-white/20 px-3 inline-flex items-center justify-center"
+                        aria-label="Fechar menu"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+
+                <nav className="mobile-drawer-nav">
+                    {visibleMenuItems.map((item) => {
+                        const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+                        return (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                className={`mobile-drawer-link ${isActive ? "active" : ""}`}
+                            >
+                                <item.icon className="w-5 h-5 shrink-0" />
+                                <span className="flex-1">{item.label}</span>
+                                {isActive && <ChevronRight className="w-4 h-4 text-sky-300" />}
+                            </Link>
+                        );
+                    })}
+                </nav>
+
+                <div className="mobile-drawer-foot">
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5">
+                        <img
+                            src={avatarSrc}
+                            alt={displayName}
+                            className="w-10 h-10 rounded-full ring-2 ring-primary-400/50 object-cover"
+                        />
+                        <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-white truncate">{displayName}</p>
+                            <p className="text-xs text-slate-400 truncate">{email}</p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => void signOut()}
+                        className="tap-target mt-2 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-red-500/10 text-red-300 hover:bg-red-500/20 transition-colors"
+                    >
+                        <LogOut className="w-4 h-4" />
+                        <span>Sair da conta</span>
+                    </button>
+                </div>
+            </aside>
+        </>
     );
 }
 

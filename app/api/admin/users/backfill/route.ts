@@ -6,6 +6,7 @@ import {
     hasConfiguredDevAdminAllowlist,
     hasDevAdminAccess,
 } from "@/lib/devAdmin";
+import { normalizeProfileIcon } from "@/lib/profileIcons";
 import type { UserProfile, Workspace } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -154,12 +155,14 @@ export async function POST(request: NextRequest) {
 
             const authCreatedAt = toTimestampOrNull(authRecord.metadata.creationTime);
             const authLastSignInAt = toTimestampOrNull(authRecord.metadata.lastSignInTime);
+            const managedExistingIcon = normalizeProfileIcon(existingProfile?.photoURL);
+            const managedAuthIcon = normalizeProfileIcon(authRecord.photoURL);
 
             const profile = omitUndefined({
                 uid,
                 email: authRecord.email || existingProfile?.email || "",
                 displayName: authRecord.displayName || existingProfile?.displayName || "Usuário",
-                photoURL: authRecord.photoURL || existingProfile?.photoURL,
+                photoURL: managedExistingIcon || existingProfile?.photoURL || managedAuthIcon || authRecord.photoURL,
                 subscriptionStatus: existingProfile?.subscriptionStatus || "inactive",
                 subscriptionPlan: existingProfile?.subscriptionPlan,
                 createdAt: existingProfile?.createdAt || authCreatedAt || now,

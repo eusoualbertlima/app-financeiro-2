@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/hooks/useFirestore";
 import { resolveWorkspaceAccessDecision } from "@/lib/accessPolicy";
+import { PROFILE_ICON_OPTIONS, getDefaultProfileIconSrc, normalizeProfileIcon } from "@/lib/profileIcons";
 import { Header } from "@/components/Navigation";
 import { Settings, User, Shield, Bell, Palette, LogOut, ChevronRight, UserPlus, Users, Copy, Check, CreditCard, Loader2, UserMinus } from "lucide-react";
 import { updateProfile } from "firebase/auth";
@@ -12,6 +13,23 @@ import { db } from "@/lib/firebase";
 import Link from "next/link";
 
 type BillingPlan = "monthly" | "yearly";
+const GOOGLE_PHOTO_CHOICE = "__google_photo__";
+const CUSTOM_URL_CHOICE = "__custom_url_photo__";
+
+function normalizeExternalPhotoURL(value: string | null | undefined) {
+    const normalized = (value || "").trim();
+    if (!normalized) return "";
+
+    try {
+        const parsed = new URL(normalized);
+        if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+            return parsed.toString();
+        }
+        return "";
+    } catch {
+        return "";
+    }
+}
 
 function normalizePlan(value: string | null | undefined): BillingPlan | null {
     if (value === "monthly" || value === "yearly") return value;
@@ -19,7 +37,7 @@ function normalizePlan(value: string | null | undefined): BillingPlan | null {
 }
 
 export default function ConfiguracoesPage() {
-    const { user, isDeveloperAdmin, signOut } = useAuth();
+    const { user, userProfile, isDeveloperAdmin, signOut } = useAuth();
     const { workspace } = useWorkspace();
     const accessDecision = resolveWorkspaceAccessDecision({
         workspace,
@@ -44,11 +62,12 @@ export default function ConfiguracoesPage() {
     const [leaveStatus, setLeaveStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
     const [leaveMessage, setLeaveMessage] = useState("");
     const [profileDisplayName, setProfileDisplayName] = useState("");
-    const [profilePhotoURL, setProfilePhotoURL] = useState("");
+    const [profileAvatarChoice, setProfileAvatarChoice] = useState(getDefaultProfileIconSrc());
+    const [profileCustomPhotoURL, setProfileCustomPhotoURL] = useState("");
     const [profilePreviewName, setProfilePreviewName] = useState("");
-    const [profilePreviewPhotoURL, setProfilePreviewPhotoURL] = useState("");
     const [profileStatus, setProfileStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
     const [profileMessage, setProfileMessage] = useState("");
+    const googleProviderPhotoURL = user?.providerData?.find((provider) => provider.providerId === "google.com")?.photoURL?.trim() || "";
 
     useEffect(() => {
         if (!workspace) return;
@@ -77,13 +96,21 @@ export default function ConfiguracoesPage() {
     }, [checkoutPlan]);
 
     useEffect(() => {
-        const nextName = (user?.displayName || "").trim();
-        const nextPhoto = (user?.photoURL || "").trim();
+        const nextName = (user?.displayName || userProfile?.displayName || "").trim();
+        const currentRawPhotoURL = (user?.photoURL || userProfile?.photoURL || "").trim();
+        const nextIcon = normalizeProfileIcon(currentRawPhotoURL);
+        const nextCustomURL = normalizeExternalPhotoURL(currentRawPhotoURL);
+        const nextChoice =
+            nextIcon
+            || (googleProviderPhotoURL && currentRawPhotoURL === googleProviderPhotoURL ? GOOGLE_PHOTO_CHOICE : "")
+            || (nextCustomURL ? CUSTOM_URL_CHOICE : "")
+            || (googleProviderPhotoURL ? GOOGLE_PHOTO_CHOICE : "")
+            || getDefaultProfileIconSrc();
         setProfileDisplayName(nextName);
-        setProfilePhotoURL(nextPhoto);
+        setProfileAvatarChoice(nextChoice);
+        setProfileCustomPhotoURL(nextCustomURL);
         setProfilePreviewName(nextName);
-        setProfilePreviewPhotoURL(nextPhoto);
-    }, [user?.displayName, user?.photoURL]);
+    }, [user?.displayName, user?.photoURL, userProfile?.displayName, userProfile?.photoURL, googleProviderPhotoURL]);
 
     const selectCheckoutPlan = (plan: BillingPlan) => {
         setCheckoutPlan(plan);
@@ -216,11 +243,27 @@ export default function ConfiguracoesPage() {
         if (!user) return;
 
         const nextDisplayName = profileDisplayName.trim();
-        const nextPhotoURL = profilePhotoURL.trim();
+        const customPhotoURL = normalizeExternalPhotoURL(profileCustomPhotoURL);
+        const selectedIcon = normalizeProfileIcon(profileAvatarChoice);
+        const usingCustomPhoto = profileAvatarChoice === CUSTOM_URL_CHOICE && Boolean(customPhotoURL);
+        const usingGooglePhoto = profileAvatarChoice === GOOGLE_PHOTO_CHOICE && Boolean(googleProviderPhotoURL);
+        const nextStoredPhotoURL = usingCustomPhoto
+            ? customPhotoURL
+            : usingGooglePhoto
+            ? googleProviderPhotoURL
+            : (selectedIcon || getDefaultProfileIconSrc());
+        const nextAuthPhotoURL = nextStoredPhotoURL.startsWith("/")
+            ? new URL(nextStoredPhotoURL, window.location.origin).toString()
+            : nextStoredPhotoURL;
 
         if (!nextDisplayName) {
             setProfileStatus("error");
             setProfileMessage("Informe um nickname/nome de exibição.");
+            return;
+        }
+        if (profileAvatarChoice === CUSTOM_URL_CHOICE && !customPhotoURL) {
+            setProfileStatus("error");
+            setProfileMessage("Informe uma URL válida (http ou https).");
             return;
         }
 
@@ -230,7 +273,7 @@ export default function ConfiguracoesPage() {
         try {
             await updateProfile(user, {
                 displayName: nextDisplayName,
-                photoURL: nextPhotoURL || null,
+                photoURL: nextAuthPhotoURL,
             });
 
             await setDoc(
@@ -239,7 +282,7 @@ export default function ConfiguracoesPage() {
                     uid: user.uid,
                     email: user.email || "",
                     displayName: nextDisplayName,
-                    photoURL: nextPhotoURL || "",
+                    photoURL: nextStoredPhotoURL,
                     updatedAt: Date.now(),
                     lastSeenAt: Date.now(),
                 },
@@ -247,7 +290,13 @@ export default function ConfiguracoesPage() {
             );
 
             setProfilePreviewName(nextDisplayName);
-            setProfilePreviewPhotoURL(nextPhotoURL);
+            setProfileAvatarChoice(
+                usingCustomPhoto
+                    ? CUSTOM_URL_CHOICE
+                    : usingGooglePhoto
+                    ? GOOGLE_PHOTO_CHOICE
+                    : (selectedIcon || getDefaultProfileIconSrc())
+            );
             setProfileStatus("success");
             setProfileMessage("Perfil atualizado com sucesso.");
         } catch (error) {
@@ -256,6 +305,19 @@ export default function ConfiguracoesPage() {
             setProfileMessage("Nao foi possivel atualizar o perfil agora.");
         }
     };
+
+    const profileAvatarSrc = profileAvatarChoice === CUSTOM_URL_CHOICE
+        ? (normalizeExternalPhotoURL(profileCustomPhotoURL) || getDefaultProfileIconSrc())
+        : profileAvatarChoice === GOOGLE_PHOTO_CHOICE && googleProviderPhotoURL
+        ? googleProviderPhotoURL
+        : (
+            normalizeProfileIcon(profileAvatarChoice)
+            || normalizeProfileIcon(user?.photoURL)
+            || normalizeProfileIcon(userProfile?.photoURL)
+            || normalizeExternalPhotoURL(user?.photoURL)
+            || normalizeExternalPhotoURL(userProfile?.photoURL)
+            || getDefaultProfileIconSrc()
+        );
 
     const copyWorkspaceId = () => {
         if (workspace?.id) {
@@ -356,18 +418,11 @@ export default function ConfiguracoesPage() {
             {/* Perfil do Usuário */}
             <div className="card p-6 mb-6">
                 <div className="flex items-center gap-4">
-                    {profilePreviewPhotoURL ? (
-                        <img
-                            src={profilePreviewPhotoURL}
-                            alt={profilePreviewName || "Usuário"}
-                            className="w-16 h-16 rounded-full ring-2 ring-primary-400/50 object-cover"
-                            referrerPolicy="no-referrer"
-                        />
-                    ) : (
-                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 flex items-center justify-center text-white text-2xl font-bold">
-                            {(profilePreviewName || user?.displayName || "?")[0] || "?"}
-                        </div>
-                    )}
+                    <img
+                        src={profileAvatarSrc}
+                        alt={profilePreviewName || "Usuário"}
+                        className="w-16 h-16 rounded-full ring-2 ring-primary-400/50 object-cover"
+                    />
                     <div className="flex-1 min-w-0">
                         <h2 className="text-lg font-semibold text-slate-900 truncate">
                             {profilePreviewName || user?.displayName || "Usuário"}
@@ -628,17 +683,88 @@ export default function ConfiguracoesPage() {
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-slate-700 mb-2">
-                                                URL da foto de perfil
+                                                Ícone de perfil
                                             </label>
+                                            <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+                                                <button
+                                                    key="custom-url-photo"
+                                                    type="button"
+                                                    onClick={() => setProfileAvatarChoice(CUSTOM_URL_CHOICE)}
+                                                    className={`p-2 rounded-xl border transition-colors ${
+                                                        profileAvatarChoice === CUSTOM_URL_CHOICE
+                                                            ? "border-primary-500 bg-primary-50"
+                                                            : "border-slate-200 hover:border-slate-300"
+                                                    }`}
+                                                    title="URL personalizada"
+                                                >
+                                                    <div className="w-10 h-10 rounded-full mx-auto bg-slate-100 text-slate-500 flex items-center justify-center text-xs font-semibold">
+                                                        URL
+                                                    </div>
+                                                    <span className="mt-1 block text-[11px] text-slate-500">
+                                                        URL
+                                                    </span>
+                                                </button>
+                                                {googleProviderPhotoURL && (
+                                                    <button
+                                                        key="google-photo"
+                                                        type="button"
+                                                        onClick={() => setProfileAvatarChoice(GOOGLE_PHOTO_CHOICE)}
+                                                        className={`p-2 rounded-xl border transition-colors ${
+                                                            profileAvatarChoice === GOOGLE_PHOTO_CHOICE
+                                                                ? "border-primary-500 bg-primary-50"
+                                                                : "border-slate-200 hover:border-slate-300"
+                                                        }`}
+                                                        title="Foto do Google"
+                                                    >
+                                                        <img
+                                                            src={googleProviderPhotoURL}
+                                                            alt="Foto do Google"
+                                                            className="w-10 h-10 rounded-full mx-auto object-cover"
+                                                            referrerPolicy="no-referrer"
+                                                        />
+                                                        <span className="mt-1 block text-[11px] text-slate-500">
+                                                            Google
+                                                        </span>
+                                                    </button>
+                                                )}
+                                                {PROFILE_ICON_OPTIONS.map((option) => {
+                                                    const isSelected = option.src === profileAvatarChoice;
+                                                    return (
+                                                        <button
+                                                            key={option.id}
+                                                            type="button"
+                                                            onClick={() => setProfileAvatarChoice(option.src)}
+                                                            className={`p-2 rounded-xl border transition-colors ${
+                                                                isSelected
+                                                                    ? "border-primary-500 bg-primary-50"
+                                                                    : "border-slate-200 hover:border-slate-300"
+                                                            }`}
+                                                            title={option.label}
+                                                        >
+                                                            <img
+                                                                src={option.src}
+                                                                alt={option.label}
+                                                                className="w-10 h-10 rounded-full mx-auto"
+                                                            />
+                                                            <span className="mt-1 block text-[11px] text-slate-500">
+                                                                {option.label}
+                                                            </span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
                                             <input
                                                 type="url"
-                                                value={profilePhotoURL}
-                                                onChange={(event) => setProfilePhotoURL(event.target.value)}
-                                                className="input"
-                                                placeholder="https://..."
+                                                value={profileCustomPhotoURL}
+                                                onChange={(event) => {
+                                                    setProfileCustomPhotoURL(event.target.value);
+                                                    setProfileAvatarChoice(CUSTOM_URL_CHOICE);
+                                                }}
+                                                className="input mt-3"
+                                                placeholder="https://meusite.com/minha-foto.jpg"
                                             />
                                             <p className="text-xs text-slate-400 mt-2">
-                                                Dica: cole uma URL pública da imagem. Deixe vazio para usar inicial do nome.
+                                                Você pode usar URL, foto do Google ou ícone pronto.
                                             </p>
                                         </div>
                                         <button

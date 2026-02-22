@@ -1,9 +1,10 @@
 "use client";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { getDefaultProfileIconSrc, normalizeProfileIcon } from "@/lib/profileIcons";
 
 export function LoginButton() {
-    const { user, loading, signInWithGoogle, signOut } = useAuth();
+    const { user, userProfile, loading, signInWithGoogle, signOut } = useAuth();
 
     if (loading) {
         return (
@@ -17,18 +18,23 @@ export function LoginButton() {
     }
 
     if (user) {
+        const avatarSrc =
+            normalizeProfileIcon(user.photoURL)
+            || normalizeProfileIcon(userProfile?.photoURL)
+            || (user.photoURL || "").trim()
+            || (userProfile?.photoURL || "").trim()
+            || getDefaultProfileIconSrc();
+        const firstName = (user.displayName || userProfile?.displayName || "Usuário").split(" ")[0];
+
         return (
             <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
-                    {user.photoURL && (
-                        <img
-                            src={user.photoURL}
-                            alt={user.displayName || "Usuário"}
-                            className="w-8 h-8 rounded-full object-cover"
-                            referrerPolicy="no-referrer"
-                        />
-                    )}
-                    <span className="text-sm hidden sm:inline">{user.displayName?.split(" ")[0]}</span>
+                    <img
+                        src={avatarSrc}
+                        alt={user.displayName || userProfile?.displayName || "Usuário"}
+                        className="w-8 h-8 rounded-full object-cover"
+                    />
+                    <span className="text-sm hidden sm:inline">{firstName}</span>
                 </div>
                 <button
                     onClick={signOut}
