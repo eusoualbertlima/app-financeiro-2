@@ -1,34 +1,36 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { ComponentType } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-    LayoutDashboard,
-    Building2,
-    Wallet,
-    CreditCard,
-    Receipt,
-    FileText,
-    AlertTriangle,
-    Settings,
-    LogOut,
-    TrendingUp,
     ChevronRight,
-    CalendarDays,
-    Shield,
-    Menu,
-    X
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/hooks/useFirestore";
 import { getClientBehavioralRolloutMode, hasBehavioralRolloutAccess } from "@/lib/behavioralRollout";
 import { getDefaultProfileIconSrc, normalizeProfileIcon } from "@/lib/profileIcons";
+import {
+    CoolAccountsIcon,
+    CoolBuildingIcon,
+    CoolCalendarIcon,
+    CoolCloseIcon,
+    CoolCreditCardIcon,
+    CoolDashboardIcon,
+    CoolLogOutIcon,
+    CoolMenuIcon,
+    CoolNoteIcon,
+    CoolSettingsIcon,
+    CoolShieldIcon,
+    CoolTransactionsIcon,
+    CoolTrendingUpIcon,
+    CoolWarningIcon
+} from "@/components/icons/CoolIcons";
 
 type MenuItem = {
     href: string;
-    icon: LucideIcon;
+    icon: ComponentType<{ className?: string }>;
     label: string;
     adminOnly?: boolean;
     developerOnly?: boolean;
@@ -36,16 +38,16 @@ type MenuItem = {
 };
 
 const menuItems: MenuItem[] = [
-    { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-    { href: "/dashboard/cidade", icon: Building2, label: "Cidade", behavioralOnly: true },
-    { href: "/dashboard/contas", icon: Wallet, label: "Contas" },
-    { href: "/dashboard/cartoes", icon: CreditCard, label: "Cartões" },
-    { href: "/dashboard/lancamentos", icon: Receipt, label: "Lançamentos" },
-    { href: "/dashboard/notas", icon: FileText, label: "Notas" },
-    { href: "/dashboard/admin", icon: Shield, label: "Admin", developerOnly: true },
-    { href: "/dashboard/alertas", icon: AlertTriangle, label: "Alertas", developerOnly: true },
-    { href: "/dashboard/contas-fixas", icon: CalendarDays, label: "Contas Fixas" },
-    { href: "/dashboard/configuracoes", icon: Settings, label: "Configurações" },
+    { href: "/dashboard", icon: CoolDashboardIcon, label: "Dashboard" },
+    { href: "/dashboard/cidade", icon: CoolBuildingIcon, label: "Cidade", behavioralOnly: true },
+    { href: "/dashboard/contas", icon: CoolAccountsIcon, label: "Contas" },
+    { href: "/dashboard/cartoes", icon: CoolCreditCardIcon, label: "Cartões" },
+    { href: "/dashboard/lancamentos", icon: CoolTransactionsIcon, label: "Lançamentos" },
+    { href: "/dashboard/notas", icon: CoolNoteIcon, label: "Notas" },
+    { href: "/dashboard/admin", icon: CoolShieldIcon, label: "Admin", developerOnly: true },
+    { href: "/dashboard/alertas", icon: CoolWarningIcon, label: "Alertas", developerOnly: true },
+    { href: "/dashboard/contas-fixas", icon: CoolCalendarIcon, label: "Contas Fixas" },
+    { href: "/dashboard/configuracoes", icon: CoolSettingsIcon, label: "Configurações" },
 ];
 
 function getVisibleMenuItems(
@@ -85,7 +87,7 @@ export function Sidebar() {
             <div className="p-6 border-b border-white/10">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-gradient-to-br from-primary-400 to-accent-500 rounded-xl flex items-center justify-center">
-                        <TrendingUp className="w-5 h-5 text-white" />
+                        <CoolTrendingUpIcon className="w-5 h-5 text-white" />
                     </div>
                     <div>
                         <h1 className="font-bold text-lg text-white">Financeiro</h1>
@@ -130,7 +132,7 @@ export function Sidebar() {
                     onClick={signOut}
                     className="tap-target w-full flex items-center justify-center gap-2 px-4 py-2.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all duration-200"
                 >
-                    <LogOut className="w-4 h-4" />
+                    <CoolLogOutIcon className="w-4 h-4" />
                     <span>Sair da conta</span>
                 </button>
             </div>
@@ -197,12 +199,12 @@ export function MobileNav() {
                         aria-label="Abrir menu"
                         aria-expanded={isOpen}
                     >
-                        <Menu className="w-5 h-5" />
+                        <CoolMenuIcon className="w-5 h-5" />
                     </button>
 
                     <div className="flex items-center gap-2 min-w-0">
                         <div className="w-8 h-8 bg-gradient-to-br from-primary-400 to-accent-500 rounded-lg flex items-center justify-center shrink-0">
-                            <TrendingUp className="w-4 h-4 text-white" />
+                            <CoolTrendingUpIcon className="w-4 h-4 text-white" />
                         </div>
                         <div className="min-w-0">
                             <p className="text-xs uppercase tracking-wide text-slate-400">Financeiro</p>
@@ -215,7 +217,7 @@ export function MobileNav() {
                         className="tap-target rounded-xl border border-slate-200 bg-white text-slate-700 px-3 inline-flex items-center justify-center"
                         aria-label="Abrir configurações"
                     >
-                        <Settings className="w-5 h-5" />
+                        <CoolSettingsIcon className="w-5 h-5" />
                     </Link>
                 </div>
             </header>
@@ -230,7 +232,7 @@ export function MobileNav() {
                 <div className="mobile-drawer-head">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-gradient-to-br from-primary-400 to-accent-500 rounded-xl flex items-center justify-center">
-                            <TrendingUp className="w-5 h-5 text-white" />
+                            <CoolTrendingUpIcon className="w-5 h-5 text-white" />
                         </div>
                         <div>
                             <h2 className="text-base font-semibold text-white">App Financeiro</h2>
@@ -243,7 +245,7 @@ export function MobileNav() {
                         className="tap-target rounded-xl bg-white/10 text-slate-300 hover:text-white hover:bg-white/20 px-3 inline-flex items-center justify-center"
                         aria-label="Fechar menu"
                     >
-                        <X className="w-5 h-5" />
+                        <CoolCloseIcon className="w-5 h-5" />
                     </button>
                 </div>
 
@@ -281,7 +283,7 @@ export function MobileNav() {
                         onClick={() => void signOut()}
                         className="tap-target mt-2 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-red-500/10 text-red-300 hover:bg-red-500/20 transition-colors"
                     >
-                        <LogOut className="w-4 h-4" />
+                        <CoolLogOutIcon className="w-4 h-4" />
                         <span>Sair da conta</span>
                     </button>
                 </div>
