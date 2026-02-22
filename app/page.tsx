@@ -206,9 +206,6 @@ export default function ExperientialLandingPage() {
                         </div>
                     </div>
                 </div>
-                <p className="text-center text-[11px] sm:text-xs text-slate-500 mt-4 px-2">
-                    Preview com dados reais do produto. Use um print com valores fictícios para vendas.
-                </p>
             </section>
 
             {/* Social Proof Infinite Marquee */}
