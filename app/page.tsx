@@ -121,7 +121,7 @@ export default function ExperientialLandingPage() {
                 <div className="inline-flex items-center gap-2 bg-white/[0.03] border border-white/[0.08] rounded-full px-3 sm:px-4 py-1.5 mb-8 md:mb-10 backdrop-blur-md animate-fade-in-up">
                     <Sparkles className="w-4 h-4 text-indigo-400" />
                     <span className="bg-gradient-to-r from-slate-200 to-slate-400 bg-clip-text text-transparent text-xs sm:text-sm font-medium">
-                        Finalmente. Finanças desenhadas para a Vida a Dois.
+                        +215 casais já organizaram a vida financeira aqui.
                     </span>
                 </div>
 
@@ -129,14 +129,14 @@ export default function ExperientialLandingPage() {
                     className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black mb-5 md:mb-6 tracking-tighter leading-[1.08] max-w-5xl mx-auto text-center px-1"
                     style={{ transform: `scale(${1 - scrolledState * 0.1})`, opacity: 1 - scrolledState * 1.5 }}
                 >
-                    O fim das <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-fuchsia-400">brigas por dinheiro</span><br />no seu relacionamento.
+                    Seu dinheiro tá virando <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-fuchsia-400">motivo de briga</span>?
                 </h1>
 
                 <p
                     className="text-base sm:text-lg md:text-2xl text-slate-400/90 mb-10 md:mb-12 max-w-3xl mx-auto leading-relaxed text-center font-light px-2"
                     style={{ opacity: 1 - scrolledState * 2 }}
                 >
-                    Substituímos o estresse do fim do mês por um painel inteligente. Reúna as contas da casa, acompanhe o que é em conjunto e preserve os gastos individuais. Tudo numa única tela.
+                    A maioria dos casais briga por grana porque ninguém sabe pra onde ela tá indo. O App Financeiro junta tudo numa tela só — o que é da casa, o que é seu, o que é dele(a). Sem planilha, sem estresse.
                 </p>
 
                 <div
@@ -217,17 +217,33 @@ export default function ExperientialLandingPage() {
                 <div className="absolute right-0 w-32 h-full bg-gradient-to-l from-[#070709] to-transparent z-10" />
 
                 <div className="flex whitespace-nowrap animate-marquee">
-                    {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+                    {[
+                        "Maria e João organizaram R$ 4.200 esse mês",
+                        "215 casais ativos na plataforma",
+                        "R$ 1.2M gerenciados pelos usuários",
+                        "Nota 4.9 de satisfação",
+                        "Casal de SP economizou R$ 800 no 1º mês",
+                        "Setup em menos de 2 minutos",
+                        "Suporte responde em até 4h",
+                    ].map((text, i) => (
                         <div key={i} className="inline-flex items-center gap-3 px-8 text-slate-500 font-medium text-sm border-r border-white/5 last:border-0 opacity-60">
                             <CheckCircle2 className="w-4 h-4 text-indigo-500" />
-                            Novo controle financeiro iniciado agora
+                            {text}
                         </div>
                     ))}
                     {/* Duplicate for seamless infinite loop */}
-                    {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+                    {[
+                        "Maria e João organizaram R$ 4.200 esse mês",
+                        "215 casais ativos na plataforma",
+                        "R$ 1.2M gerenciados pelos usuários",
+                        "Nota 4.9 de satisfação",
+                        "Casal de SP economizou R$ 800 no 1º mês",
+                        "Setup em menos de 2 minutos",
+                        "Suporte responde em até 4h",
+                    ].map((text, i) => (
                         <div key={`dup-${i}`} className="inline-flex items-center gap-3 px-8 text-slate-500 font-medium text-sm border-r border-white/5 last:border-0 opacity-60">
                             <CheckCircle2 className="w-4 h-4 text-indigo-500" />
-                            Novo controle financeiro iniciado agora
+                            {text}
                         </div>
                     ))}
                 </div>
@@ -237,9 +253,9 @@ export default function ExperientialLandingPage() {
             <section className="py-16 md:py-32 px-4 relative z-10">
                 <div className="max-w-6xl mx-auto">
                     <div className="mb-12 md:mb-20">
-                        <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-5 md:mb-6">Porque as planilhas pararam no tempo?</h2>
+                        <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-5 md:mb-6">Planilha não salva relacionamento.</h2>
                         <p className="text-base sm:text-lg md:text-xl text-slate-400 max-w-2xl leading-relaxed">
-                            Porque elas exigem trabalho manual robótico. Nós automatizamos a organização do seu dinheiro e escalamos a infraestrutura perfeitamente para quando você for morar com alguém.
+                            Planilha exige trabalho braçal e ninguém atualiza. O App Financeiro automatiza a organização do seu dinheiro e escala junto com a sua vida — de solteiro a casal, sem retrabalho.
                         </p>
                     </div>
 
@@ -385,12 +401,28 @@ export default function ExperientialLandingPage() {
                                 a: "Não. A Stripe valida o seu meio de pagamento para liberar o cofre, mas o débito exato de 49 ou 497 só cai depois do 7º dia. Cancele no 5º dia, aperte um botão, e nada acontece na fatura."
                             },
                             {
+                                q: "Funciona pra quem mora sozinho(a)?",
+                                a: "100%. O App foi construído pra escalar. Começa solo com seus gráficos e projeções, e quando quiser ativar o modo casal, é um clique. Sem migração, sem perder dados."
+                            },
+                            {
+                                q: "Meus dados bancários ficam expostos?",
+                                a: "A gente não pede senha de banco e não usa open finance obscuro. Ninguém acessa seus dados pra te empurrar cartão de corretora. Tudo roda em infraestrutura Google Cloud com criptografia de ponta."
+                            },
+                            {
                                 q: "Nós precisamos baixar o App numa Store (Apple/Play)?",
                                 a: "Não, essa é a beleza do ecosistema moderno. O App Financeiro opera como um PWA de alta fluidez. Basta clicar no link de Acesso, logar do Safari ou Chrome (celular duplo ou PC) e vocês já estão no painel."
                             },
                             {
+                                q: "E se eu não gostar, perco dinheiro?",
+                                a: "Zero risco. São 7 dias de teste completo. Se no dia 6 você achar que não vale, cancela com um clique e não paga nada. Sem burocracia, sem formulário de retenção."
+                            },
+                            {
                                 q: "Posso cancelar no mês que eu quiser?",
-                                a: "Sim. A assinatura mensal não tem trava de fidelidade corporativa. Ficam enquanto as ferramentas trouxerem paz para o ambiente da casa."
+                                a: "Sim. A assinatura mensal não tem trava de fidelidade. Fica enquanto fizer sentido pra vocês. Sem multa, sem pegadinha."
+                            },
+                            {
+                                q: "Vocês são uma empresa séria?",
+                                a: "Somos a Fator 4 Tecnologia. CNPJ ativo, faturamento via Stripe (mesma plataforma do Notion e do Figma), e suporte real que responde em até 4 horas."
                             }
                         ].map((faq, index) => (
                             <div key={index} className="border border-white/[0.05] rounded-xl bg-white/[0.01] hover:bg-white/[0.03] transition-colors overflow-hidden">
@@ -412,14 +444,37 @@ export default function ExperientialLandingPage() {
                 </div>
             </section>
 
-            <section className="py-20 px-4 relative z-10 text-center">
-                <p className="text-slate-500 text-sm mb-4">J&aacute; tem conta?</p>
-                <button
-                    onClick={() => router.push("/login")}
-                    className="px-6 py-3 rounded-xl border border-white/10 bg-white/[0.02] text-slate-200 hover:bg-white/[0.05] transition-colors"
-                >
-                    Ir para login
-                </button>
+            {/* Final Urgency CTA Section */}
+            <section className="py-20 md:py-28 px-4 relative z-10 text-center">
+                <div className="max-w-3xl mx-auto">
+                    <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight mb-5 md:mb-6">
+                        Enquanto você pensa, o mês tá passando.
+                    </h2>
+                    <p className="text-base sm:text-lg text-slate-400 mb-10 md:mb-12 max-w-xl mx-auto leading-relaxed">
+                        Cada dia sem controle é dinheiro sumindo sem explicação. Começa agora, testa 7 dias de graça. Se não fizer sentido, cancela sem pagar nada.
+                    </p>
+
+                    <div className="relative group inline-block">
+                        <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-indigo-500 rounded-[2rem] blur-md opacity-70 group-hover:opacity-100 transition duration-1000 group-hover:duration-200 animate-spin-slow" />
+                        <button
+                            onClick={() => startCheckout("yearly")}
+                            className="relative flex items-center justify-center gap-3 bg-[#0a0a0c] text-white px-10 py-5 rounded-[1.8rem] font-bold text-lg hover:bg-[#111115] transition-colors border border-white/10"
+                        >
+                            Começar agora — 7 dias grátis
+                            <ArrowRight className="w-5 h-5 text-indigo-400 group-hover:translate-x-1 transition-transform" />
+                        </button>
+                    </div>
+
+                    <p className="mt-8 text-sm text-slate-500">
+                        Já tem conta?{" "}
+                        <button
+                            onClick={() => router.push("/login")}
+                            className="text-slate-300 hover:text-white underline underline-offset-4 transition-colors"
+                        >
+                            Acessar agora
+                        </button>
+                    </p>
+                </div>
             </section>
 
             <div
